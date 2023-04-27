@@ -2,6 +2,7 @@
 // (c) Electronic Arts.  All Rights Reserved.
 //
 #include "MaterialExpressionTextureSetSampleParameter.h"
+#include "MaterialPropertyHelpers.h"
 
 #include "IMaterialEditor.h"
 #include "Materials/MaterialExpressionTextureSampleParameter.h"
@@ -188,7 +189,7 @@ void UMaterialExpressionTextureSetSampleParameter::BuildTextureParameterChildren
 				FMaterialParameterMetadata meta;
 				meta.Value.Type = EMaterialParameterType::Texture;
 				meta.Value.Texture = Texture.TextureAsset;
-				meta.Group = FName("Internal_TextureSet");
+				meta.Group = FMaterialPropertyHelpers::TextureSetParamName;
 				meta.SortPriority = 0;
 				refNode->SetParameterValue(FName(Texture.TextureName), meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
 				refNode->UpdateParameterGuid(true, true);
@@ -207,7 +208,7 @@ void UMaterialExpressionTextureSetSampleParameter::BuildTextureParameterChildren
 				FMaterialParameterMetadata meta;
 				meta.Value.Type = EMaterialParameterType::Texture;
 				meta.Value.Texture = Texture.TextureAsset;
-				meta.Group = FName("Internal_TextureSet");
+				meta.Group = FMaterialPropertyHelpers::TextureSetParamName;
 				meta.SortPriority = 0;
 				RefExpression->SetParameterValue(FName(Texture.TextureName), meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
 				RefExpression->UpdateParameterGuid(true, true);

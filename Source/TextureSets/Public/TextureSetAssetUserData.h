@@ -6,6 +6,8 @@
 #include "Engine/AssetUserData.h"
 #include "TextureSetAssetUserData.generated.h"
 
+class UTextureSet;
+
 /**
  * 
  */
@@ -24,6 +26,8 @@ struct FSetOverride
 	UTextureSet* DefaultTextureSet;
 	UPROPERTY()
 	FGuid Guid;
+	UPROPERTY()
+	bool IsOverridden;
 	// UPROPERTY()
 	// TArray< TObjectPtr<UAssetUserData> > AssetUserData;
 };

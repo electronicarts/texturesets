@@ -2,6 +2,8 @@
 
 
 #include "TextureSetAssetUserData.h"
+#include "Materials/MaterialInstance.h"
+#include "Materials/MaterialInstanceConstant.h"
 
 void UTextureSetAssetUserData::AddOverride(FSetOverride& Override)
 {
@@ -13,6 +15,7 @@ void UTextureSetAssetUserData::PostEditChangeProperty(FPropertyChangedEvent& Pro
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 	for (auto& Override : TexturesSetOverrides)
 	{
+		//Override.IsOverridden = (Override.TextureSet != nullptr) && (Override.TextureSet != Override.DefaultTextureSet);
 		Override.TextureSet = Override.TextureSet ? Override.TextureSet : Override.DefaultTextureSet;
 	}
 }

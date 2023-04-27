@@ -6,6 +6,7 @@
 
 #include "IMaterialEditor.h"
 #include "MaterialEditorUtilities.h"
+#include "MaterialPropertyHelpers.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "MaterialGraphNode_Invisible.h"
 #include "MaterialGraphNode_TSSampler.h"
@@ -13,12 +14,17 @@
 #include "TextureSetAssetUserData.h"
 #include "TextureSetEditingUtils.h"
 #include "MaterialEditor/Public/MaterialEditorModule.h"
+#include "MaterialEditor/MaterialEditorInstanceConstant.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSet.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSetDefinition.h"
 #include "MaterialGraph/MaterialGraph.h"
 #include "Materials/MaterialExpressionExecBegin.h"
 #include "Materials/MaterialExpressionExecEnd.h"
 #include "Materials/MaterialInstance.h"
+#include "Materials/MaterialInstanceConstant.h"
+#include "DetailWidgetRow.h"
+#include "IDetailGroup.h"
+#include "STextureSetParameterWidget.h"
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
@@ -36,7 +42,7 @@ void FTextureSetsModule::StartupModule()
 	MaterialEditorModule->OnMaterialInstanceOpenedForEdit().AddRaw(this, &FTextureSetsModule::OnMaterialInstanceOpenedForEdit);
 
 	UMaterialGraph::PreAddExpression.BindRaw(this, &FTextureSetsModule::OnAddExpression);
-
+	UMaterialEditorInstanceConstant::OnCreateGroupsWidget.BindRaw(this, &FTextureSetsModule::OnMICreateGroupsWidget);
 }
 
 void FTextureSetsModule::ShutdownModule()
@@ -81,49 +87,8 @@ void FTextureSetsModule::OnMIPostEditProperty(UMaterialInstance* MaterialInstanc
 	{
 		return;
 	}
-	
-	UTextureSetAssetUserData* tsAssetUserData = MaterialInstancePtr->GetAssetUserDataChecked<UTextureSetAssetUserData>();
-	if (!tsAssetUserData)
-	{
-		return;
-	}
 
-	// Ryan: Fix and Optimize me
-	for (auto Expression : MaterialInstancePtr->GetMaterial()->GetExpressions())
-	{
-		if (!Expression->IsA(UMaterialExpressionTextureSetSampleParameter::StaticClass()))
-		{
-			continue;
-		}
-		
-		for (auto Override :tsAssetUserData->TexturesSetOverrides )
-		{
-			if (Expression->MaterialExpressionGuid != Override.Guid) // Make me better
-			{
-				continue;
-			}
-			
-			for (int packedTextureIdx = 0; packedTextureIdx < Override.TextureSet->Textures.Num(); packedTextureIdx++ )
-			{
-				FName Name = Cast<UMaterialExpressionTextureObjectParameter>(Expression->GetInput(packedTextureIdx + 1)->Expression)->ParameterName;
-
-				auto OverrideInstance = MaterialInstancePtr->TextureParameterValues.FindByPredicate([Name](const FTextureParameterValue& Param) { return Param.ParameterInfo.Name.IsEqual(Name);});
-				
-				if (!OverrideInstance)
-				{
-					FTextureParameterValue TextureSetOverride;
-					TextureSetOverride.ParameterValue = Override.TextureSet->Textures[packedTextureIdx].TextureAsset;
-					TextureSetOverride.ParameterInfo.Name = Name;
-					MaterialInstancePtr->TextureParameterValues.Add(TextureSetOverride);
-				}
-				else
-				{
-					OverrideInstance->ParameterValue = Override.TextureSet->Textures[packedTextureIdx].TextureAsset;
-				}
-			}
-			
-		}
-	}
+	FTextureSetEditingUtils::UpdateMaterialInstance(MaterialInstancePtr);
 }
 
 void FTextureSetsModule::OnMaterialInstanceOpenedForEdit(UMaterialInstance* MaterialInstancePtr)
@@ -160,6 +125,7 @@ void FTextureSetsModule::OnMaterialInstanceOpenedForEdit(UMaterialInstance* Mate
 			override.TextureSet = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression)->TextureSet;
 			override.DefaultTextureSet = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression)->TextureSet;
 			override.Guid = Guid;
+			override.IsOverridden = false;
 			
 			TextureSetOverrides->AddOverride(override);
 		}
@@ -193,6 +159,41 @@ UMaterialGraphNode* FTextureSetsModule::OnAddExpression(UMaterialExpression* Exp
 	}
 	
 	return Node;
+}
+
+void FTextureSetsModule::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstancePtr, IDetailCategoryBuilder& GroupsCategory)
+{
+	UMaterialInstanceConstant* MaterialInstance = MaterialInstancePtr;
+	if (!MaterialInstance)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No material instance found"));
+		return;
+	}
+	UTextureSetAssetUserData* TextureSetOverrides = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	if (!TextureSetOverrides)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No TextureSetAsset UserData found"));
+		return;
+	}
+
+	const FName& GroupName = FMaterialPropertyHelpers::TextureSetParamName;
+	IDetailGroup& DetailGroup = GroupsCategory.AddGroup(GroupName, FText::FromName(GroupName), false, true);
+
+	DetailGroup.HeaderRow()
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Text(FText::FromName(DetailGroup.GetGroupName()))
+		];
+
+	for (UINT ParameterIndex = 0; ParameterIndex < (UINT)TextureSetOverrides->TexturesSetOverrides.Num(); ParameterIndex++)
+	{
+		DetailGroup.AddWidgetRow()
+			[
+				SNew(STextureSetParameterWidget, (UMaterialInstance*)MaterialInstance, ParameterIndex)
+			];
+	}
+
 }
 
 #undef LOCTEXT_NAMESPACE

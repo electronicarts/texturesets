@@ -42,6 +42,7 @@ public class TextureSets : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"PropertyEditor",
 				"MaterialEditor",
 				"EditorScriptingUtilities",
 			}

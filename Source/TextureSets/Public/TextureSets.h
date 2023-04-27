@@ -11,6 +11,8 @@
 class IMaterialEditor;
 class IAssetTools;
 class IAssetTypeActions;
+class IDetailCategoryBuilder;
+class UMaterialInstanceConstant;
 
 // -----
 
@@ -33,4 +35,7 @@ private:
 	void OnMaterialInstanceOpenedForEdit(UMaterialInstance*);
 	UMaterialGraphNode* OnAddExpression(UMaterialExpression* Expression, UMaterialGraph* Graph);
 	void OnMIPostEditProperty(UMaterialInstance* MaterialInstancePtr, FPropertyChangedEvent& PropertyChangedEvent);
+
+	void OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstance, IDetailCategoryBuilder& GroupsCategory);
+
 };
