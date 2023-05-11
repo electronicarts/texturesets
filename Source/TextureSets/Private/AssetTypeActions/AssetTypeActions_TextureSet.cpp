@@ -11,6 +11,7 @@
 #include "MaterialEditingLibrary.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "TextureSet.h"
+#include "TextureSetsAssetTypeActionsCommon.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Engine/Classes/Materials/MaterialInstance.h"
@@ -21,56 +22,10 @@ DEFINE_LOG_CATEGORY_STATIC(LogTextureSetFixMaterial, Log, Log);
 
 namespace
 {
-	void GetReferencersData(UObject* Object, UClass* MatchClass, TArray<FAssetData>& OutAssetDatas)
+	void FindAllMaterials(UTextureSet* TextureSet, TArray<TObjectPtr<UMaterial>>& OutMaterials, TArray<TObjectPtr<UMaterialFunctionInterface>>& OutFunctions)
 	{
-		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-		IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
-
-		TArray<FAssetIdentifier> Referencers;
-		AssetRegistry.GetReferencers(Object->GetOuter()->GetFName(), Referencers);
-
-		for (auto AssetIdentifier : Referencers)
-		{
-			TArray<FAssetData> Assets;
-			AssetRegistry.GetAssetsByPackageName(AssetIdentifier.PackageName, Assets);
-
-			for (auto AssetData : Assets)
-			{
-				if (MatchClass != nullptr)
-				{
-					if (AssetData.IsInstanceOf(MatchClass))
-					{
-						OutAssetDatas.AddUnique(AssetData);
-					}
-				}
-				else
-				{
-					OutAssetDatas.AddUnique(AssetData);
-				}
-			}
-		}
-	}
-
-	template <class T>
-	void GetReferencersOfType(UObject* Object, TArray<T*>& OutObjects)
-	{
-		TArray<FAssetData> AssetDatas;
-		GetReferencersData(Object, T::StaticClass(), AssetDatas);
-
-		for (auto Data : AssetDatas)
-		{
-			T* TypedAsset = Cast<T>(Data.GetAsset());
-			if (TypedAsset != nullptr)
-			{
-				OutObjects.Add(TypedAsset);
-			}
-		}
-	}
-
-	void FindAllMaterials(UTextureSet* TextureSet, TArray<UMaterial*>& OutMaterials, TArray<UMaterialFunctionInterface*>& OutFunctions)
-	{
-		TArray<UMaterialInterface*> MaterialInterfaces;
-		GetReferencersOfType(TextureSet, MaterialInterfaces);
+		TArray<TObjectPtr<UMaterialInterface>> MaterialInterfaces;
+		TextureSetsAssetTypeActionsCommon::GetReferencersOfType(TextureSet, MaterialInterfaces);
 
 		for (UMaterialInterface* MaterialInterface : MaterialInterfaces)
 		{
@@ -85,105 +40,7 @@ namespace
 			OutMaterials.AddUnique(Material);
 		}
 
-		GetReferencersOfType(TextureSet, OutFunctions);
-	}
-
-	void FixMaterialUsage(TObjectPtr<UTextureSet> TextureSet)
-	{
-		TArray<UPackage*> PackagesToSave;
-
-		{
-			UE_LOG(LogTextureSetFixMaterial, Log, TEXT("Begin fix material usage for '%s' ..."), *TextureSet->GetName());
-
-			TArray<UMaterial*> Materials;
-			TArray<UMaterialFunctionInterface*> Functions;
-			FindAllMaterials(TextureSet, Materials, Functions);
-
-			int32 TaskCount = Materials.Num() + Functions.Num();
-			FScopedSlowTask Task(TaskCount, LOCTEXT("RuntimeVirtualTexture_FixMaterialUsageProgress", "Fixing materials for Runtime Virtual Texture usage..."));
-			Task.MakeDialog();
-
-			for (UMaterial* Material : Materials)
-			{
-				Task.EnterProgressFrame();
-
-				bool bMaterialModified = false;
-				for (UMaterialExpression* Expression : Material->GetExpressions())
-				{
-					UMaterialExpressionTextureSetSampleParameter* TSSampleExpression = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression);
-					if (TSSampleExpression)
-					{
-						if (TextureSet == TSSampleExpression->TextureSet)
-						{
-							Expression->Modify();
-
-							FPropertyChangedEvent Event(UMaterialExpressionTextureSetSampleParameter::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UMaterialExpressionTextureSetSampleParameter, TextureSet)));
-							Expression->PostEditChangeProperty(Event);
-
-							bMaterialModified = true;
-						}
-					}
-				}
-
-				if (bMaterialModified)
-				{
-					UE_LOG(LogTextureSetFixMaterial, Log, TEXT("  Recompile material '%s' ..."), *Material->GetName());
-
-					FScopedSlowTask CompileTask(1, FText::AsCultureInvariant(Material->GetName()));
-					CompileTask.MakeDialog();
-					CompileTask.EnterProgressFrame();
-
-					UMaterialEditingLibrary::RecompileMaterial(Material);
-
-					PackagesToSave.Add(Material->GetOutermost());
-				}
-			}
-
-			for (UMaterialFunctionInterface* Function : Functions)
-			{
-				Task.EnterProgressFrame();
-
-				bool bFunctionModified = false;
-				for (const TObjectPtr<UMaterialExpression>& Expression : Function->GetExpressions())
-				{
-					UMaterialExpressionTextureSetSampleParameter* TSSampleExpression = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression);
-					if (TSSampleExpression)
-					{
-						if (TextureSet == TSSampleExpression->TextureSet)
-						{
-							//if (TSSampleExpression->InitVirtualTextureDependentSettings())
-							Expression->Modify();
-
-							FPropertyChangedEvent Event(UMaterialExpressionTextureSetSampleParameter::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UMaterialExpressionTextureSetSampleParameter, TextureSet)));
-							Expression->PostEditChangeProperty(Event);
-
-							bFunctionModified = true;
-							
-						}
-					}
-				}
-
-				if (bFunctionModified)
-				{
-					UE_LOG(LogTextureSetFixMaterial, Log, TEXT("  Update function '%s' ..."), *Function->GetName());
-
-					FScopedSlowTask CompileTask(1, FText::AsCultureInvariant(Function->GetName()));
-					CompileTask.MakeDialog();
-					CompileTask.EnterProgressFrame();
-
-					UMaterialEditingLibrary::UpdateMaterialFunction(Function, nullptr);
-
-					PackagesToSave.Add(Function->GetOutermost());
-				}
-			}
-
-			UE_LOG(LogTextureSetFixMaterial, Log, TEXT("End fix material usage for '%s' ..."), *TextureSet->GetName());
-		}
-
-		if (PackagesToSave.Num())
-		{
-			FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, false, true);
-		}
+		TextureSetsAssetTypeActionsCommon::GetReferencersOfType(TextureSet, OutFunctions);
 	}
 }
 
@@ -254,8 +111,8 @@ void FAssetTypeActions_TextureSet::ExecuteFindMaterials(TWeakObjectPtr<UTextureS
 	UTextureSet* TextureSet = Object.Get();
 	if (TextureSet != nullptr)
 	{
-		GetReferencersData(TextureSet, UMaterialInterface::StaticClass(), Materials);
-		GetReferencersData(TextureSet, UMaterialFunction::StaticClass(), Materials);
+		TextureSetsAssetTypeActionsCommon::GetReferencersData(TextureSet, UMaterialInterface::StaticClass(), Materials);
+		TextureSetsAssetTypeActionsCommon::GetReferencersData(TextureSet, UMaterialFunction::StaticClass(), Materials);
 	}
 
 	if (Materials.Num() > 0)
@@ -271,12 +128,110 @@ void FAssetTypeActions_TextureSet::ExecuteFixUsages(TWeakObjectPtr<UTextureSet> 
 	TObjectPtr<UTextureSet> TextureSet = Object.Get();
 	if (TextureSet != nullptr)
 	{
-		FixMaterialUsage(TextureSet);
+		TArray<TObjectPtr<UPackage>> PackagesToSave = FixMaterialUsage(TextureSet);
+		if (PackagesToSave.Num())
+		{
+			FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, false, true);
+		}
 
 		FEditorDelegates::RefreshEditor.Broadcast();
 		FEditorSupportDelegates::RedrawAllViewports.Broadcast();
 	}
+}
 
+TArray<TObjectPtr<UPackage>> FAssetTypeActions_TextureSet::FixMaterialUsage(TObjectPtr<UTextureSet> TextureSet)
+{
+	TArray<TObjectPtr<UPackage>> PackagesToSave;
+
+	{
+		UE_LOG(LogTextureSetFixMaterial, Log, TEXT("Begin fix material usage for '%s' ..."), *TextureSet->GetName());
+
+		TArray<TObjectPtr<UMaterial>> Materials;
+		TArray<TObjectPtr<UMaterialFunctionInterface>> Functions;
+		FindAllMaterials(TextureSet, Materials, Functions);
+
+		int32 TaskCount = Materials.Num() + Functions.Num();
+		FScopedSlowTask Task(TaskCount, LOCTEXT("RuntimeVirtualTexture_FixMaterialUsageProgress", "Fixing materials for Runtime Virtual Texture usage..."));
+		Task.MakeDialog();
+
+		for (UMaterial* Material : Materials)
+		{
+			Task.EnterProgressFrame();
+
+			bool bMaterialModified = false;
+			for (UMaterialExpression* Expression : Material->GetExpressions())
+			{
+				UMaterialExpressionTextureSetSampleParameter* TSSampleExpression = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression);
+				if (TSSampleExpression)
+				{
+					if (TextureSet == TSSampleExpression->TextureSet)
+					{
+						Expression->Modify();
+
+						FPropertyChangedEvent Event(UMaterialExpressionTextureSetSampleParameter::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UMaterialExpressionTextureSetSampleParameter, TextureSet)));
+						Expression->PostEditChangeProperty(Event);
+
+						bMaterialModified = true;
+					}
+				}
+			}
+
+			if (bMaterialModified)
+			{
+				UE_LOG(LogTextureSetFixMaterial, Log, TEXT("  Recompile material '%s' ..."), *Material->GetName());
+
+				FScopedSlowTask CompileTask(1, FText::AsCultureInvariant(Material->GetName()));
+				CompileTask.MakeDialog();
+				CompileTask.EnterProgressFrame();
+
+				UMaterialEditingLibrary::RecompileMaterial(Material);
+
+				PackagesToSave.Add(Material->GetOutermost());
+			}
+		}
+
+		for (UMaterialFunctionInterface* Function : Functions)
+		{
+			Task.EnterProgressFrame();
+
+			bool bFunctionModified = false;
+			for (const TObjectPtr<UMaterialExpression>& Expression : Function->GetExpressions())
+			{
+				UMaterialExpressionTextureSetSampleParameter* TSSampleExpression = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression);
+				if (TSSampleExpression)
+				{
+					if (TextureSet == TSSampleExpression->TextureSet)
+					{
+						//if (TSSampleExpression->InitVirtualTextureDependentSettings())
+						Expression->Modify();
+
+						FPropertyChangedEvent Event(UMaterialExpressionTextureSetSampleParameter::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UMaterialExpressionTextureSetSampleParameter, TextureSet)));
+						Expression->PostEditChangeProperty(Event);
+
+						bFunctionModified = true;
+						
+					}
+				}
+			}
+
+			if (bFunctionModified)
+			{
+				UE_LOG(LogTextureSetFixMaterial, Log, TEXT("  Update function '%s' ..."), *Function->GetName());
+
+				FScopedSlowTask CompileTask(1, FText::AsCultureInvariant(Function->GetName()));
+				CompileTask.MakeDialog();
+				CompileTask.EnterProgressFrame();
+
+				UMaterialEditingLibrary::UpdateMaterialFunction(Function, nullptr);
+
+				PackagesToSave.Add(Function->GetOutermost());
+			}
+		}
+
+		UE_LOG(LogTextureSetFixMaterial, Log, TEXT("End fix material usage for '%s' ..."), *TextureSet->GetName());
+	}
+
+	return PackagesToSave;
 }
 
 

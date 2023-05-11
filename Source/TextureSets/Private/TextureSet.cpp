@@ -12,6 +12,11 @@
 #include "MaterialEditorModule.h"
 #include "TextureSetEditingUtils.h"
 
+TObjectPtr<UTexture2D> LoadDefaultTexture()
+{
+	return LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), nullptr, LOAD_None, nullptr);
+}
+
 UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {}
@@ -32,8 +37,7 @@ void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 			for (auto& TextureInfo : Definition->Items)
 			{
 				FTextureData TextureData;
-				TextureData.TextureAsset = nullptr;
-				TextureData.TextureName.Append(TextureInfo.TextureTypes);
+				TextureData.TextureAsset = LoadDefaultTexture();
 				Textures.Add(TextureData);
 			}
 		}
@@ -58,7 +62,7 @@ void UTextureSet::UpdateFromDefinition()
 				continue;
 			}
 			FTextureData TextureData;
-			TextureData.TextureAsset = nullptr;
+			TextureData.TextureAsset = LoadDefaultTexture();
 			TextureData.TextureName.Append(TextureInfo.TextureTypes);
 			NewTextures.Add(TextureData);
 		}
@@ -66,7 +70,7 @@ void UTextureSet::UpdateFromDefinition()
 		Textures.Empty();
 		Textures.Append(NewTextures);
 
-		UpdateReferencingMaterials();
+		//UpdateReferencingMaterials();
 	}
 }
 

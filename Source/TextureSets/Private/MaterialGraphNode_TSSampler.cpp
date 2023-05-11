@@ -16,23 +16,6 @@ TSharedPtr<SGraphNode> UMaterialGraphNode_TSSampler::CreateVisualWidget()
 
 void UMaterialGraphNode_TSSampler::DestroyNode()
 {
-	for (FExpressionInput Input : Cast<UMaterialExpressionTextureSetSampleParameter>(MaterialExpression)->TextureReferenceInputs)
-	{
-		TObjectPtr<UMaterialExpression> TextureChildNode = Input.Expression;
-		if (!TextureChildNode)
-		{
-			continue;
-		}
-		TextureChildNode->Modify();
-		TextureChildNode->GraphNode->BreakAllNodeLinks();
-		MaterialExpression->Material->GetExpressionCollection().RemoveExpression(TextureChildNode);
-		MaterialExpression->Material->RemoveExpressionParameter(TextureChildNode);
-		
-		// Make sure the deleted expression is caught by gc
-		TextureChildNode->MarkAsGarbage();
-		FBlueprintEditorUtils::RemoveNode(nullptr, TextureChildNode->GraphNode, false);
-	}
-
 	Super::DestroyNode();
 }
 

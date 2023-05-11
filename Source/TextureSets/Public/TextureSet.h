@@ -14,6 +14,8 @@
 class UTexture;
 class UTextureSetDefinition;
 
+TObjectPtr<UTexture2D> LoadDefaultTexture();
+
 USTRUCT(BlueprintType)
 struct FTextureData
 {
@@ -21,8 +23,8 @@ struct FTextureData
 	
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite)
 	FString TextureName;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TObjectPtr<class UTexture> TextureAsset;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
+	TObjectPtr<class UTexture> TextureAsset = LoadDefaultTexture();
 	UPROPERTY()
 	TArray< TObjectPtr<UAssetUserData> > AssetUserData;
 };

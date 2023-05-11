@@ -20,6 +20,9 @@
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "MaterialGraph/MaterialGraphNode.h"
 #include "MaterialGraph/MaterialGraphSchema.h"
+#include "Materials/MaterialExpressionFunctionInput.h"
+#include "Materials/MaterialExpressionFunctionOutput.h"
+#include "Materials/MaterialExpressionTextureSampleParameter2D.h"
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
@@ -28,111 +31,22 @@ UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampl
 {
 	bShowOutputNameOnPin = true;
 	bShowOutputs         = true;
-	TextureReferenceInputs.Init(FExpressionInput(), 16);
-}
-
-// Responsible for input pins type-correctness
-uint32 UMaterialExpressionTextureSetSampleParameter::GetInputType(int32 InputIndex)
-{
-	switch(InputIndex)
-	{
-	case 0:
-		return EMaterialValueType::MCT_Float2;
-	default:
-		return EMaterialValueType::MCT_Texture;
-	}
-	
-}
-
-FExpressionInput* UMaterialExpressionTextureSetSampleParameter::GetInput(int32 InputIndex)
-{
-	switch(InputIndex)
-	{
-	case 0:
-		return &Coordinates;
-	default:
-		return &TextureReferenceInputs[InputIndex - 1];
-	}
-}
-
-const TArray<FExpressionInput*> UMaterialExpressionTextureSetSampleParameter::GetInputs()
-{
-	TArray<FExpressionInput*> inputs = Super::GetInputs();
-
-	for (FExpressionInput& input : TextureReferenceInputs)
-	{
-		inputs.Add(&input);
-	}
-
-	return inputs;
-}
-
-void UMaterialExpressionTextureSetSampleParameter::PostInitProperties()
-{
-	SetupOutputs();
-
-	Super::PostInitProperties();
 }
 
 void UMaterialExpressionTextureSetSampleParameter::PostLoad()
 {
-	SetupOutputs();
-	BuildTextureParameterChildren();
+	if (TextureSet)
+	{
+		Definition = TextureSet->Definition;
+		GenerateMaterialFunction(true);
+	}
 
 	Super::PostLoad();
-}
-
-void UMaterialExpressionTextureSetSampleParameter::PostEditUndo()
-{
-	// This material expression will be fully recreated
 }
 
 // -----
 
 #if WITH_EDITOR
-
-
-
-int32 UMaterialExpressionTextureSetSampleParameter::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
-{
-	if (!TextureSet)
-	{
-		return INDEX_NONE;
-	}
-
-	// This can happen if a texture is removed from an input element
-	if (OutputIndex >= TextureSet->Textures.Num())
-	{
-		return INDEX_NONE;
-	}
-
-	if (!TextureSet->Textures[OutputIndex].TextureAsset)
-	{
-		return INDEX_NONE;
-	}
-
-	if (!TextureReferenceInputs[OutputIndex].Expression)
-	{
-		return INDEX_NONE;
-	}
-	
-	auto Texture = TextureSet->Textures[OutputIndex].TextureAsset;
-	
-	int32 TextureReferenceIndex = INDEX_NONE;
-	int32 TextureCodeIndex = INDEX_NONE;
-	EMaterialSamplerType samplertype;
-	TOptional<FName> paramName;
-	
-	TextureCodeIndex = TextureReferenceInputs[OutputIndex].Compile(Compiler);
-	Compiler->GetTextureForExpression(TextureCodeIndex, TextureReferenceIndex, samplertype,paramName);
-	FString SamplerTypeError;
-	int32 CoordinateIndex = Coordinates.Compile(Compiler);
-
-	return Compiler->TextureSample(
-		TextureCodeIndex,
-		CoordinateIndex,
-		EMaterialSamplerType::SAMPLERTYPE_Color);
-}
 
 void UMaterialExpressionTextureSetSampleParameter::GetCaption(TArray<FString>& OutCaptions) const
 {
@@ -156,24 +70,36 @@ void UMaterialExpressionTextureSetSampleParameter::BuildTextureParameterChildren
 {
 	if (TextureSet)
 	{
-
+		GenerateMaterialFunction();
 		TArray<UMaterialExpression*> inputsToDelete;
-		for (auto Input : TextureReferenceInputs)
-		{
-			if (Input.Expression)
-			{
-				inputsToDelete.Add(Input.Expression);
-				Input.Expression->Modify();
-				if (Input.Expression->GraphNode)
-				{
-					Input.Expression->GraphNode->BreakAllNodeLinks();
-				}
-			}
-		}
+		// for (auto Input : TextureReferenceInputs)
+		// {
+		// 	if (Input.Expression)
+		// 	{
+		// 		inputsToDelete.Add(Input.Expression);
+		// 		Input.Expression->Modify();
+		// 		if (Input.Expression->GraphNode)
+		// 		{
+		// 			Input.Expression->GraphNode->BreakAllNodeLinks();
+		// 		}
+		// 	}
+		// }
 
 		int TextureIndex = 0; 
-		for (auto Texture : TextureSet->Textures)
+		//for (auto Texture : TextureSetData->Items)
+
+		if (!Definition)
 		{
+			Definition = TextureSet->Definition;
+		}
+
+		for (int i = 0; i < Definition->Items.Num(); i += 1)
+		{
+			FTextureData Texture = TextureSet->Textures[i];
+			/*if (!Texture)
+			{
+				Texture = LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), nullptr, LOAD_None, nullptr);
+			}*/
 			Material->Modify();
 
 			if (Material->MaterialGraph)
@@ -188,7 +114,7 @@ void UMaterialExpressionTextureSetSampleParameter::BuildTextureParameterChildren
 				refNode->SetParameterName(FName(Texture.TextureName));
 				FMaterialParameterMetadata meta;
 				meta.Value.Type = EMaterialParameterType::Texture;
-				meta.Value.Texture = Texture.TextureAsset;
+				meta.Value.Texture = Texture.TextureAsset ? Texture.TextureAsset : LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), nullptr, LOAD_None, nullptr);
 				meta.Group = FMaterialPropertyHelpers::TextureSetParamName;
 				meta.SortPriority = 0;
 				refNode->SetParameterValue(FName(Texture.TextureName), meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
@@ -207,7 +133,7 @@ void UMaterialExpressionTextureSetSampleParameter::BuildTextureParameterChildren
 				RefExpression->SetParameterName(FName(Texture.TextureName));
 				FMaterialParameterMetadata meta;
 				meta.Value.Type = EMaterialParameterType::Texture;
-				meta.Value.Texture = Texture.TextureAsset;
+				meta.Value.Texture = Texture.TextureAsset ? Texture.TextureAsset : LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), nullptr, LOAD_None, nullptr);
 				meta.Group = FMaterialPropertyHelpers::TextureSetParamName;
 				meta.SortPriority = 0;
 				RefExpression->SetParameterValue(FName(Texture.TextureName), meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
@@ -229,7 +155,6 @@ void UMaterialExpressionTextureSetSampleParameter::BuildTextureParameterChildren
 			if (Expression->GraphNode)
 			{
 				FBlueprintEditorUtils::RemoveNode(NULL, Expression->GraphNode, true);
-
 			}
 		}
 	}
@@ -237,37 +162,92 @@ void UMaterialExpressionTextureSetSampleParameter::BuildTextureParameterChildren
 
 void UMaterialExpressionTextureSetSampleParameter::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	BuildTextureParameterChildren();
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-	if (PropertyChangedEvent.ChangeType != EPropertyChangeType::ValueSet)
+	if (TextureSet)
 	{
-		return;
+		Definition = TextureSet->Definition;
+		GenerateMaterialFunction();
+
 	}
-	
-	SetupOutputs();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
 #endif
 
-void UMaterialExpressionTextureSetSampleParameter::SetupOutputs()
+// TODO: Borrowed from UCompoundMaterialExpression::UpdateMaterialFunction. Should switch/delete later
+void UMaterialExpressionTextureSetSampleParameter::FixupMaterialFunction(TObjectPtr<UMaterialFunction> NewMaterialFunction)
 {
-#if WITH_EDITORONLY_DATA
 
-	Outputs.Reset();
-	
-	if (TextureSetData)
+	if (!IsValid(NewMaterialFunction))
 	{
-		for (auto& TextureInfo : TextureSetData->Items)
+		return;
+	}
+
+	// Fix up Expression input/output references, since while the "FunctionInputs" and "FunctionOutputs" are serialized,
+	// the UMaterialFunction is not, and thus the ExpressionInput/Output values are null.
+	for (UMaterialExpression* CurrentExpression : NewMaterialFunction->GetExpressions())
+	{
+		UMaterialExpressionFunctionOutput* OutputExpression = Cast<UMaterialExpressionFunctionOutput>(CurrentExpression);
+		UMaterialExpressionFunctionInput* InputExpression = Cast<UMaterialExpressionFunctionInput>(CurrentExpression);
+
+		if (InputExpression)
 		{
-			FExpressionOutput ExpressionOutput(FName(TextureInfo.TextureTypes));
-			Outputs.Add(ExpressionOutput);
+			for (FFunctionExpressionInput& Input : FunctionInputs)
+			{
+				if (InputExpression->InputName == Input.Input.InputName)
+				{
+					Input.ExpressionInput = InputExpression;
+				}
+			}
+		}
+		else if (OutputExpression)
+		{
+			for (FFunctionExpressionOutput& Output : FunctionOutputs)
+			{
+				if (OutputExpression->OutputName == Output.Output.OutputName)
+				{
+					Output.ExpressionOutput = OutputExpression;
+				}
+			}
 		}
 	}
 
-	if (GraphNode)
-		GraphNode->ReconstructNode();
+	SetMaterialFunction(NewMaterialFunction);
+}
 
-#endif
+void UMaterialExpressionTextureSetSampleParameter::GenerateMaterialFunction(bool CalledFromPostEdit)
+{
+	if (!TextureSet)
+	{
+		MaterialFunction = nullptr;
+		return;
+	}
+
+	check(IsValid(Definition->SamplingMaterialFunction));
+
+	TObjectPtr<UMaterialFunction> NewFunction = DuplicateObject(Definition->SamplingMaterialFunction, this);
+
+	// Set texture parameters
+	for (auto& Expression : NewFunction->GetExpressions())
+	{
+		if (!Expression->IsA(UMaterialExpressionTextureSample::StaticClass()))
+		{
+			continue;
+		}
+
+		for (const auto& TextureInfo : TextureSet->Textures)
+		{
+			if (Expression->GetParameterName().IsEqual(FName(TextureInfo.TextureName)))
+			{
+				FMaterialParameterMetadata Meta;
+				Expression->GetParameterValue(Meta);
+				Meta.Value.Texture = TextureInfo.TextureAsset;
+				Expression->SetParameterValue(FName(TextureInfo.TextureName), Meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
+				break;
+			}
+		}
+	}
+	
+	FixupMaterialFunction(NewFunction);
 }
 
 #undef LOCTEXT_NAMESPACE

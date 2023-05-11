@@ -52,7 +52,7 @@ void FTextureSetEditingUtils::UpdateMaterialInstance(UMaterialInstance* Material
 
 			for (int packedTextureIdx = 0; packedTextureIdx < Override.TextureSet->Textures.Num(); packedTextureIdx++)
 			{
-				FName Name = Cast<UMaterialExpressionTextureObjectParameter>(Expression->GetInput(packedTextureIdx + 1)->Expression)->ParameterName;
+				FName Name = FName(Override.TextureSet->Textures[packedTextureIdx].TextureName);
 
 				auto OverrideInstance = MaterialInstancePtr->TextureParameterValues.FindByPredicate([Name](const FTextureParameterValue& Param) { return Param.ParameterInfo.Name.IsEqual(Name); });
 

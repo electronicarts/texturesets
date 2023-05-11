@@ -20,6 +20,8 @@ public:
 	void ExecuteFindMaterials(TWeakObjectPtr<UTextureSet> Object);
 	void ExecuteFixUsages(TWeakObjectPtr<UTextureSet> Object);
 	virtual void    GetActions(const TArray<UObject*>& InObjects, FMenuBuilder& MenuBuilder) override;
+
+	static TArray<TObjectPtr<UPackage>> FixMaterialUsage(TObjectPtr<UTextureSet> TextureSet);
 private:
 	uint32 AssetCategoryBit;
 	

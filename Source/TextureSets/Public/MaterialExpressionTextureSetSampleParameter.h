@@ -20,29 +20,22 @@ class FArguments;
 
 UMaterialGraphNode* AddExpression(UMaterialExpression* Expression, UMaterialGraph* Graph);
 
-UCLASS(MinimalAPI)
-class UMaterialExpressionTextureSetSampleParameter : public UMaterialExpression
+UCLASS(MinimalAPI, HideCategories = (MaterialExpressionMaterialFunctionCall))
+class UMaterialExpressionTextureSetSampleParameter : public UMaterialExpressionMaterialFunctionCall
 {
 	GENERATED_UCLASS_BODY()
 public:
-	UPROPERTY(meta = (RequiredInput = "true", ToolTip = "TODO: Tooltip"))
-	FExpressionInput Coordinates;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MaterialExpressionTextureBase)
 	FName Name;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MaterialExpressionTextureBase)
 	TObjectPtr<class UTextureSet> TextureSet;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MaterialExpressionTextureBase)
-	TObjectPtr<class UTextureSetDefinition> TextureSetData;
-
-	UPROPERTY(meta = (RequiredInput = "true", ToolTip = "TODO: Tooltip"))
-	TArray<FExpressionInput> TextureReferenceInputs;
+	UPROPERTY(BlueprintReadWrite, Category = MaterialExpressionTextureBase)
+	TObjectPtr<class UTextureSetDefinition> Definition;
 
 #if WITH_EDITOR
 
-	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void  GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual FText GetKeywords() const override;
 
@@ -50,20 +43,13 @@ public:
 	
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
-	virtual uint32 GetInputType(int32 InputIndex) override;
-	virtual FExpressionInput* GetInput(int32 InputIndex) override;
-
-	virtual const TArray<FExpressionInput*> GetInputs() override;
-
 #endif
 
-	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
-	virtual void PostEditUndo() override;
 
 private:
-
-	void SetupOutputs();
+	void FixupMaterialFunction(TObjectPtr<UMaterialFunction> NewMaterialFunction);
+	void GenerateMaterialFunction(bool CalledFromPostLoad = false);
 
 public:
 	void BuildTextureParameterChildren();

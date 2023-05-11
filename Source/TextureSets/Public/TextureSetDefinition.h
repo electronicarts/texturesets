@@ -52,11 +52,17 @@ class TEXTURESETS_API UTextureSetDefinition : public UDataAsset
 		return { TEXT("BaseColor"), TEXT("Metalness"), TEXT("Smoothness") };
 	}
 
+	void GenerateMaterialFunction();
+
 public:
 	UPROPERTY(EditAnywhere)
 	TArray<FTextureDefinitionInfo> Items;
 
+	UPROPERTY()
+	TObjectPtr<UMaterialFunction> SamplingMaterialFunction;
+
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostLoad() override;
 };
 
 UCLASS()
