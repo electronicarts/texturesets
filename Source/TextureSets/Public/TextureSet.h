@@ -33,9 +33,6 @@ UCLASS(BlueprintType, hidecategories = (Object))
 class TEXTURESETS_API UTextureSet : public UObject
 {
 	GENERATED_UCLASS_BODY()
-public:
-
-	void test();
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Compositing)
@@ -45,17 +42,8 @@ public:
 	TArray<FTextureData> Textures;
 	
 	
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent & PropertyChangedEvent);
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent & PropertyChangedEvent) override;
 
 	void UpdateFromDefinition();
 	void UpdateReferencingMaterials();
-
-	/*--------------------------------------------------------------------------
-	Editor only properties used to build the runtime texture data.
---------------------------------------------------------------------------*/
-
-//#if WITH_EDITORONLY_DATA
-//	UPROPERTY()
-//		FTextureSource Source;
-//#endif
 };

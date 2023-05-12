@@ -8,8 +8,6 @@
 #include "MaterialEditorUtilities.h"
 #include "MaterialPropertyHelpers.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
-#include "MaterialGraphNode_Invisible.h"
-#include "MaterialGraphNode_TSSampler.h"
 #include "TextureSet.h"
 #include "TextureSetAssetUserData.h"
 #include "TextureSetEditingUtils.h"
@@ -41,7 +39,6 @@ void FTextureSetsModule::StartupModule()
 	IMaterialEditorModule* MaterialEditorModule = &FModuleManager::LoadModuleChecked<IMaterialEditorModule>( "MaterialEditor" );
 	MaterialEditorModule->OnMaterialInstanceOpenedForEdit().AddRaw(this, &FTextureSetsModule::OnMaterialInstanceOpenedForEdit);
 
-	UMaterialGraph::PreAddExpression.BindRaw(this, &FTextureSetsModule::OnAddExpression);
 	UMaterialEditorInstanceConstant::OnCreateGroupsWidget.BindRaw(this, &FTextureSetsModule::OnMICreateGroupsWidget);
 }
 
@@ -133,32 +130,6 @@ void FTextureSetsModule::OnMaterialInstanceOpenedForEdit(UMaterialInstance* Mate
 
 	MaterialInstance->OnPostEditChangeProperty().AddRaw(this, &FTextureSetsModule::OnMIPostEditProperty);
 	
-}
-
-UMaterialGraphNode* FTextureSetsModule::OnAddExpression(UMaterialExpression* Expression, UMaterialGraph* Graph)
-{
-	// Node for UMaterialExpressionExecBegin is explicitly placed if needed
-	// We don't created any node for UMaterialExpressionExecEnd, it's handled as part of the root node
-	UMaterialGraphNode* Node = nullptr;
-	
-	if (Expression && !Node &&
-		!Expression->IsA(UMaterialExpressionExecBegin::StaticClass()) &&
-		!Expression->IsA(UMaterialExpressionExecEnd::StaticClass()))
-	{
-		Graph->Modify();
-
-		if (Expression->IsA(UMaterialExpressionTextureReferenceInternal::StaticClass()))
-		{
-			Node = FTextureSetEditingUtils::InitExpressionNewNode<UMaterialGraphNode_Invisible>(Graph, Expression, false);
-		}
-		else if (Expression->IsA(UMaterialExpressionTextureSetSampleParameter::StaticClass()))
-		{
-			Node = FTextureSetEditingUtils::InitExpressionNewNode<UMaterialGraphNode_TSSampler>(Graph, Expression, false);
-		}
-		
-	}
-	
-	return Node;
 }
 
 void FTextureSetsModule::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstancePtr, IDetailCategoryBuilder& GroupsCategory)

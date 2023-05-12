@@ -49,10 +49,7 @@ public:
 
 private:
 	void FixupMaterialFunction(TObjectPtr<UMaterialFunction> NewMaterialFunction);
-	void GenerateMaterialFunction(bool CalledFromPostLoad = false);
-
-public:
-	void BuildTextureParameterChildren();
+	void SetMaterialFunctionFromDefinition();
 
 };
 

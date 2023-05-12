@@ -33,7 +33,6 @@ private:
 
 	// Callbacks
 	void OnMaterialInstanceOpenedForEdit(UMaterialInstance*);
-	UMaterialGraphNode* OnAddExpression(UMaterialExpression* Expression, UMaterialGraph* Graph);
 	void OnMIPostEditProperty(UMaterialInstance* MaterialInstancePtr, FPropertyChangedEvent& PropertyChangedEvent);
 
 	void OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstance, IDetailCategoryBuilder& GroupsCategory);

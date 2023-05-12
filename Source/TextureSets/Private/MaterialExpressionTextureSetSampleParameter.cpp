@@ -10,8 +10,6 @@
 #include "MaterialCompiler.h"
 #include "MaterialEditingLibrary.h"
 #include "MaterialEditorUtilities.h"
-#include "MaterialGraphNode_Invisible.h"
-#include "MaterialGraphNode_TSSampler.h"
 #include "MaterialHLSLGenerator.h"
 
 #include "TextureSet.h"
@@ -38,7 +36,7 @@ void UMaterialExpressionTextureSetSampleParameter::PostLoad()
 	if (TextureSet)
 	{
 		Definition = TextureSet->Definition;
-		GenerateMaterialFunction(true);
+		SetMaterialFunctionFromDefinition();
 	}
 
 	Super::PostLoad();
@@ -66,106 +64,12 @@ bool UMaterialExpressionTextureSetSampleParameter::GenerateHLSLExpression(FMater
 	return false;
 }
 
-void UMaterialExpressionTextureSetSampleParameter::BuildTextureParameterChildren()
-{
-	if (TextureSet)
-	{
-		GenerateMaterialFunction();
-		TArray<UMaterialExpression*> inputsToDelete;
-		// for (auto Input : TextureReferenceInputs)
-		// {
-		// 	if (Input.Expression)
-		// 	{
-		// 		inputsToDelete.Add(Input.Expression);
-		// 		Input.Expression->Modify();
-		// 		if (Input.Expression->GraphNode)
-		// 		{
-		// 			Input.Expression->GraphNode->BreakAllNodeLinks();
-		// 		}
-		// 	}
-		// }
-
-		int TextureIndex = 0; 
-		//for (auto Texture : TextureSetData->Items)
-
-		if (!Definition)
-		{
-			Definition = TextureSet->Definition;
-		}
-
-		for (int i = 0; i < Definition->Items.Num(); i += 1)
-		{
-			FTextureData Texture = TextureSet->Textures[i];
-			/*if (!Texture)
-			{
-				Texture = LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), nullptr, LOAD_None, nullptr);
-			}*/
-			Material->Modify();
-
-			if (Material->MaterialGraph)
-			{
-				Material->MaterialGraph->Modify();
-
-
-				auto refNode = FMaterialEditorUtilities::CreateNewMaterialExpression(
-					Material->MaterialGraph, UMaterialExpressionTextureReferenceInternal::StaticClass(),
-					FVector2d(0, 0), false, true);
-
-				refNode->SetParameterName(FName(Texture.TextureName));
-				FMaterialParameterMetadata meta;
-				meta.Value.Type = EMaterialParameterType::Texture;
-				meta.Value.Texture = Texture.TextureAsset ? Texture.TextureAsset : LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), nullptr, LOAD_None, nullptr);
-				meta.Group = FMaterialPropertyHelpers::TextureSetParamName;
-				meta.SortPriority = 0;
-				refNode->SetParameterValue(FName(Texture.TextureName), meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
-				refNode->UpdateParameterGuid(true, true);
-				Material->AddExpressionParameter(refNode, Material->EditorParameters);
-
-				//TextureReferenceDummies.Add((UMaterialExpressionTextureObjectParameter*)refNode);
-				Material->MaterialGraph->GetSchema()->TryCreateConnection(refNode->GraphNode->Pins[3], this->GraphNode->Pins[1 + TextureIndex]);
-
-				TextureIndex += 1;
-			}
-			else
-			{
-				auto RefExpression = UMaterialEditingLibrary::CreateMaterialExpression(Material, UMaterialExpressionTextureReferenceInternal::StaticClass());
-
-				RefExpression->SetParameterName(FName(Texture.TextureName));
-				FMaterialParameterMetadata meta;
-				meta.Value.Type = EMaterialParameterType::Texture;
-				meta.Value.Texture = Texture.TextureAsset ? Texture.TextureAsset : LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), nullptr, LOAD_None, nullptr);
-				meta.Group = FMaterialPropertyHelpers::TextureSetParamName;
-				meta.SortPriority = 0;
-				RefExpression->SetParameterValue(FName(Texture.TextureName), meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
-				RefExpression->UpdateParameterGuid(true, true);
-				Material->AddExpressionParameter(RefExpression, Material->EditorParameters);
-				Material->GetExpressionCollection().AddExpression(RefExpression);
-				GetInput(TextureIndex + 1)->Connect(0, RefExpression);
-				TextureIndex += 1;
-			}
-		}
-		
-		for (auto Expression : inputsToDelete)
-		{
-			Material->GetExpressionCollection().RemoveExpression(Expression);
-			Material->RemoveExpressionParameter(Expression);
-
-			// Make sure the deleted expression is caught by gc
-			Expression->MarkAsGarbage();
-			if (Expression->GraphNode)
-			{
-				FBlueprintEditorUtils::RemoveNode(NULL, Expression->GraphNode, true);
-			}
-		}
-	}
-}
-
 void UMaterialExpressionTextureSetSampleParameter::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	if (TextureSet)
 	{
 		Definition = TextureSet->Definition;
-		GenerateMaterialFunction();
+		SetMaterialFunctionFromDefinition();
 
 	}
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -210,11 +114,9 @@ void UMaterialExpressionTextureSetSampleParameter::FixupMaterialFunction(TObject
 			}
 		}
 	}
-
-	SetMaterialFunction(NewMaterialFunction);
 }
 
-void UMaterialExpressionTextureSetSampleParameter::GenerateMaterialFunction(bool CalledFromPostEdit)
+void UMaterialExpressionTextureSetSampleParameter::SetMaterialFunctionFromDefinition()
 {
 	if (!TextureSet)
 	{
@@ -248,6 +150,7 @@ void UMaterialExpressionTextureSetSampleParameter::GenerateMaterialFunction(bool
 	}
 	
 	FixupMaterialFunction(NewFunction);
+	SetMaterialFunction(NewFunction);
 }
 
 #undef LOCTEXT_NAMESPACE
