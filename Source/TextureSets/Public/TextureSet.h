@@ -33,7 +33,6 @@ UCLASS(BlueprintType, hidecategories = (Object))
 class TEXTURESETS_API UTextureSet : public UObject
 {
 	GENERATED_UCLASS_BODY()
-
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Compositing)
 	TObjectPtr<UTextureSetDefinition> Definition;
@@ -41,9 +40,22 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, EditFixedSize, Category = Compositing)
 	TArray<FTextureData> Textures;
 	
-	
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent & PropertyChangedEvent) override;
 
 	void UpdateFromDefinition();
 	void UpdateReferencingMaterials();
+
+#if WITH_EDITORONLY_DATA
+	UPROPERTY()
+	TMap<FName, FTextureSource> SourceTextures;
+
+	UPROPERTY()
+	TMap<FName, FVector4> SourceParameters;
+#endif
+
+	UPROPERTY()
+	TArray<UTexture*> CookedTextures;
+	
+	UPROPERTY()
+	TMap<FName, FVector4> ShaderParameters;
 };

@@ -120,13 +120,12 @@ void UMaterialExpressionTextureSetSampleParameter::SetMaterialFunctionFromDefini
 {
 	if (!TextureSet)
 	{
-		MaterialFunction = nullptr;
+		SetMaterialFunction(nullptr);
 		return;
 	}
 
-	check(IsValid(Definition->SamplingMaterialFunction));
-
-	TObjectPtr<UMaterialFunction> NewFunction = DuplicateObject(Definition->SamplingMaterialFunction, this);
+	TObjectPtr<UMaterialFunction> NewFunction = Definition->GenerateMaterialFunction(this);
+	check(IsValid(NewFunction));
 
 	// Set texture parameters
 	for (auto& Expression : NewFunction->GetExpressions())
@@ -151,6 +150,40 @@ void UMaterialExpressionTextureSetSampleParameter::SetMaterialFunctionFromDefini
 	
 	FixupMaterialFunction(NewFunction);
 	SetMaterialFunction(NewFunction);
+	UpdateSampleParamArray();
+}
+
+void UMaterialExpressionTextureSetSampleParameter::UpdateSampleParamArray()
+{
+	if (!IsValid(Definition))
+		return;
+
+	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredSampleParamClasses = Definition->GetRequiredSampleParamClasses();
+	TArray<TSubclassOf<UTextureSetSampleParams>> ExistingSampleParamClasses;
+
+	// Remove un-needed sample params
+	for (int i = 0; i < SampleParams.Num(); i++)
+	{
+		UTextureSetSampleParams* SampleParam = SampleParams[i];
+		if (!RequiredSampleParamClasses.Contains(SampleParam->StaticClass()))
+		{
+			SampleParams.RemoveAt(i);
+			i--;
+		}
+		else
+		{
+			ExistingSampleParamClasses.Add(SampleParam->StaticClass());
+		}
+	}
+
+	// Add missing sample params
+	for (TSubclassOf<UTextureSetSampleParams> SampleParamClass : RequiredSampleParamClasses)
+	{
+		if (!ExistingSampleParamClasses.Contains(SampleParamClass))
+		{
+			SampleParams.Add(NewObject<UTextureSetSampleParams>(this, SampleParamClass));
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

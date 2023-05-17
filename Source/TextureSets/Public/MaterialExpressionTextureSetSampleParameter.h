@@ -31,8 +31,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MaterialExpressionTextureBase)
 	TObjectPtr<class UTextureSet> TextureSet;
 
-	UPROPERTY(BlueprintReadWrite, Category = MaterialExpressionTextureBase)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MaterialExpressionTextureBase)
 	TObjectPtr<class UTextureSetDefinition> Definition;
+
+	UPROPERTY(EditAnywhere, EditFixedSize)
+	TArray<class UTextureSetSampleParams*> SampleParams;
 
 #if WITH_EDITOR
 
@@ -50,6 +53,7 @@ public:
 private:
 	void FixupMaterialFunction(TObjectPtr<UMaterialFunction> NewMaterialFunction);
 	void SetMaterialFunctionFromDefinition();
+	void UpdateSampleParamArray();
 
 };
 
