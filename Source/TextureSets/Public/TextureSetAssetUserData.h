@@ -7,6 +7,7 @@
 #include "TextureSetAssetUserData.generated.h"
 
 class UTextureSet;
+class UTextureSetDefinition;
 
 /**
  * 
@@ -24,6 +25,9 @@ struct FSetOverride
 
 	UPROPERTY()
 	UTextureSet* DefaultTextureSet;
+	UPROPERTY()
+	UTextureSetDefinition* Definition;
+
 	UPROPERTY()
 	FGuid Guid;
 	UPROPERTY()

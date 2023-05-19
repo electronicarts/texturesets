@@ -128,19 +128,16 @@ bool STextureSetParameterWidget::OnShouldFilterTextureSetAsset(const FAssetData&
 		if (MaterialInstance)
 		{
 			UTextureSetAssetUserData* TextureSetOverrides = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
-			if (TextureSetOverrides)
+			if (IsValid(TextureSetOverrides))
 			{
 				if (TextureSetOverrides->TexturesSetOverrides.IsValidIndex(ParameterIndex))
 				{
 					FSetOverride& TextureSetOverride = TextureSetOverrides->TexturesSetOverrides[ParameterIndex];
 
-					if (TextureSetOverride.DefaultTextureSet)
-					{
-						const FString& currentDefinitionPath = TextureSetOverride.DefaultTextureSet->Definition->GetPathName();
-						const FString& newDefinitionPath = NewTextureSet->Definition->GetPathName();
-						if (newDefinitionPath == currentDefinitionPath)
-							return false;
-					}
+					const FString& currentDefinitionPath = TextureSetOverride.Definition->GetPathName();
+					const FString& newDefinitionPath = NewTextureSet->Definition->GetPathName();
+					if (newDefinitionPath == currentDefinitionPath)
+						return false;
 				}
 			}
 		}
