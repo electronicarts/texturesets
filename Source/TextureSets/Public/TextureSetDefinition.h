@@ -30,20 +30,20 @@ enum class ESourceParameterType
 };
 
 // Data class which is instanced on each texture set asset. Module can use this to allow users to configure asset settings.
-UCLASS(Abstract, EditInlineNew, DefaultToInstanced, BlueprintType, Blueprintable, CollapseCategories)
+UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
 class UTextureSetAssetParams : public UObject
 {
 	GENERATED_BODY()
 };
 
 // Data class which is instanced on each texture set sampler material expression. Module can use this to allow users to configure sample settings.
-UCLASS(Abstract, EditInlineNew, DefaultToInstanced, BlueprintType, Blueprintable, CollapseCategories)
+UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
 class UTextureSetSampleParams : public UObject
 {
 	GENERATED_BODY()
 };
 
-UCLASS(Abstract, EditInlineNew, DefaultToInstanced, BlueprintType, Blueprintable, CollapseCategories)
+UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
 class UTextureSetDefinitionModule : public UObject
 {
 	GENERATED_BODY()
