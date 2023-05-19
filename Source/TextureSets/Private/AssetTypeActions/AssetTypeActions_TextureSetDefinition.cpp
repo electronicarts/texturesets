@@ -31,47 +31,6 @@ namespace
 			OutTextureSets.AddUnique(TextureSet);
 		}
 	}
-
-	void FixUsages(TObjectPtr<UTextureSetDefinition> Definition)
-	{
-		TArray<UPackage*> PackagesToSave;
-
-		{
-			UE_LOG(LogTextureSetDefFixMaterial, Log, TEXT("Begin fix material usage for '%s' ..."), *Definition->GetName());
-
-			TArray<TObjectPtr<UTextureSet>> TextureSets;
-			FindAllTextureSets(Definition, TextureSets);
-
-			int32 TaskCount = TextureSets.Num();
-			FScopedSlowTask Task(TaskCount, LOCTEXT("TextureSetDefinition_FixTextureSetUsageProgress", "Fixing texture sets for definition usage..."));
-			Task.MakeDialog();
-
-			
-			for (TObjectPtr<UTextureSet> TextureSet : TextureSets)
-			{
-				Task.EnterProgressFrame();
-				TextureSet->UpdateFromDefinition();
-				{
-					UE_LOG(LogTextureSetDefFixMaterial, Log, TEXT("  Fixing texture set '%s' ..."), *TextureSet->GetName());
-
-					PackagesToSave.Add(TextureSet->GetOutermost());
-				}
-
-				TArray<TObjectPtr<UPackage>> MaterialPackagesToUpdate = FAssetTypeActions_TextureSet::FixMaterialUsage(TextureSet);
-				for (TObjectPtr<UPackage> Package : MaterialPackagesToUpdate)
-				{
-					PackagesToSave.AddUnique(Package);
-				}
-			}
-			
-			UE_LOG(LogTextureSetDefFixMaterial, Log, TEXT("End fix usage for '%s' ..."), *Definition->GetName());
-		}
-
-		if (PackagesToSave.Num())
-		{
-			FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, false, true);
-		}
-	}
 }
 
 FAssetTypeActions_TextureSetDefinition::FAssetTypeActions_TextureSetDefinition()
@@ -154,7 +113,7 @@ void FAssetTypeActions_TextureSetDefinition::ExecuteFixUsages(TWeakObjectPtr<UTe
 	TObjectPtr<UTextureSetDefinition> Definition = Object.Get();
 	if (Definition != nullptr)
 	{
-		FixUsages(Definition);
+		//FixUsages(Definition);
 
 		FEditorDelegates::RefreshEditor.Broadcast();
 		FEditorSupportDelegates::RedrawAllViewports.Broadcast();

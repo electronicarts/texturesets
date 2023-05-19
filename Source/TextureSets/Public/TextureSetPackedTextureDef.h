@@ -13,30 +13,33 @@ struct TEXTURESETS_API FTextureSetPackedTextureDef
 public:
 	// Texture Format
 	UPROPERTY(EditAnywhere)
-	TEnumAsByte<TextureCompressionSettings> CompressionSettings;
+	TEnumAsByte<TextureCompressionSettings> CompressionSettings; // Not implemented
 
 	// Sources
 	UPROPERTY(EditAnywhere, meta=(GetOptions="GetUnpackedChannelNames"))
-	FName SourceR;
+	FName SourceR; // Not implemented
 
 	UPROPERTY(EditAnywhere, meta=(GetOptions="GetUnpackedChannelNames"))
-	FName SourceG;
+	FName SourceG; // Not implemented
 
 	UPROPERTY(EditAnywhere, meta=(GetOptions="GetUnpackedChannelNames"))
-	FName SourceB;
+	FName SourceB; // Not implemented
 
 	UPROPERTY(EditAnywhere, meta=(GetOptions="GetUnpackedChannelNames"))
-	FName SourceA;
+	FName SourceA; // Not implemented
 
 	UPROPERTY(EditAnywhere)
-	int SkipMip;
+	int SkipMip; // Not implemented
 
 	/** Number of mip-levels that can be streamed. -1 means all mips can stream. */
 	UPROPERTY(EditAnywhere)
-	int32 NumStreamedMips;
+	int32 NumStreamedMips; // Not implemented
 
 	UPROPERTY(EditAnywhere)
-	ETextureSamplerFilter Filter;
+	ETextureSamplerFilter Filter; // Not implemented
+
+	UPROPERTY(EditAnywhere)
+	bool bDoRangeCompression; // Not implemented
 
 	// How many channels our chosen compressed texture supports
 	int AvailableChannels() const;

@@ -12,14 +12,15 @@
 #include "MaterialEditorModule.h"
 #include "TextureSetEditingUtils.h"
 
-TObjectPtr<UTexture2D> LoadDefaultTexture()
-{
-	return LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), nullptr, LOAD_None, nullptr);
-}
-
 UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {}
+
+void UTextureSet::PostLoad()
+{
+	Super::PostLoad();
+	FixupData();
+}
 
 void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
@@ -27,81 +28,57 @@ void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 
 	UE_LOG(LogTemp, Warning, TEXT("Changed me: %s"), *PropertyChangedEvent.GetPropertyName().ToString());
 
-	if (PropertyChangedEvent.GetPropertyName().IsEqual("Definition")
+	const FName ChangedPropName = PropertyChangedEvent.GetPropertyName();
+
+	if (ChangedPropName == GET_MEMBER_NAME_CHECKED(UTextureSet, Definition)
 		&& PropertyChangedEvent.ChangeType == EPropertyChangeType::ValueSet)
 	{
-		Textures.Empty();
-
-		if (Definition)
-		{
-			for (auto& TextureInfo : Definition->Items)
-			{
-				FTextureData TextureData;
-				TextureData.TextureAsset = LoadDefaultTexture();
-				Textures.Add(TextureData);
-			}
-		}
+		FixupData();
 	}
 }
 
-void UTextureSet::UpdateFromDefinition()
+void UTextureSet::FixupData()
 {
-	if (Definition)
+	// Only fixup the data if we have a valid definition. Otherwise leave it as-is so it's there for when we do.
+	if (IsValid(Definition))
 	{
-		TArray<FTextureData> NewTextures;
-		NewTextures.Reserve(Definition->Items.Num());
-		for (auto& TextureInfo : Definition->Items)
+		// Source Textures
+		TMap<FName, TObjectPtr<UTexture>> NewSourceTextures;
+
+		for (auto& TextureInfo : Definition->GetSourceTextures())
 		{
-			if (FTextureData* ExistingTexture = Textures.FindByPredicate(
-				[TextureInfo](FTextureData& TextureData)
-				{
-					return TextureData.TextureName.Equals(TextureInfo.TextureTypes);
-				}))
-			{
-				NewTextures.Add(*ExistingTexture);
-				continue;
-			}
-			FTextureData TextureData;
-			TextureData.TextureAsset = LoadDefaultTexture();
-			TextureData.TextureName.Append(TextureInfo.TextureTypes);
-			NewTextures.Add(TextureData);
+			TObjectPtr<UTexture>* OldTexture = SourceTextures.Find(TextureInfo.Name);
+			NewSourceTextures.Add(TextureInfo.Name, (OldTexture != nullptr) ? *OldTexture : nullptr);
 		}
 
-		Textures.Empty();
-		Textures.Append(NewTextures);
+		SourceTextures = NewSourceTextures;
 
-		//UpdateReferencingMaterials();
-	}
-}
-
-void UTextureSet::UpdateReferencingMaterials()
-{
-	//FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-	TArray<FName> HardDependencies = FTextureSetEditingUtils::FindReferencers(GetPackage()->GetFName());//AssetRegistryModule.Get().GetReferencers(GetPackage()->GetFName(), HardDependencies);
-
-	{
-		IMaterialEditorModule* MaterialEditorModule = &FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
-
-		for (auto dependency : HardDependencies)
+		// Asset Params
+		TArray<TSubclassOf<UTextureSetAssetParams>> RequiredAssetParamClasses = Definition->GetRequiredAssetParamClasses();
+		TArray<TSubclassOf<UTextureSetAssetParams>> ExistingAssetParamClasses;
+		
+		// Remove un-needed sample params
+		for (int i = 0; i < AssetParams.Num(); i++)
 		{
-			UObject* Referencer = UEditorAssetLibrary::LoadAsset(dependency.ToString());
-			if (!Referencer->IsA(UMaterial::StaticClass()))
+			UTextureSetAssetParams* AssetParam = AssetParams[i];
+			if (!RequiredAssetParamClasses.Contains(AssetParam->StaticClass()))
 			{
-				continue;
+				AssetParams.RemoveAt(i);
+				i--;
 			}
-
-			UMaterial* ReferencingMaterial = Cast<UMaterial>(Referencer);
-
-			for (UMaterialExpression* Expression : ReferencingMaterial->GetExpressions())
+			else
 			{
-				ensure(Expression);
-				Expression->PostEditChange();
+				ExistingAssetParamClasses.Add(AssetParam->StaticClass());
 			}
-
-			ReferencingMaterial->Modify();
-			//ReferencingMaterial->ForceRecompileForRendering();
-
-			UEditorAssetLibrary::SaveLoadedAsset(Referencer);
+		}
+		
+		// Add missing sample params
+		for (TSubclassOf<UTextureSetAssetParams> SampleParamClass : RequiredAssetParamClasses)
+		{
+			if (!ExistingAssetParamClasses.Contains(SampleParamClass))
+			{
+				AssetParams.Add(NewObject<UTextureSetAssetParams>(this, SampleParamClass));
+			}
 		}
 	}
 }

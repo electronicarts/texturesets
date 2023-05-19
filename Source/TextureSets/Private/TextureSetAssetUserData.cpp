@@ -15,7 +15,7 @@ void UTextureSetAssetUserData::PostEditChangeProperty(FPropertyChangedEvent& Pro
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 	for (auto& Override : TexturesSetOverrides)
 	{
-		//Override.IsOverridden = (Override.TextureSet != nullptr) && (Override.TextureSet != Override.DefaultTextureSet);
+		//Override.IsOverridden = (Override.DefaultTextureSet != nullptr) && (Override.DefaultTextureSet != Override.DefaultTextureSet);
 		Override.TextureSet = Override.TextureSet ? Override.TextureSet : Override.DefaultTextureSet;
 	}
 }

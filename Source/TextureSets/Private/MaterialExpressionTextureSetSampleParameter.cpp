@@ -33,12 +33,7 @@ UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampl
 
 void UMaterialExpressionTextureSetSampleParameter::PostLoad()
 {
-	if (TextureSet)
-	{
-		Definition = TextureSet->Definition;
-		SetMaterialFunctionFromDefinition();
-	}
-
+	SetMaterialFunctionFromDefinition();
 	Super::PostLoad();
 }
 
@@ -66,12 +61,16 @@ bool UMaterialExpressionTextureSetSampleParameter::GenerateHLSLExpression(FMater
 
 void UMaterialExpressionTextureSetSampleParameter::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	if (TextureSet)
+	if (PropertyChangedEvent.Property)
 	{
-		Definition = TextureSet->Definition;
-		SetMaterialFunctionFromDefinition();
+		const FName ChangedPropName = PropertyChangedEvent.Property->GetFName();
 
+		if (ChangedPropName == GET_MEMBER_NAME_CHECKED(UMaterialExpressionTextureSetSampleParameter, Definition))
+		{
+			SetMaterialFunctionFromDefinition();
+		}
 	}
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
@@ -80,7 +79,6 @@ void UMaterialExpressionTextureSetSampleParameter::PostEditChangeProperty(FPrope
 // TODO: Borrowed from UCompoundMaterialExpression::UpdateMaterialFunction. Should switch/delete later
 void UMaterialExpressionTextureSetSampleParameter::FixupMaterialFunction(TObjectPtr<UMaterialFunction> NewMaterialFunction)
 {
-
 	if (!IsValid(NewMaterialFunction))
 	{
 		return;
@@ -118,7 +116,7 @@ void UMaterialExpressionTextureSetSampleParameter::FixupMaterialFunction(TObject
 
 void UMaterialExpressionTextureSetSampleParameter::SetMaterialFunctionFromDefinition()
 {
-	if (!TextureSet)
+	if (!IsValid(Definition))
 	{
 		SetMaterialFunction(nullptr);
 		return;
@@ -126,27 +124,6 @@ void UMaterialExpressionTextureSetSampleParameter::SetMaterialFunctionFromDefini
 
 	TObjectPtr<UMaterialFunction> NewFunction = Definition->GenerateMaterialFunction(this);
 	check(IsValid(NewFunction));
-
-	// Set texture parameters
-	for (auto& Expression : NewFunction->GetExpressions())
-	{
-		if (!Expression->IsA(UMaterialExpressionTextureSample::StaticClass()))
-		{
-			continue;
-		}
-
-		for (const auto& TextureInfo : TextureSet->Textures)
-		{
-			if (Expression->GetParameterName().IsEqual(FName(TextureInfo.TextureName)))
-			{
-				FMaterialParameterMetadata Meta;
-				Expression->GetParameterValue(Meta);
-				Meta.Value.Texture = TextureInfo.TextureAsset;
-				Expression->SetParameterValue(FName(TextureInfo.TextureName), Meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
-				break;
-			}
-		}
-	}
 	
 	FixupMaterialFunction(NewFunction);
 	SetMaterialFunction(NewFunction);

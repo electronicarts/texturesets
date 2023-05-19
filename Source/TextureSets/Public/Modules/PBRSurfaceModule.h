@@ -9,9 +9,8 @@ UENUM()
 enum class EPBRParamaterization
 {
 	Basecolor_Metal,
-	Basecolor, // Purely Dielectric
 	Albedo_Spec,
-	Albedo_F0_F90,
+	Dielectric,
 };
 
 UENUM()
@@ -36,7 +35,6 @@ enum class EPBRNormalSpace
 	SurfaceGradient,
 };
 
-// Class which is instanced on each texture set sampler, and then provided to the module
 UCLASS()
 class UPBRSampleParams : public UTextureSetSampleParams
 {
@@ -52,7 +50,6 @@ public:
 	EPBRMicrosurface MicrosurfaceOutput;
 };
 
-// PBR material properties, with choices of source and output parameterizations.
 UCLASS()
 class UPBRSurfaceModule : public UTextureSetDefinitionModule
 {
@@ -63,8 +60,6 @@ public:
 	const FName BaseColorName = "BaseColor";
 	const FName AlbedoName = "Albedo";
 	const FName SpecularName = "Specular";
-	const FName F0Name = "F0";
-	const FName F90Name = "F90";
 	const FName RoughnessName = "Roughness";
 	const FName SmoothnessName = "Smoothness";
 	const FName TangentNormalName = "TangentNormal";
@@ -72,18 +67,21 @@ public:
 	const FName SurfaceGradientName = "SurfaceGradient";
 
 	virtual bool AllowMultiple() override { return false; }
+	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UPBRSampleParams::StaticClass(); }
 
 	virtual TArray<TextureSetTextureDef> GetSourceTextures() const override;
-	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UPBRSampleParams::StaticClass(); }
-	virtual TArray<OutputElementDef> GetOutputElements(const UTextureSetSampleParams* SampleParams) const override;
+	virtual void CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 
 private:
 	UPROPERTY(EditAnywhere)
-	EPBRParamaterization SourceParamaterization;
+	EPBRParamaterization Paramaterization; // Partially implemented
 
 	UPROPERTY(EditAnywhere)
-	EPBRMicrosurface SourceMicrosurface;
+	EPBRMicrosurface Microsurface; // Partially implemented
 
 	UPROPERTY(EditAnywhere)
-	EPBRNormal SourceNormal;
+	EPBRNormal Normal; // Partially implemented
+
+	UPROPERTY(EditAnywhere)
+	bool bEnableNDFPrefiltering; // Not implemented
 };

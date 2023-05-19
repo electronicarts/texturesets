@@ -99,7 +99,9 @@ void FTextureSetsModule::OnMaterialInstanceOpenedForEdit(UMaterialInstance* Mate
 	
 	for (auto Expression : MaterialInstance->GetMaterial()->GetExpressions())
 	{
-		if (Expression->IsA(UMaterialExpressionTextureSetSampleParameter::StaticClass()))
+		const UMaterialExpressionTextureSetSampleParameter* TextureSetExpression = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression);
+
+		if (IsValid(TextureSetExpression))
 		{
 			UTextureSetAssetUserData * TextureSetOverrides = MaterialInstancePtr->GetAssetUserData<UTextureSetAssetUserData>();
 			if (!TextureSetOverrides)
@@ -108,23 +110,28 @@ void FTextureSetsModule::OnMaterialInstanceOpenedForEdit(UMaterialInstance* Mate
 				MaterialInstance->AddAssetUserData(TextureSetOverrides);
 			}
 
-			FGuid Guid = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression)->MaterialExpressionGuid;
+			FGuid Guid = TextureSetExpression->MaterialExpressionGuid;
 			auto OverrideInstance = TextureSetOverrides->TexturesSetOverrides.FindByPredicate([Guid](const FSetOverride& SetOverride) { return SetOverride.Guid == Guid; });
 			if (OverrideInstance)
 			{
-				OverrideInstance->DefaultTextureSet = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression)->TextureSet;
-				OverrideInstance->Name = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression)->Name;
-				continue;
+				// Update existing override with the correct values
+				OverrideInstance->DefaultTextureSet = TextureSetExpression->DefaultTextureSet;
+				OverrideInstance->Definition = TextureSetExpression->Definition;
+				OverrideInstance->Name = TextureSetExpression->Name;
 			}
-
-			FSetOverride override;
-			override.Name = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression)->Name;
-			override.TextureSet = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression)->TextureSet;
-			override.DefaultTextureSet = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression)->TextureSet;
-			override.Guid = Guid;
-			override.IsOverridden = false;
+			else
+			{
+				// Add new override
+				FSetOverride Override;
+				Override.Name = TextureSetExpression->Name;
+				Override.TextureSet = TextureSetExpression->DefaultTextureSet;
+				Override.DefaultTextureSet = TextureSetExpression->DefaultTextureSet;
+				Override.Definition = TextureSetExpression->Definition;
+				Override.Guid = Guid;
+				Override.IsOverridden = false;
 			
-			TextureSetOverrides->AddOverride(override);
+				TextureSetOverrides->AddOverride(Override);
+			}
 		}
 	}
 

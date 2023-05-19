@@ -17,28 +17,28 @@
 
 TObjectPtr<UMaterialFunction> UTextureSetDefinition::GenerateMaterialFunction(UMaterialExpressionTextureSetSampleParameter* ExpressionInstance)
 {
-	TObjectPtr<UMaterialFunction> NewFunction = NewObject<UMaterialFunction>();
+	TObjectPtr<UMaterialFunction> NewFunction = NewObject<UMaterialFunction>(ExpressionInstance);
 
 	TObjectPtr<UMaterialExpressionFunctionInput> UVExpression = Cast<UMaterialExpressionFunctionInput>(UMaterialEditingLibrary::CreateMaterialExpressionInFunction(NewFunction, UMaterialExpressionFunctionInput::StaticClass()));
 	UVExpression->InputType = EFunctionInputType::FunctionInput_Vector2;
 	UVExpression->InputName = TEXT("UV");
 
-	for (const auto& TextureInfo : Items)
+	// TODO: Use packed textures
+	for (const auto& TextureInfo : GetProcessedTextures())
 	{
-
 		// Output for the texture
 		TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = Cast<UMaterialExpressionFunctionOutput>(UMaterialEditingLibrary::CreateMaterialExpressionInFunction(NewFunction, UMaterialExpressionFunctionOutput::StaticClass()));
-		OutputExpression->OutputName = FName(TextureInfo.TextureTypes);
+		OutputExpression->OutputName = FName(TextureInfo.Name);
 		NewFunction->GetExpressionCollection().AddExpression(OutputExpression);
 
 		TObjectPtr<UMaterialExpression> SampleExpression = UMaterialEditingLibrary::CreateMaterialExpressionInFunction(NewFunction, UMaterialExpressionTextureSampleParameter2D::StaticClass());
-		SampleExpression->SetParameterName(FName(TextureInfo.TextureTypes));
+		SampleExpression->SetParameterName(FName(TextureInfo.Name));
 		FMaterialParameterMetadata meta;
 		meta.Value.Type = EMaterialParameterType::Texture;
 		meta.Value.Texture = LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), nullptr, LOAD_None, nullptr);
 		meta.Group = FMaterialPropertyHelpers::TextureSetParamName;
 		meta.SortPriority = 0;
-		SampleExpression->SetParameterValue(FName(TextureInfo.TextureTypes), meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
+		SampleExpression->SetParameterValue(FName(TextureInfo.Name), meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
 		SampleExpression->UpdateParameterGuid(true, true);
 		// Material->AddExpressionParameter(RefExpression, Material->EditorParameters);
 		// Material->GetExpressionCollection().AddExpression(RefExpression);
@@ -66,9 +66,9 @@ void UTextureSetDefinition::PostEditChangeProperty(FPropertyChangedEvent& Proper
 	// 		continue;
 	// 	}
 	//
-	// 	TObjectPtr<UTextureSet> TextureSet = Cast<UTextureSet>(Referencer);
-	// 	TextureSet->Modify();
-	// 	TextureSet->UpdateFromDefinition();
+	// 	TObjectPtr<UTextureSet> DefaultTextureSet = Cast<UTextureSet>(Referencer);
+	// 	DefaultTextureSet->Modify();
+	// 	DefaultTextureSet->FixupSourceTextures();
 	//
 	// 	UEditorAssetLibrary::SaveLoadedAsset(Referencer);
 	// }
@@ -139,7 +139,7 @@ TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames() const
 	// Construct a list of channel names not yet used for packing (remaining choices)
 	TArray<FName> UnpackedNames = TArray<FName>{  FName() };
 
-	for (const TextureSetTextureDef& Tex : GetProcesedTextures())
+	for (const TextureSetTextureDef& Tex : GetProcessedTextures())
 	{
 		for (int i = 0; i < Tex.ChannelCount; i++)
 		{
@@ -154,17 +154,6 @@ TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames() const
 	return UnpackedNames;
 }
 
-TArray<TextureSetParameterDef> UTextureSetDefinition::GetSourceParameters() const
-{
-	TArray<TextureSetParameterDef> SourceParams;
-	for (UTextureSetDefinitionModule* Module : Modules)
-	{
-		if (IsValid(Module))
-			SourceParams.Append(Module->GetSourceParameters());
-	}
-	return SourceParams;
-};
-
 TArray<TextureSetTextureDef> UTextureSetDefinition::GetSourceTextures() const
 {
 	TArray<TextureSetTextureDef> SourceTextures;
@@ -176,7 +165,7 @@ TArray<TextureSetTextureDef> UTextureSetDefinition::GetSourceTextures() const
 	return SourceTextures;
 };
 
-TArray<TextureSetTextureDef> UTextureSetDefinition::GetProcesedTextures() const
+TArray<TextureSetTextureDef> UTextureSetDefinition::GetProcessedTextures() const
 {
 	TArray<TextureSetTextureDef> SourceTextures;
 	for (UTextureSetDefinitionModule* Module : Modules)
@@ -187,40 +176,55 @@ TArray<TextureSetTextureDef> UTextureSetDefinition::GetProcesedTextures() const
 	return SourceTextures;
 };
 
-TMap<FString, EMaterialValueType> UTextureSetDefinition::GetShaderConstants() const
+TMap<FName, EMaterialValueType> UTextureSetDefinition::GetShaderConstants(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
-	TMap<FString, EMaterialValueType> ShaderConstants;
+	TMap<FName, EMaterialValueType> ShaderConstants;
 	for (UTextureSetDefinitionModule* Module : Modules)
 	{
 		if (IsValid(Module))
-			ShaderConstants.Append(Module->GetShaderConstants());
+			Module->CollectShaderConstants(ShaderConstants, SampleExpression);
 	}
 	return ShaderConstants;
 };
 
-TArray<OutputElementDef> UTextureSetDefinition::GetOutputElements(TArray<UTextureSetSampleParams*> SampleParamsArray) const
+TMap<FName, EMaterialValueType> UTextureSetDefinition::GetSampleArguments(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
-	TArray<OutputElementDef> OutputElements;
+	TMap<FName, EMaterialValueType> ShaderConstants;
+	for (UTextureSetDefinitionModule* Module : Modules)
+	{
+		if (IsValid(Module))
+			Module->CollectSampleInputs(ShaderConstants, SampleExpression);
+	}
+	return ShaderConstants;
+};
+
+TMap<FName, EMaterialValueType> UTextureSetDefinition::GetSampleResults(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+{
+	TMap<FName, EMaterialValueType> ShaderConstants;
+	for (UTextureSetDefinitionModule* Module : Modules)
+	{
+		if (IsValid(Module))
+			Module->CollectSampleOutputs(ShaderConstants, SampleExpression);
+	}
+	return ShaderConstants;
+};
+
+TArray<TSubclassOf<UTextureSetAssetParams>> UTextureSetDefinition::GetRequiredAssetParamClasses() const
+{
+	TArray<TSubclassOf<UTextureSetAssetParams>> RequiredTypes;
 	for (UTextureSetDefinitionModule* Module : Modules)
 	{
 		if (IsValid(Module))
 		{
-			UTextureSetSampleParams* SampleParams = nullptr;
+			UClass* SampleParamClass = Module->GetAssetParamClass();
 
-			for (UTextureSetSampleParams* Params : SampleParamsArray)
-			{
-				if (Params->GetClass() == Module->GetSampleParamClass())
-				{
-					SampleParams = Params;
-					break;
-				}
-			}
-
-			OutputElements.Append(Module->GetOutputElements(SampleParams));
+			if (SampleParamClass != nullptr)
+				if (!RequiredTypes.Contains(SampleParamClass))
+					RequiredTypes.Add(SampleParamClass);
 		}
 	}
-	return OutputElements;
-};
+	return RequiredTypes;
+}
 
 TArray<TSubclassOf<UTextureSetSampleParams>> UTextureSetDefinition::GetRequiredSampleParamClasses() const
 {

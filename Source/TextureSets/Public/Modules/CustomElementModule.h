@@ -15,35 +15,32 @@ public:
 	virtual bool AllowMultiple() { return true; }
 	virtual FString GetInstanceName() const  override { return ElementName.ToString(); }
 
-	virtual TArray<TextureSetParameterDef> GetSourceParameters() const override
-	{
-		// No Params
-		return TArray<TextureSetParameterDef> {};
-	};
-
 	virtual TArray<TextureSetTextureDef> GetSourceTextures() const override
 	{
 		return TArray<TextureSetTextureDef> { TextureSetTextureDef{ ElementName, SRGB, ChannelCount, DefaultValue } };
 	};
 
-	virtual TArray<OutputElementDef> GetOutputElements(const UTextureSetSampleParams* SampleParams) const override
+	virtual void CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleParams) const override
 	{
 		const EMaterialValueType ValueTypeLookup[4] = { MCT_Float1, MCT_Float2, MCT_Float3, MCT_Float4 };
 
-		return TArray<OutputElementDef> { OutputElementDef{ ElementName, ValueTypeLookup[ChannelCount] } };
+		Results.Add(ElementName, ValueTypeLookup[ChannelCount]);
 	};
 
 private:
 	UPROPERTY(EditAnywhere)
 	FName ElementName;
 
+	// Used for correct packing and unpacking
 	UPROPERTY(EditAnywhere)
-	bool SRGB; // Used for correct packing and unpacking
+	bool SRGB;
 
+	// between 1 and 4
 	UPROPERTY(EditAnywhere)
-	uint8 ChannelCount; // between 1 and 4
+	uint8 ChannelCount;
 
+	// Used as a fallback if this map is not provided
 	UPROPERTY(EditAnywhere)
-	FVector4 DefaultValue; // Used as a fallback if this map is not provided
+	FVector4 DefaultValue;
 
 };

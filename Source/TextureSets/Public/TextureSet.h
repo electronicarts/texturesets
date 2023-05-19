@@ -16,46 +16,46 @@ class UTextureSetDefinition;
 
 TObjectPtr<UTexture2D> LoadDefaultTexture();
 
-USTRUCT(BlueprintType)
-struct FTextureData
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite)
-	FString TextureName;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
-	TObjectPtr<class UTexture> TextureAsset = LoadDefaultTexture();
-	UPROPERTY()
-	TArray< TObjectPtr<UAssetUserData> > AssetUserData;
-};
-
 UCLASS(BlueprintType, hidecategories = (Object))
 class TEXTURESETS_API UTextureSet : public UObject
 {
 	GENERATED_UCLASS_BODY()
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Compositing)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TObjectPtr<UTextureSetDefinition> Definition;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, EditFixedSize, Category = Compositing)
-	TArray<FTextureData> Textures;
-	
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent & PropertyChangedEvent) override;
-
-	void UpdateFromDefinition();
-	void UpdateReferencingMaterials();
 
 #if WITH_EDITORONLY_DATA
-	UPROPERTY()
-	TMap<FName, FTextureSource> SourceTextures;
+	UPROPERTY(EditAnywhere, EditFixedSize)
+	TMap<FName, TObjectPtr<class UTexture>> SourceTextures;
 
-	UPROPERTY()
-	TMap<FName, FVector4> SourceParameters;
+	UPROPERTY(EditAnywhere, EditFixedSize)
+	TArray<class UTextureSetAssetParams*> AssetParams;
+
+	template <class T>
+	const T* GetAssetParams() const
+	{
+		for (UTextureSetAssetParams* Params : AssetParams)
+		{
+			const T* P = Cast<T>(Params);
+
+			if (IsValid(P))
+			{
+				return P;
+			}
+		}
+		return GetDefault<T>(); // Not found, return the default class
+	}
 #endif
 
 	UPROPERTY()
 	TArray<UTexture*> CookedTextures;
-	
+
 	UPROPERTY()
 	TMap<FName, FVector4> ShaderParameters;
+	
+	virtual void PostLoad() override;
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+
+	void FixupData();
+
 };

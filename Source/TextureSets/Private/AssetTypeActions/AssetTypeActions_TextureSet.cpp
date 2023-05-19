@@ -164,11 +164,11 @@ TArray<TObjectPtr<UPackage>> FAssetTypeActions_TextureSet::FixMaterialUsage(TObj
 				UMaterialExpressionTextureSetSampleParameter* TSSampleExpression = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression);
 				if (TSSampleExpression)
 				{
-					if (TextureSet == TSSampleExpression->TextureSet)
+					if (TextureSet == TSSampleExpression->DefaultTextureSet)
 					{
 						Expression->Modify();
 
-						FPropertyChangedEvent Event(UMaterialExpressionTextureSetSampleParameter::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UMaterialExpressionTextureSetSampleParameter, TextureSet)));
+						FPropertyChangedEvent Event(UMaterialExpressionTextureSetSampleParameter::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UMaterialExpressionTextureSetSampleParameter, DefaultTextureSet)));
 						Expression->PostEditChangeProperty(Event);
 
 						bMaterialModified = true;
@@ -200,12 +200,12 @@ TArray<TObjectPtr<UPackage>> FAssetTypeActions_TextureSet::FixMaterialUsage(TObj
 				UMaterialExpressionTextureSetSampleParameter* TSSampleExpression = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression);
 				if (TSSampleExpression)
 				{
-					if (TextureSet == TSSampleExpression->TextureSet)
+					if (TextureSet == TSSampleExpression->DefaultTextureSet)
 					{
 						//if (TSSampleExpression->InitVirtualTextureDependentSettings())
 						Expression->Modify();
 
-						FPropertyChangedEvent Event(UMaterialExpressionTextureSetSampleParameter::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UMaterialExpressionTextureSetSampleParameter, TextureSet)));
+						FPropertyChangedEvent Event(UMaterialExpressionTextureSetSampleParameter::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UMaterialExpressionTextureSetSampleParameter, DefaultTextureSet)));
 						Expression->PostEditChangeProperty(Event);
 
 						bFunctionModified = true;

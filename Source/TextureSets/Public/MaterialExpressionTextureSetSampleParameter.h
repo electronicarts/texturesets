@@ -25,17 +25,35 @@ class UMaterialExpressionTextureSetSampleParameter : public UMaterialExpressionM
 {
 	GENERATED_UCLASS_BODY()
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MaterialExpressionTextureBase)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FName Name;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MaterialExpressionTextureBase)
-	TObjectPtr<class UTextureSet> TextureSet;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<class UTextureSet> DefaultTextureSet;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MaterialExpressionTextureBase)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TObjectPtr<class UTextureSetDefinition> Definition;
 
-	UPROPERTY(EditAnywhere, EditFixedSize)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bSamplePackedTextures; // Temp, set to true to enable packing and unpacking
+
+	UPROPERTY(EditAnywhere, EditFixedSize, NoClear)
 	TArray<class UTextureSetSampleParams*> SampleParams;
+
+	template <class T>
+	const T* GetSampleParams() const
+	{
+		for (UTextureSetSampleParams* Params : SampleParams)
+		{
+			const T* SP = Cast<T>(Params);
+
+			if (IsValid(SP))
+			{
+				return SP;
+			}
+		}
+		return GetDefault<T>(); // Not found, return the default class
+	}
 
 #if WITH_EDITOR
 

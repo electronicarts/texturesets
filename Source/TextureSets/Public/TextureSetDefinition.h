@@ -7,6 +7,8 @@
 #include "TextureSetPackedTextureDef.h"
 #include "TextureSetDefinition.generated.h"
 
+class UMaterialExpressionTextureSetSampleParameter;
+
 // A texture map input
 struct TextureSetTextureDef
 {
@@ -27,25 +29,14 @@ enum class ESourceParameterType
 	Boolean,
 };
 
-struct TextureSetParameterDef
+// Data class which is instanced on each texture set asset. Module can use this to allow users to configure asset settings.
+UCLASS(Abstract, EditInlineNew, DefaultToInstanced, BlueprintType, Blueprintable, CollapseCategories)
+class UTextureSetAssetParams : public UObject
 {
-public:
-	FName Name;
-	ESourceParameterType ParameterType;
-	FVector4 DefaultValue;
+	GENERATED_BODY()
 };
 
-class OutputElementDef
-{
-public:
-	// Name on the sampler output pin
-	FName Name;
-
-	// Material pin type
-	EMaterialValueType Type;
-};
-
-// Class which is instanced on each texture set sampler, and then provided to the module
+// Data class which is instanced on each texture set sampler material expression. Module can use this to allow users to configure sample settings.
 UCLASS(Abstract, EditInlineNew, DefaultToInstanced, BlueprintType, Blueprintable, CollapseCategories)
 class UTextureSetSampleParams : public UObject
 {
@@ -64,51 +55,37 @@ public:
 	// Useful for modules which allow multiple instances on the same definition.
 	virtual FString GetInstanceName() const { return this->GetClass()->GetName(); }
 
-	// Parameters stored on the texture set instance, which feed into the cooking step
-	virtual TArray<TextureSetParameterDef> GetSourceParameters() const { return TArray<TextureSetParameterDef> {}; }
+	// Which class this module uses to attach parameters to a texture set asset instance
+	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const { return nullptr; }
+
+	// Which class this module uses to attach parameters to the sampler material expression
+	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const { return nullptr; }
+
 	// Input texture maps which are to be processed
 	virtual TArray<TextureSetTextureDef> GetSourceTextures() const { return TArray<TextureSetTextureDef> {}; }
+
 	// Processed texture maps which are to be packed
 	virtual TArray<TextureSetTextureDef> GetProcessedTextures() const { return GetSourceTextures(); }
 
 	// Shader constants required for sampling
-	virtual TMap<FString, EMaterialValueType> GetShaderConstants() const { return TMap<FString, EMaterialValueType> {}; }
+	virtual void CollectShaderConstants(TMap<FName, EMaterialValueType>& Constants, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const {}
 	
-	// Which class to attach to the sampler node to store our sampling parameters
-	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const { return nullptr; }
-	
+	// Required input pins on the sampler node
+	virtual void CollectSampleInputs(TMap<FName, EMaterialValueType>& Arguments, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const {}
+
 	// Output pins on the sampler node
-	virtual TArray<OutputElementDef> GetOutputElements(const UTextureSetSampleParams* SampleParams) const { return TArray<OutputElementDef> {}; }
+	virtual void CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const {}
 
 	// Process the source data into the intermediate results
 	// Transforms source elements into processed data
+	// Sets values of shader constants
 	// TODO: Define arguments and return values
-	virtual void Process() {}
+	virtual void Process(const UTextureSetAssetParams* AssetParams) {}
 
 	// Logic (material graph) for unpacking data
 	// Transforms processed data into desired output elements
 	// TODO: Define arguments and return values
-	virtual void Sample() {}
-};
-
-// TODO: Remove
-USTRUCT()
-struct FTextureDefinitionInfo
-{
-	GENERATED_BODY()
-
-public:
-	UPROPERTY(EditAnywhere)
-	FString TextureTypes;
-
-	UPROPERTY(EditAnywhere, Category=Components)
-	bool R = true;
-	UPROPERTY(EditAnywhere, Category=Components)
-	bool G = false;
-	UPROPERTY(EditAnywhere, Category=Components)
-	bool B = false;
-	UPROPERTY(EditAnywhere, Category=Components)
-	bool A = false;
+	virtual void Sample(const UTextureSetSampleParams* SampleParams) {}
 };
 
 UCLASS()
@@ -117,13 +94,11 @@ class TEXTURESETS_API UTextureSetDefinition : public UDataAsset
 	GENERATED_BODY()
 
 public:
-	// TODO: Remove
-	UPROPERTY(EditAnywhere)
-	TArray<FTextureDefinitionInfo> Items;
-	
 	UPROPERTY(EditAnywhere)
 	TArray<UTextureSetDefinitionModule*> Modules;
 
+	UPROPERTY()
+	TObjectPtr<UMaterialFunction> SamplingMaterialFunction;
 	UPROPERTY(EditAnywhere, meta=(TitleProperty="CompressionSettings"))
 	TArray<FTextureSetPackedTextureDef> PackedTextures;
 
@@ -138,11 +113,13 @@ public:
 	UFUNCTION(CallInEditor)
 	TArray<FName> GetUnpackedChannelNames() const;
 
-	TArray<TextureSetParameterDef> GetSourceParameters() const;
 	TArray<TextureSetTextureDef> GetSourceTextures() const;
-	TArray<TextureSetTextureDef> GetProcesedTextures() const;
-	TMap<FString, EMaterialValueType> GetShaderConstants() const;
-	TArray<OutputElementDef> GetOutputElements(TArray<UTextureSetSampleParams*> SampleParamsArray) const;
+	TArray<TextureSetTextureDef> GetProcessedTextures() const;
+	TMap<FName, EMaterialValueType> GetShaderConstants(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
+	TMap<FName, EMaterialValueType> GetSampleArguments(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
+	TMap<FName, EMaterialValueType> GetSampleResults(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
+	
+	TArray<TSubclassOf<UTextureSetAssetParams>> GetRequiredAssetParamClasses() const;
 	TArray<TSubclassOf<UTextureSetSampleParams>> GetRequiredSampleParamClasses() const;
 };
 

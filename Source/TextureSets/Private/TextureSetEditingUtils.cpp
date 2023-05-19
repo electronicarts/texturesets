@@ -50,24 +50,27 @@ void FTextureSetEditingUtils::UpdateMaterialInstance(UMaterialInstance* Material
 				continue;
 			}
 
-			for (int packedTextureIdx = 0; packedTextureIdx < Override.TextureSet->Textures.Num(); packedTextureIdx++)
+			if (IsValid(Override.TextureSet))
 			{
-				FName Name = FName(Override.TextureSet->Textures[packedTextureIdx].TextureName);
-
-				auto OverrideInstance = MaterialInstancePtr->TextureParameterValues.FindByPredicate([Name](const FTextureParameterValue& Param) { return Param.ParameterInfo.Name.IsEqual(Name); });
-
-				UTextureSet* SourceTextureSet = Override.IsOverridden && (Override.TextureSet != nullptr) ? Override.TextureSet : Override.DefaultTextureSet;
-
-				if (!OverrideInstance)
+				// TODO: Use cooked textures, not source textures
+				for (auto& pair : Override.TextureSet->SourceTextures)
 				{
-					FTextureParameterValue TextureSetOverride;
-					TextureSetOverride.ParameterValue = SourceTextureSet->Textures[packedTextureIdx].TextureAsset;
-					TextureSetOverride.ParameterInfo.Name = Name;
-					MaterialInstancePtr->TextureParameterValues.Add(TextureSetOverride);
-				}
-				else
-				{
-					OverrideInstance->ParameterValue = SourceTextureSet->Textures[packedTextureIdx].TextureAsset;
+					const FName& Name = pair.Key;
+					const TObjectPtr<UTexture> Texture = pair.Value;
+
+					auto OverrideInstance = MaterialInstancePtr->TextureParameterValues.FindByPredicate([Name](const FTextureParameterValue& Param) { return Param.ParameterInfo.Name.IsEqual(Name); });
+
+					if (!OverrideInstance)
+					{
+						FTextureParameterValue TextureSetOverride;
+						TextureSetOverride.ParameterValue = Texture;
+						TextureSetOverride.ParameterInfo.Name = Name;
+						MaterialInstancePtr->TextureParameterValues.Add(TextureSetOverride);
+					}
+					else
+					{
+						OverrideInstance->ParameterValue = Texture;
+					}
 				}
 			}
 		}
