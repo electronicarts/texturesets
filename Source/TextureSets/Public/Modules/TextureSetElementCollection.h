@@ -37,6 +37,9 @@ public:
 	virtual TArray<TextureSetTextureDef> GetSourceTextures() const override;
 	virtual void CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleParams) const override;
 
+	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+		FTextureSetMaterialGraphBuilder& Builder) const override;
+
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	bool bAllowMultiple;

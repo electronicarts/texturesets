@@ -1,6 +1,4 @@
-//
-// (c) Electronic Arts.  All Rights Reserved.
-//
+// (c) Electronic Arts. All Rights Reserved.
 
 #include "TextureSets.h"
 
@@ -117,13 +115,13 @@ void FTextureSetsModule::OnMaterialInstanceOpenedForEdit(UMaterialInstance* Mate
 				// Update existing override with the correct values
 				OverrideInstance->DefaultTextureSet = TextureSetExpression->DefaultTextureSet;
 				OverrideInstance->Definition = TextureSetExpression->Definition;
-				OverrideInstance->Name = TextureSetExpression->Name;
+				OverrideInstance->Name = TextureSetExpression->ParameterName;
 			}
 			else
 			{
 				// Add new override
 				FSetOverride Override;
-				Override.Name = TextureSetExpression->Name;
+				Override.Name = TextureSetExpression->ParameterName;
 				Override.TextureSet = TextureSetExpression->DefaultTextureSet;
 				Override.DefaultTextureSet = TextureSetExpression->DefaultTextureSet;
 				Override.Definition = TextureSetExpression->Definition;

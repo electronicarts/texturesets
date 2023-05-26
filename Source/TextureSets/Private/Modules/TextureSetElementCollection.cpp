@@ -2,6 +2,9 @@
 
 #include "Modules/TextureSetElementCollection.h"
 
+#include "Materials/MaterialExpression.h"
+#include "Materials/MaterialExpressionFunctionOutput.h"
+
 TArray<TextureSetTextureDef> UTextureSetElementCollection::GetSourceTextures() const
 {
 	TArray<TextureSetTextureDef> SourceTextures;
@@ -26,5 +29,17 @@ void UTextureSetElementCollection::CollectSampleOutputs(TMap<FName, EMaterialVal
 	for (const FElementDefinition& Element: Elements)
 	{
 		Results.Add(Element.ElementName, ValueTypeLookup[Element.ChannelCount]);
+	}
+}
+
+void UTextureSetElementCollection::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+	FTextureSetMaterialGraphBuilder& Builder) const
+{
+	for (const FElementDefinition& Element: Elements)
+	{
+		// Simply connect texture sample to the matching output.
+		TObjectPtr<UMaterialExpression> TextureExpression = Builder.GetProcessedTextureSample(Element.ElementName);
+		TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = Builder.GetOutput(Element.ElementName);
+		TextureExpression->ConnectExpression(OutputExpression->GetInput(0), 0);
 	}
 }

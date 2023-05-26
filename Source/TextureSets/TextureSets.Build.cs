@@ -45,6 +45,7 @@ public class TextureSets : ModuleRules
 				"PropertyEditor",
 				"MaterialEditor",
 				"EditorScriptingUtilities",
+				"MotiveMaterialLibrary",
 			}
 			);
 		

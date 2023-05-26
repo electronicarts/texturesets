@@ -1,6 +1,5 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-
 #include "TextureSetDefinition.h"
 
 #include "EditorAssetLibrary.h"
@@ -15,70 +14,7 @@
 #include <MaterialPropertyHelpers.h>
 #include "MaterialExpressionTextureSetSampleParameter.h"
 
-TObjectPtr<UMaterialFunction> UTextureSetDefinition::GenerateMaterialFunction(UMaterialExpressionTextureSetSampleParameter* ExpressionInstance)
-{
-	TObjectPtr<UMaterialFunction> NewFunction = NewObject<UMaterialFunction>(ExpressionInstance);
-
-	TObjectPtr<UMaterialExpressionFunctionInput> UVExpression = Cast<UMaterialExpressionFunctionInput>(UMaterialEditingLibrary::CreateMaterialExpressionInFunction(NewFunction, UMaterialExpressionFunctionInput::StaticClass()));
-	UVExpression->InputType = EFunctionInputType::FunctionInput_Vector2;
-	UVExpression->InputName = TEXT("UV");
-
-	// TODO: Use packed textures
-	for (const auto& TextureInfo : GetProcessedTextures())
-	{
-		// Output for the texture
-		TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = Cast<UMaterialExpressionFunctionOutput>(UMaterialEditingLibrary::CreateMaterialExpressionInFunction(NewFunction, UMaterialExpressionFunctionOutput::StaticClass()));
-		OutputExpression->OutputName = FName(TextureInfo.Name);
-		NewFunction->GetExpressionCollection().AddExpression(OutputExpression);
-
-		TObjectPtr<UMaterialExpression> SampleExpression = UMaterialEditingLibrary::CreateMaterialExpressionInFunction(NewFunction, UMaterialExpressionTextureSampleParameter2D::StaticClass());
-		SampleExpression->SetParameterName(FName(TextureInfo.Name));
-		FMaterialParameterMetadata meta;
-		meta.Value.Type = EMaterialParameterType::Texture;
-		meta.Value.Texture = LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), nullptr, LOAD_None, nullptr);
-		meta.Group = FMaterialPropertyHelpers::TextureSetParamName;
-		meta.SortPriority = 0;
-		SampleExpression->SetParameterValue(FName(TextureInfo.Name), meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
-		SampleExpression->UpdateParameterGuid(true, true);
-		// Material->AddExpressionParameter(RefExpression, Material->EditorParameters);
-		// Material->GetExpressionCollection().AddExpression(RefExpression);
-		SampleExpression->ConnectExpression(OutputExpression->GetInput(0), 0);
-
-		UVExpression->ConnectExpression(SampleExpression->GetInput(0), 0);
-	}
-
-#if WITH_EDITOR
-	UMaterialEditingLibrary::LayoutMaterialFunctionExpressions(NewFunction);
-#endif
-	return NewFunction;
-}
-
-void UTextureSetDefinition::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
-{
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-	// TArray<FName> HardDependencies = FTextureSetEditingUtils::FindReferencers(GetPackage()->GetFName());
-	//
-	// for (auto Dependency : HardDependencies)
-	// {
-	// 	UObject* Referencer = UEditorAssetLibrary::LoadAsset(Dependency.ToString());
-	// 	if (!Referencer->IsA(UTextureSet::StaticClass()))
-	// 	{
-	// 		continue;
-	// 	}
-	//
-	// 	TObjectPtr<UTextureSet> DefaultTextureSet = Cast<UTextureSet>(Referencer);
-	// 	DefaultTextureSet->Modify();
-	// 	DefaultTextureSet->FixupSourceTextures();
-	//
-	// 	UEditorAssetLibrary::SaveLoadedAsset(Referencer);
-	// }
-}
-
-void UTextureSetDefinition::PostLoad()
-{
-	//GenerateMaterialFunction();
-	Super::PostLoad();
-}
+const FString UTextureSetDefinition::ChannelSuffixes[4] = {".r", ".g", ".b", ".a"};
 
 bool UTextureSetDefinition::CanEditChange(const FProperty* InProperty) const
 {
@@ -143,7 +79,6 @@ TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames() const
 	{
 		for (int i = 0; i < Tex.ChannelCount; i++)
 		{
-			FString ChannelSuffixes[4] = {".r", ".g", ".b", ".a"};
 			FName ChannelName = FName(Tex.Name.ToString() + (Tex.ChannelCount > 1 ? ChannelSuffixes[i] : ""));
 
 			if (!PackedNames.Contains(ChannelName))
@@ -241,6 +176,22 @@ TArray<TSubclassOf<UTextureSetSampleParams>> UTextureSetDefinition::GetRequiredS
 		}
 	}
 	return RequiredTypes;
+}
+
+UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int index) const
+{
+	// TODO: Actually get a small texture with the correct default colors.
+	return LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), nullptr, LOAD_None, nullptr);
+}
+
+void UTextureSetDefinition::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+	FTextureSetMaterialGraphBuilder& Builder) const
+{
+	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredTypes;
+	for (UTextureSetDefinitionModule* Module : Modules)
+	{
+		Module->GenerateSamplingGraph(SampleExpression, Builder);
+	}
 }
 
 UTextureSetDefinitionFactory::UTextureSetDefinitionFactory(const FObjectInitializer& ObjectInitializer)

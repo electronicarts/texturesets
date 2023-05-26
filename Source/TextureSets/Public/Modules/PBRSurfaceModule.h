@@ -72,6 +72,9 @@ public:
 	virtual TArray<TextureSetTextureDef> GetSourceTextures() const override;
 	virtual void CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 
+	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+		FTextureSetMaterialGraphBuilder& Builder) const override;
+
 private:
 	UPROPERTY(EditAnywhere)
 	EPBRParamaterization Paramaterization; // Partially implemented

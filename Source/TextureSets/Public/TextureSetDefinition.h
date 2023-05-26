@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 #include "TextureSetPackedTextureDef.h"
+#include "TextureSetMaterialGraphBuilder.h"
 #include "TextureSetDefinition.generated.h"
 
 class UMaterialExpressionTextureSetSampleParameter;
@@ -84,8 +85,8 @@ public:
 
 	// Logic (material graph) for unpacking data
 	// Transforms processed data into desired output elements
-	// TODO: Define arguments and return values
-	virtual void Sample(const UTextureSetSampleParams* SampleParams) {}
+	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+		FTextureSetMaterialGraphBuilder& Builder) const {}
 };
 
 UCLASS()
@@ -94,21 +95,19 @@ class TEXTURESETS_API UTextureSetDefinition : public UDataAsset
 	GENERATED_BODY()
 
 public:
+	// Suffixes used when addressing specific channels of a texture by name
+	// Defined as {".r", ".g", ".b", ".a"}
+	static const FString ChannelSuffixes[4];
+
 	UPROPERTY(EditAnywhere)
 	TArray<UTextureSetDefinitionModule*> Modules;
 
-	UPROPERTY()
-	TObjectPtr<UMaterialFunction> SamplingMaterialFunction;
 	UPROPERTY(EditAnywhere, meta=(TitleProperty="CompressionSettings"))
 	TArray<FTextureSetPackedTextureDef> PackedTextures;
 
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual bool CanEditChange(const FProperty* InProperty) const override;
 #endif
-
-	TObjectPtr<UMaterialFunction> GenerateMaterialFunction(class UMaterialExpressionTextureSetSampleParameter* ExpressionInstance);
 
 	UFUNCTION(CallInEditor)
 	TArray<FName> GetUnpackedChannelNames() const;
@@ -121,6 +120,11 @@ public:
 	
 	TArray<TSubclassOf<UTextureSetAssetParams>> GetRequiredAssetParamClasses() const;
 	TArray<TSubclassOf<UTextureSetSampleParams>> GetRequiredSampleParamClasses() const;
+
+	UTexture* GetDefaultPackedTexture(int index) const;
+
+	void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+		FTextureSetMaterialGraphBuilder& Builder) const;
 };
 
 UCLASS()

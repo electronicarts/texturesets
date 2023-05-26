@@ -1,6 +1,7 @@
 // (c) Electronic Arts. All Rights Reserved.
 
 #include "Modules/FlipbookModule.h"
+
 #include "MaterialExpressionTextureSetSampleParameter.h"
 
 TArray<TextureSetTextureDef> UFlipbookModule::GetSourceTextures() const
@@ -17,15 +18,15 @@ void UFlipbookModule::CollectShaderConstants(TMap<FName, EMaterialValueType>& Co
 {
 	const UFlipbookSampleParams* FlipbookSampleParams = SampleExpression->GetSampleParams<UFlipbookSampleParams>();
 	
-	Constants.Add("FrameCount", EMaterialValueType::MCT_Float);
-	Constants.Add("FrameRate", EMaterialValueType::MCT_Float);
+	Constants.Add("FrameCount", EMaterialValueType::MCT_Float1);
+	Constants.Add("FrameRate", EMaterialValueType::MCT_Float1);
 }
 
 void UFlipbookModule::CollectSampleInputs(TMap<FName, EMaterialValueType>& Arguments, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const UFlipbookSampleParams* FlipbookSampleParams = SampleExpression->GetSampleParams<UFlipbookSampleParams>();
 
-	Arguments.Add("FlibookTime", EMaterialValueType::MCT_Float);
+	Arguments.Add("FlibookTime", EMaterialValueType::MCT_Float1);
 }
 
 void UFlipbookModule::CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const

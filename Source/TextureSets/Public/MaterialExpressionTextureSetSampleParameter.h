@@ -1,6 +1,4 @@
-//
-// (c) Electronic Arts.  All Rights Reserved.
-//
+// (c) Electronic Arts. All Rights Reserved.
 
 #pragma once
 
@@ -10,31 +8,29 @@
 #include "MaterialGraph/MaterialGraphNode.h"
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionTextureObjectParameter.h"
+#include "ProceduralMaterialFunction.h"
 
 #include "MaterialExpressionTextureSetSampleParameter.generated.h"
 
 class UTextureSet;
-class UMaterialExpressionTextureObjectParameter;
 class FObjectInitializer;
 class FArguments;
 
-UMaterialGraphNode* AddExpression(UMaterialExpression* Expression, UMaterialGraph* Graph);
-
 UCLASS(MinimalAPI, HideCategories = (MaterialExpressionMaterialFunctionCall))
-class UMaterialExpressionTextureSetSampleParameter : public UMaterialExpressionMaterialFunctionCall
+class UMaterialExpressionTextureSetSampleParameter : public UProceduralMaterialFunction
 {
 	GENERATED_UCLASS_BODY()
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FName Name;
+	UPROPERTY(EditAnywhere)
+	FName ParameterName;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere)
 	TObjectPtr<class UTextureSet> DefaultTextureSet;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere)
 	TObjectPtr<class UTextureSetDefinition> Definition;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere)
 	bool bSamplePackedTextures; // Temp, set to true to enable packing and unpacking
 
 	UPROPERTY(EditAnywhere, EditFixedSize, NoClear)
@@ -55,22 +51,9 @@ public:
 		return GetDefault<T>(); // Not found, return the default class
 	}
 
-#if WITH_EDITOR
-
-	virtual void  GetCaption(TArray<FString>& OutCaptions) const override;
-	virtual FText GetKeywords() const override;
-
-	virtual bool GenerateHLSLExpression(FMaterialHLSLGenerator& Generator, UE::HLSLTree::FScope& Scope, int32 OutputIndex, UE::HLSLTree::FExpression const*& OutExpression) const override;
-	
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-
-#endif
-
-	virtual void PostLoad() override;
+	virtual class UMaterialFunction* CreateMaterialFunction() override;
 
 private:
-	void FixupMaterialFunction(TObjectPtr<UMaterialFunction> NewMaterialFunction);
-	void SetMaterialFunctionFromDefinition();
 	void UpdateSampleParamArray();
 
 };

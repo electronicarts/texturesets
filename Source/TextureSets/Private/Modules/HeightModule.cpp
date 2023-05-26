@@ -1,7 +1,10 @@
 // (c) Electronic Arts. All Rights Reserved.
 
 #include "Modules/HeightModule.h"
+
 #include "MaterialExpressionTextureSetSampleParameter.h"
+#include "Materials/MaterialExpression.h"
+#include "Materials/MaterialExpressionFunctionOutput.h"
 
 TArray<TextureSetTextureDef> UHeightModule::GetSourceTextures() const
 {
@@ -16,7 +19,7 @@ void UHeightModule::CollectShaderConstants(TMap<FName, EMaterialValueType>& Cons
 
 	if (HeightSampleParams->bEnableParallaxOcclusionMapping)
 	{
-		Constants.Add("ParallaxReferencePlane", EMaterialValueType::MCT_Float);
+		Constants.Add("ParallaxReferencePlane", EMaterialValueType::MCT_Float1);
 	}
 }
 
@@ -26,8 +29,8 @@ void UHeightModule::CollectSampleInputs(TMap<FName, EMaterialValueType>& Argumen
 
 	if (HeightSampleParams->bEnableParallaxOcclusionMapping)
 	{
-		Arguments.Add("ParallaxStrength", EMaterialValueType::MCT_Float);
-		Arguments.Add("ParallaxIterations", EMaterialValueType::MCT_Float);
+		Arguments.Add("ParallaxStrength", EMaterialValueType::MCT_Float1);
+		Arguments.Add("ParallaxIterations", EMaterialValueType::MCT_Float1);
 	}
 }
 
@@ -35,10 +38,18 @@ void UHeightModule::CollectSampleOutputs(TMap<FName, EMaterialValueType>& Result
 {
 	const UHeightSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UHeightSampleParams>();
 
-	Results.Add("Height", EMaterialValueType::MCT_Float);
+	Results.Add("Height", EMaterialValueType::MCT_Float1);
 
 	if (HeightSampleParams->bEnableParallaxOcclusionMapping)
 	{
 		Results.Add("ParallaxOffset", EMaterialValueType::MCT_Float2);
 	}
+}
+
+void UHeightModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+	FTextureSetMaterialGraphBuilder& Builder) const
+{
+	TObjectPtr<UMaterialExpression> TextureExpression = Builder.GetProcessedTextureSample("Height");
+	TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = Builder.GetOutput("Height");
+	TextureExpression->ConnectExpression(OutputExpression->GetInput(0), 0);
 }

@@ -1,6 +1,4 @@
-//
-// (c) Electronic Arts.  All Rights Reserved.
-//
+// (c) Electronic Arts. All Rights Reserved.
 
 #pragma once
 
@@ -10,11 +8,8 @@
 
 #include "TextureSet.generated.h"
 
-
 class UTexture;
 class UTextureSetDefinition;
-
-TObjectPtr<UTexture2D> LoadDefaultTexture();
 
 UCLASS(BlueprintType, hidecategories = (Object))
 class TEXTURESETS_API UTextureSet : public UObject
@@ -47,10 +42,10 @@ public:
 	}
 #endif
 
-	UPROPERTY()
+	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
 	TArray<UTexture*> CookedTextures;
 
-	UPROPERTY()
+	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
 	TMap<FName, FVector4> ShaderParameters;
 	
 	virtual void PostLoad() override;

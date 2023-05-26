@@ -15,17 +15,12 @@ public:
 	virtual bool AllowMultiple() { return true; }
 	virtual FString GetInstanceName() const  override { return ElementName.ToString(); }
 
-	virtual TArray<TextureSetTextureDef> GetSourceTextures() const override
-	{
-		return TArray<TextureSetTextureDef> { TextureSetTextureDef{ ElementName, SRGB, ChannelCount, DefaultValue } };
-	};
+	virtual TArray<TextureSetTextureDef> GetSourceTextures() const override;
 
-	virtual void CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleParams) const override
-	{
-		const EMaterialValueType ValueTypeLookup[4] = { MCT_Float1, MCT_Float2, MCT_Float3, MCT_Float4 };
+	virtual void CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleParams) const override;
 
-		Results.Add(ElementName, ValueTypeLookup[ChannelCount]);
-	};
+	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+		FTextureSetMaterialGraphBuilder& Builder) const override;
 
 private:
 	UPROPERTY(EditAnywhere)
