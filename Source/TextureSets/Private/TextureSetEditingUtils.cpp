@@ -1,4 +1,6 @@
-﻿#include "TextureSetEditingUtils.h"
+﻿// (c) Electronic Arts. All Rights Reserved.
+
+#include "TextureSetEditingUtils.h"
 
 #include "Editor.h"
 #include "EditorSupportDelegates.h"

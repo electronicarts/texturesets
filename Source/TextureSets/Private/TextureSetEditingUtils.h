@@ -1,4 +1,7 @@
-﻿#pragma once
+﻿// (c) Electronic Arts. All Rights Reserved.
+
+#pragma once
+
 #include "MaterialGraph/MaterialGraphNode.h"
 
 class FTextureSetEditingUtils

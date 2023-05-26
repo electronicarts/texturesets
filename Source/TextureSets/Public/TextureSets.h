@@ -1,6 +1,4 @@
-//
-// (c) Electronic Arts.  All Rights Reserved.
-//
+// (c) Electronic Arts. All Rights Reserved.
 
 #pragma once
 
@@ -13,8 +11,6 @@ class IAssetTools;
 class IAssetTypeActions;
 class IDetailCategoryBuilder;
 class UMaterialInstanceConstant;
-
-// -----
 
 class FTextureSetsModule : public IModuleInterface
 {

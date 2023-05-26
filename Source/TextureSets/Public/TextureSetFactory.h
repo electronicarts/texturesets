@@ -6,9 +6,6 @@
 #include "ActorFactories/ActorFactory.h"
 #include "TextureSetFactory.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class UTextureSetFactory : public UFactory
 {

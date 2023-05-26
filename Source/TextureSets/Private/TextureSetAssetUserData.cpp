@@ -1,7 +1,7 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-
 #include "TextureSetAssetUserData.h"
+
 #include "Materials/MaterialInstance.h"
 #include "Materials/MaterialInstanceConstant.h"
 

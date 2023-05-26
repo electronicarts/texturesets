@@ -9,10 +9,6 @@
 class UTextureSet;
 class UTextureSetDefinition;
 
-/**
- * 
- */
-
 USTRUCT(BlueprintType)
 struct FSetOverride
 {

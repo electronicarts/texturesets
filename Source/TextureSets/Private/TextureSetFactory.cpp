@@ -1,6 +1,5 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-
 #include "TextureSetFactory.h"
 
 #include "TextureSet.h"

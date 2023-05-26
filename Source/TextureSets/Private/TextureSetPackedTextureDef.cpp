@@ -1,6 +1,7 @@
-// Copyright (c) Electronic Arts. All Rights Reserved.
+// (c) Electronic Arts. All Rights Reserved.
 
 #include "TextureSetPackedTextureDef.h"
+
 #include "TextureSetDefinition.h"
 
 int FTextureSetPackedTextureDef::AvailableChannels() const
