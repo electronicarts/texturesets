@@ -17,21 +17,21 @@ public:
 
 	// Sources
 	UPROPERTY(EditAnywhere, meta=(GetOptions="GetUnpackedChannelNames"))
-	FName SourceR; // Not implemented
+	FName SourceR;
 
 	UPROPERTY(EditAnywhere, meta=(GetOptions="GetUnpackedChannelNames"))
-	FName SourceG; // Not implemented
+	FName SourceG;
 
 	UPROPERTY(EditAnywhere, meta=(GetOptions="GetUnpackedChannelNames"))
-	FName SourceB; // Not implemented
+	FName SourceB;
 
 	UPROPERTY(EditAnywhere, meta=(GetOptions="GetUnpackedChannelNames"))
-	FName SourceA; // Not implemented
+	FName SourceA;
 
 	UPROPERTY(EditAnywhere)
 	int SkipMip; // Not implemented
 
-	/** Number of mip-levels that can be streamed. -1 means all mips can stream. */
+	// Number of mip-levels that can be streamed. -1 means all mips can stream.
 	UPROPERTY(EditAnywhere)
 	int32 NumStreamedMips; // Not implemented
 
@@ -41,9 +41,17 @@ public:
 	UPROPERTY(EditAnywhere)
 	bool bDoRangeCompression; // Not implemented
 
+	// Attempt to use hardware sRGB decoding if possible
+	UPROPERTY(EditAnywhere)
+	bool bHardwareSRGB;
+
 	// How many channels our chosen compressed texture supports
 	int AvailableChannels() const;
 
 	// How many channels we actually need. Always less than or equal to AvailableChannels()
 	int UsedChannels() const;
+
+	TArray<FName> GetSources() const;
+
+	bool GetHardwareSRGBEnabled() const;
 };

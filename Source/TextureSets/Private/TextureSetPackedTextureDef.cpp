@@ -48,3 +48,30 @@ int FTextureSetPackedTextureDef::UsedChannels() const
 
 	return FMath::Min(AvailableChannels(), Specified);
 }
+
+TArray<FName> FTextureSetPackedTextureDef::GetSources() const
+{
+	TArray<FName> ReturnValue;
+	if (UsedChannels() >= 1)
+		ReturnValue.Add(SourceR);
+	if (UsedChannels() >= 2)
+		ReturnValue.Add(SourceG);
+	if (UsedChannels() >= 3)
+		ReturnValue.Add(SourceB);
+	if (UsedChannels() >= 4)
+		ReturnValue.Add(SourceA);
+	return ReturnValue;
+}
+
+bool FTextureSetPackedTextureDef::GetHardwareSRGBEnabled() const
+{
+	TArray<TextureCompressionSettings> SRGBSupportedFormats =
+	{
+		TC_Default,
+		TC_EditorIcon,
+		TC_BC7,
+		TC_LQ
+	};
+
+	return bHardwareSRGB && SRGBSupportedFormats.Contains(CompressionSettings);
+}

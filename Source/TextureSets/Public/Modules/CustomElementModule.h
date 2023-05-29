@@ -15,11 +15,15 @@ public:
 	virtual bool AllowMultiple() { return true; }
 	virtual FString GetInstanceName() const  override { return ElementName.ToString(); }
 
-	virtual TArray<TextureSetTextureDef> GetSourceTextures() const override;
+	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info);
 
-	virtual void CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleParams) const override;
+	virtual void BuildSamplingInfo(
+		TextureSetDefinitionSamplingInfo& SamplingInfo,
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
 
-	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+
+	virtual void GenerateSamplingGraph(
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 		FTextureSetMaterialGraphBuilder& Builder) const override;
 
 private:

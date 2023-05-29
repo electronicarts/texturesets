@@ -5,16 +5,17 @@
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
-TArray<TextureSetTextureDef> UCustomElementModule::GetSourceTextures() const
+void UCustomElementModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
 {
-	return TArray<TextureSetTextureDef> { TextureSetTextureDef{ ElementName, SRGB, ChannelCount, DefaultValue } };
+	TextureSetTextureDef TextureDef = TextureSetTextureDef{ ElementName, SRGB, ChannelCount, DefaultValue };
+	Info.AddSourceTexture(TextureDef);
+	Info.AddProcessedTexture(TextureDef);
 }
 
-void UCustomElementModule::CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleParams) const
+void UCustomElementModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
 {
 	const EMaterialValueType ValueTypeLookup[4] = { MCT_Float1, MCT_Float2, MCT_Float3, MCT_Float4 };
-
-	Results.Add(ElementName, ValueTypeLookup[ChannelCount]);
+	SamplingInfo.AddSampleOutput(ElementName, ValueTypeLookup[ChannelCount]);
 }
 
 void UCustomElementModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,

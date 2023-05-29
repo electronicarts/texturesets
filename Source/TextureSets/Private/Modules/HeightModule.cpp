@@ -6,44 +6,27 @@
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
-TArray<TextureSetTextureDef> UHeightModule::GetSourceTextures() const
+void UHeightModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
 {
-	TArray<TextureSetTextureDef> SourceMaps;
-	SourceMaps.Add(TextureSetTextureDef{"Height", false, 1, FVector4(1, 0, 0, 0)});
-	return SourceMaps;
-};
+	TextureSetTextureDef HeightDef = {"Height", false, 1, FVector4(1, 0, 0, 0)};
 
-void UHeightModule::CollectShaderConstants(TMap<FName, EMaterialValueType>& Constants, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
-{
-	const UHeightSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UHeightSampleParams>();
-
-	if (HeightSampleParams->bEnableParallaxOcclusionMapping)
-	{
-		Constants.Add("ParallaxReferencePlane", EMaterialValueType::MCT_Float1);
-	}
+	Info.AddSourceTexture(HeightDef);
+	Info.AddProcessedTexture(HeightDef);
 }
 
-void UHeightModule::CollectSampleInputs(TMap<FName, EMaterialValueType>& Arguments, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const 
+void UHeightModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
 {
 	const UHeightSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UHeightSampleParams>();
 
 	if (HeightSampleParams->bEnableParallaxOcclusionMapping)
 	{
-		Arguments.Add("ParallaxStrength", EMaterialValueType::MCT_Float1);
-		Arguments.Add("ParallaxIterations", EMaterialValueType::MCT_Float1);
+		SamplingInfo.AddMaterialParameter("ParallaxReferencePlane", EMaterialValueType::MCT_Float1);
+		SamplingInfo.AddSampleInput("ParallaxStrength", EMaterialValueType::MCT_Float1);
+		SamplingInfo.AddSampleInput("ParallaxIterations", EMaterialValueType::MCT_Float1);
+		SamplingInfo.AddSampleOutput("ParallaxOffset", EMaterialValueType::MCT_Float2);
 	}
-}
 
-void UHeightModule::CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
-{
-	const UHeightSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UHeightSampleParams>();
-
-	Results.Add("Height", EMaterialValueType::MCT_Float1);
-
-	if (HeightSampleParams->bEnableParallaxOcclusionMapping)
-	{
-		Results.Add("ParallaxOffset", EMaterialValueType::MCT_Float2);
-	}
+	SamplingInfo.AddSampleOutput("Height", EMaterialValueType::MCT_Float1);
 }
 
 void UHeightModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,

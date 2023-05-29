@@ -14,6 +14,67 @@
 #include <MaterialPropertyHelpers.h>
 #include "MaterialExpressionTextureSetSampleParameter.h"
 
+void TextureSetDefinitionSharedInfo::AddSourceTexture(const TextureSetTextureDef& Texture)
+{
+	SourceTextures.Add(Texture);
+}
+
+void TextureSetDefinitionSharedInfo::AddProcessedTexture(const TextureSetTextureDef& Texture)
+{
+	checkf(!ProcessedTextureIndicies.Contains(Texture.Name), TEXT("Attempting to add processed texture %s twice"), Texture.Name);
+	ProcessedTextureIndicies.Add(Texture.Name, ProcessedTextures.Num());
+	ProcessedTextures.Add(Texture);
+}
+
+const TArray<TextureSetTextureDef> TextureSetDefinitionSharedInfo::GetSourceTextures() const
+{
+	return SourceTextures;
+}
+
+const TArray<TextureSetTextureDef> TextureSetDefinitionSharedInfo::GetProcessedTextures() const
+{
+	return ProcessedTextures;
+}
+
+int TextureSetDefinitionSharedInfo::GetProcessedTextureIndex(FName Name)
+{
+	return ProcessedTextureIndicies.FindChecked(Name);
+}
+
+void TextureSetDefinitionSamplingInfo::AddMaterialParameter(FName Name, EMaterialValueType Type)
+{
+	checkf(!MaterialParameters.Contains(Name), TEXT("Attempting to add shader constant %s twice"), Name);
+	MaterialParameters.Add(Name, Type);
+}
+
+void TextureSetDefinitionSamplingInfo::AddSampleInput(FName Name, EMaterialValueType Type)
+{
+	checkf(!SampleInputs.Contains(Name), TEXT("Attempting to add sample arguemnt %s twice"), Name);
+	SampleInputs.Add(Name, Type);
+}
+
+void TextureSetDefinitionSamplingInfo::AddSampleOutput(FName Name, EMaterialValueType Type)
+{
+	checkf(!SampleOutputs.Contains(Name), TEXT("Attempting to add sample result %s twice"), Name);
+	SampleOutputs.Add(Name, Type);
+}
+
+const TMap<FName, EMaterialValueType> TextureSetDefinitionSamplingInfo::GetMaterialParameters() const
+{
+	return MaterialParameters;
+}
+
+const TMap<FName, EMaterialValueType> TextureSetDefinitionSamplingInfo::GetSampleInputs() const
+{
+	return SampleInputs;
+}
+
+const TMap<FName, EMaterialValueType> TextureSetDefinitionSamplingInfo::GetSampleOutputs() const
+{
+	return SampleOutputs;
+}
+
+
 const FString UTextureSetDefinition::ChannelSuffixes[4] = {".r", ".g", ".b", ".a"};
 
 bool UTextureSetDefinition::CanEditChange(const FProperty* InProperty) const
@@ -75,11 +136,11 @@ TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames() const
 	// Construct a list of channel names not yet used for packing (remaining choices)
 	TArray<FName> UnpackedNames = TArray<FName>{  FName() };
 
-	for (const TextureSetTextureDef& Tex : GetProcessedTextures())
+	for (const TextureSetTextureDef& Tex : GetSharedInfo().GetProcessedTextures())
 	{
 		for (int i = 0; i < Tex.ChannelCount; i++)
 		{
-			FName ChannelName = FName(Tex.Name.ToString() + (Tex.ChannelCount > 1 ? ChannelSuffixes[i] : ""));
+			FName ChannelName = FName(Tex.Name.ToString() + ChannelSuffixes[i]);
 
 			if (!PackedNames.Contains(ChannelName))
 				UnpackedNames.Add(ChannelName);
@@ -89,60 +150,35 @@ TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames() const
 	return UnpackedNames;
 }
 
-TArray<TextureSetTextureDef> UTextureSetDefinition::GetSourceTextures() const
+const TextureSetDefinitionSharedInfo UTextureSetDefinition::GetSharedInfo() const
 {
-	TArray<TextureSetTextureDef> SourceTextures;
-	for (UTextureSetDefinitionModule* Module : Modules)
-	{
-		if (IsValid(Module))
-			SourceTextures.Append(Module->GetSourceTextures());
-	}
-	return SourceTextures;
-};
+	TextureSetDefinitionSharedInfo Info;
 
-TArray<TextureSetTextureDef> UTextureSetDefinition::GetProcessedTextures() const
-{
-	TArray<TextureSetTextureDef> SourceTextures;
 	for (UTextureSetDefinitionModule* Module : Modules)
 	{
 		if (IsValid(Module))
-			SourceTextures.Append(Module->GetProcessedTextures());
+		{
+			Module->BuildSharedInfo(Info);
+		}
 	}
-	return SourceTextures;
-};
 
-TMap<FName, EMaterialValueType> UTextureSetDefinition::GetShaderConstants(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
-{
-	TMap<FName, EMaterialValueType> ShaderConstants;
-	for (UTextureSetDefinitionModule* Module : Modules)
-	{
-		if (IsValid(Module))
-			Module->CollectShaderConstants(ShaderConstants, SampleExpression);
-	}
-	return ShaderConstants;
-};
+	return Info;
+}
 
-TMap<FName, EMaterialValueType> UTextureSetDefinition::GetSampleArguments(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+const TextureSetDefinitionSamplingInfo UTextureSetDefinition::GetSamplingInfo(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
-	TMap<FName, EMaterialValueType> ShaderConstants;
-	for (UTextureSetDefinitionModule* Module : Modules)
-	{
-		if (IsValid(Module))
-			Module->CollectSampleInputs(ShaderConstants, SampleExpression);
-	}
-	return ShaderConstants;
-};
+	TextureSetDefinitionSamplingInfo Info;
 
-TMap<FName, EMaterialValueType> UTextureSetDefinition::GetSampleResults(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
-{
-	TMap<FName, EMaterialValueType> ShaderConstants;
 	for (UTextureSetDefinitionModule* Module : Modules)
 	{
 		if (IsValid(Module))
-			Module->CollectSampleOutputs(ShaderConstants, SampleExpression);
+		{
+			Module->BuildSamplingInfo(Info, SampleExpression);
+		}
 	}
-	return ShaderConstants;
-};
+
+	return Info;
+}
 
 TArray<TSubclassOf<UTextureSetAssetParams>> UTextureSetDefinition::GetRequiredAssetParamClasses() const
 {

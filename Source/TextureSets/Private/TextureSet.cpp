@@ -43,7 +43,7 @@ void UTextureSet::FixupData()
 		// Source Textures
 		TMap<FName, TObjectPtr<UTexture>> NewSourceTextures;
 
-		for (auto& TextureInfo : Definition->GetSourceTextures())
+		for (auto& TextureInfo : Definition->GetSharedInfo().GetSourceTextures())
 		{
 			TObjectPtr<UTexture>* OldTexture = SourceTextures.Find(TextureInfo.Name);
 			NewSourceTextures.Add(TextureInfo.Name, (OldTexture != nullptr) ? *OldTexture : nullptr);

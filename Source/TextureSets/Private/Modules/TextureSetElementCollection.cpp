@@ -5,30 +5,27 @@
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
-TArray<TextureSetTextureDef> UTextureSetElementCollection::GetSourceTextures() const
+void UTextureSetElementCollection::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
 {
-	TArray<TextureSetTextureDef> SourceTextures;
-
 	for (const FElementDefinition& Element: Elements)
 	{
-		TextureSetTextureDef Def;
-		Def.Name = Element.ElementName;
-		Def.SRGB = Element.SRGB;
-		Def.ChannelCount = Element.ChannelCount;
-		Def.DefaultValue = Element.DefaultValue;
-		SourceTextures.Add(Def);
+		TextureSetTextureDef TextureDef;
+		TextureDef.Name = Element.ElementName;
+		TextureDef.SRGB = Element.SRGB;
+		TextureDef.ChannelCount = Element.ChannelCount;
+		TextureDef.DefaultValue = Element.DefaultValue;
+		Info.AddSourceTexture(TextureDef);
+		Info.AddProcessedTexture(TextureDef);
 	}
-
-	return SourceTextures;
 }
 
-void UTextureSetElementCollection::CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleParams) const
+void UTextureSetElementCollection::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
 {
 	const EMaterialValueType ValueTypeLookup[4] = { MCT_Float1, MCT_Float2, MCT_Float3, MCT_Float4 };
 
 	for (const FElementDefinition& Element: Elements)
 	{
-		Results.Add(Element.ElementName, ValueTypeLookup[Element.ChannelCount]);
+		SamplingInfo.AddSampleOutput(Element.ElementName, ValueTypeLookup[Element.ChannelCount]);
 	}
 }
 

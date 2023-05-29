@@ -44,6 +44,48 @@ class UTextureSetSampleParams : public UObject
 	GENERATED_BODY()
 };
 
+// Info which is needed both for cooking and sampling from a texture set
+struct TextureSetDefinitionSharedInfo
+{
+	friend class UTextureSetDefinition;
+public:
+	void AddSourceTexture(const TextureSetTextureDef& Texture);
+	void AddProcessedTexture(const TextureSetTextureDef& Texture);
+
+	const TArray<TextureSetTextureDef> GetSourceTextures() const;
+	const TArray<TextureSetTextureDef> GetProcessedTextures() const;
+	int GetProcessedTextureIndex(FName Name);
+
+private:
+	// Input texture maps which are to be processed
+	TArray<TextureSetTextureDef> SourceTextures;
+	// Processed texture maps which are to be packed
+	TArray<TextureSetTextureDef> ProcessedTextures;
+	TMap<FName, int> ProcessedTextureIndicies;
+};
+
+// Info which is needed to generate the sampling graph for a texture set
+struct TextureSetDefinitionSamplingInfo
+{
+	friend class UTextureSetDefinition;
+public:
+	void AddMaterialParameter(FName Name, EMaterialValueType Type);
+	void AddSampleInput(FName Name, EMaterialValueType Type);
+	void AddSampleOutput(FName Name, EMaterialValueType Type);
+
+	const TMap<FName, EMaterialValueType> GetMaterialParameters() const;
+	const TMap<FName, EMaterialValueType> GetSampleInputs() const;
+	const TMap<FName, EMaterialValueType> GetSampleOutputs() const;
+
+private:
+	// Shader constants required for sampling
+	TMap<FName, EMaterialValueType> MaterialParameters;
+	// Required input pins on the sampler node
+	TMap<FName, EMaterialValueType> SampleInputs;
+	// Output pins on the sampler node
+	TMap<FName, EMaterialValueType> SampleOutputs;
+};
+
 UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
 class UTextureSetDefinitionModule : public UObject
 {
@@ -62,20 +104,9 @@ public:
 	// Which class this module uses to attach parameters to the sampler material expression
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const { return nullptr; }
 
-	// Input texture maps which are to be processed
-	virtual TArray<TextureSetTextureDef> GetSourceTextures() const { return TArray<TextureSetTextureDef> {}; }
+	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) {};
 
-	// Processed texture maps which are to be packed
-	virtual TArray<TextureSetTextureDef> GetProcessedTextures() const { return GetSourceTextures(); }
-
-	// Shader constants required for sampling
-	virtual void CollectShaderConstants(TMap<FName, EMaterialValueType>& Constants, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const {}
-	
-	// Required input pins on the sampler node
-	virtual void CollectSampleInputs(TMap<FName, EMaterialValueType>& Arguments, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const {}
-
-	// Output pins on the sampler node
-	virtual void CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const {}
+	virtual void BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) {};
 
 	// Process the source data into the intermediate results
 	// Transforms source elements into processed data
@@ -86,7 +117,7 @@ public:
 	// Logic (material graph) for unpacking data
 	// Transforms processed data into desired output elements
 	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
-		FTextureSetMaterialGraphBuilder& Builder) const {}
+	FTextureSetMaterialGraphBuilder& Builder) const {}
 };
 
 UCLASS()
@@ -112,19 +143,15 @@ public:
 	UFUNCTION(CallInEditor)
 	TArray<FName> GetUnpackedChannelNames() const;
 
-	TArray<TextureSetTextureDef> GetSourceTextures() const;
-	TArray<TextureSetTextureDef> GetProcessedTextures() const;
-	TMap<FName, EMaterialValueType> GetShaderConstants(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
-	TMap<FName, EMaterialValueType> GetSampleArguments(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
-	TMap<FName, EMaterialValueType> GetSampleResults(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
-	
+	const TextureSetDefinitionSharedInfo GetSharedInfo() const;
+	const TextureSetDefinitionSamplingInfo GetSamplingInfo(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
+
 	TArray<TSubclassOf<UTextureSetAssetParams>> GetRequiredAssetParamClasses() const;
 	TArray<TSubclassOf<UTextureSetSampleParams>> GetRequiredSampleParamClasses() const;
 
 	UTexture* GetDefaultPackedTexture(int index) const;
 
-	void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
-		FTextureSetMaterialGraphBuilder& Builder) const;
+	void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression, FTextureSetMaterialGraphBuilder& Builder) const;
 };
 
 UCLASS()

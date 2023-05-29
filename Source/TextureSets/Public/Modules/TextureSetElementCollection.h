@@ -34,8 +34,11 @@ class UTextureSetElementCollection : public UTextureSetDefinitionModule
 public:
 	virtual bool AllowMultiple() { return bAllowMultiple; }
 
-	virtual TArray<TextureSetTextureDef> GetSourceTextures() const override;
-	virtual void CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleParams) const override;
+	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info);
+
+	virtual void BuildSamplingInfo(
+		TextureSetDefinitionSamplingInfo& SamplingInfo,
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
 
 	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 		FTextureSetMaterialGraphBuilder& Builder) const override;

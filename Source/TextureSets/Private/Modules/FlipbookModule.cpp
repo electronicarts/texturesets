@@ -4,42 +4,31 @@
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
 
-TArray<TextureSetTextureDef> UFlipbookModule::GetSourceTextures() const
+void UFlipbookModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
 {
-	TArray<TextureSetTextureDef> SourceMaps;
 	if (bUseMotionVectors)
 	{
-		SourceMaps.Add(TextureSetTextureDef{"MotionVector", false, 2, FVector4(0.5, 0.5, 0, 0)});
+		Info.AddSourceTexture(TextureSetTextureDef{"MotionVector", false, 2, FVector4(0.5, 0.5, 0, 0)});
 	}
-	return SourceMaps;
 }
 
-void UFlipbookModule::CollectShaderConstants(TMap<FName, EMaterialValueType>& Constants, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
-{
-	const UFlipbookSampleParams* FlipbookSampleParams = SampleExpression->GetSampleParams<UFlipbookSampleParams>();
-	
-	Constants.Add("FrameCount", EMaterialValueType::MCT_Float1);
-	Constants.Add("FrameRate", EMaterialValueType::MCT_Float1);
-}
-
-void UFlipbookModule::CollectSampleInputs(TMap<FName, EMaterialValueType>& Arguments, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+void UFlipbookModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
 {
 	const UFlipbookSampleParams* FlipbookSampleParams = SampleExpression->GetSampleParams<UFlipbookSampleParams>();
 
-	Arguments.Add("FlibookTime", EMaterialValueType::MCT_Float1);
-}
+	SamplingInfo.AddMaterialParameter("FrameCount", EMaterialValueType::MCT_Float1);
+	SamplingInfo.AddMaterialParameter("FrameRate", EMaterialValueType::MCT_Float1);
 
-void UFlipbookModule::CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
-{
-	const UFlipbookSampleParams* FlipbookSampleParams = SampleExpression->GetSampleParams<UFlipbookSampleParams>();
+	SamplingInfo.AddSampleInput("FlipbookTime", EMaterialValueType::MCT_Float1);
 
 	if (FlipbookSampleParams->bBlendFrames)
 	{
-		Results.Add("FlipbookUVCurrent", EMaterialValueType::MCT_Float2);
-		Results.Add("FlipbookUVNext", EMaterialValueType::MCT_Float2);
+		SamplingInfo.AddSampleOutput("FlipbookUVCurrent", EMaterialValueType::MCT_Float2);
+		SamplingInfo.AddSampleOutput("FlipbookUVNext", EMaterialValueType::MCT_Float2);
+		SamplingInfo.AddSampleOutput("FlipbookBlend", EMaterialValueType::MCT_Float1);
 	}
 	else
 	{
-		Results.Add("FlipbookUV", EMaterialValueType::MCT_Float2);
+		SamplingInfo.AddSampleOutput("FlipbookUV", EMaterialValueType::MCT_Float2);
 	}
 }

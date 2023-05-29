@@ -69,8 +69,11 @@ public:
 	virtual bool AllowMultiple() override { return false; }
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UPBRSampleParams::StaticClass(); }
 
-	virtual TArray<TextureSetTextureDef> GetSourceTextures() const override;
-	virtual void CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
+	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info);
+
+	virtual void BuildSamplingInfo(
+		TextureSetDefinitionSamplingInfo& SamplingInfo,
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
 
 	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 		FTextureSetMaterialGraphBuilder& Builder) const override;

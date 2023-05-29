@@ -13,21 +13,31 @@
 
 #include "MaterialEditingLibrary.h"
 
-TArray<TextureSetTextureDef> UPBRSurfaceModule::GetSourceTextures() const
+void UPBRSurfaceModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
 {
-	TArray<TextureSetTextureDef> SourceMaps;
+	static const TextureSetTextureDef MetalDef {MetalName, false, 1, FVector4(0, 0, 0, 0)};
+	static const TextureSetTextureDef BaseColorDef {BaseColorName, true, 3, FVector4(0.5, 0.5, 0.5, 0)};
+	static const TextureSetTextureDef AlbedoDef {AlbedoName, true, 3, FVector4(0.5, 0.5, 0.5, 0)};
+	static const TextureSetTextureDef SpecularDef {SpecularName, true, 3, FVector4(0, 0, 0, 0)};
+	static const TextureSetTextureDef RoughnessDef {RoughnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)};
+	static const TextureSetTextureDef SmoothnessDef {SmoothnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)};
+	static const TextureSetTextureDef TangentNormalDef {TangentNormalName, false, 2, FVector4(0.5, 0.5, 1, 0)};
 
 	switch (Paramaterization)
 	{
 	case EPBRParamaterization::Basecolor_Metal:
-		SourceMaps.Add(TextureSetTextureDef{MetalName, false, 1, FVector4(0, 0, 0, 0)});
+		Info.AddSourceTexture(MetalDef);
+		Info.AddProcessedTexture(MetalDef);
 		// Falls through
 	case EPBRParamaterization::Dielectric:
-		SourceMaps.Add(TextureSetTextureDef{BaseColorName, true, 3, FVector4(0.5, 0.5, 0.5, 0)});
+		Info.AddSourceTexture(BaseColorDef);
+		Info.AddProcessedTexture(BaseColorDef);
 		break;
 	case EPBRParamaterization::Albedo_Spec:
-		SourceMaps.Add(TextureSetTextureDef{AlbedoName, true, 3, FVector4(0.5, 0.5, 0.5, 0)});
-		SourceMaps.Add(TextureSetTextureDef{SpecularName, true, 3, FVector4(0, 0, 0, 0)});
+		Info.AddSourceTexture(AlbedoDef);
+		Info.AddProcessedTexture(AlbedoDef);
+		Info.AddSourceTexture(SpecularDef);
+		Info.AddProcessedTexture(SpecularDef);
 		break;
 	default:
 		break;
@@ -36,10 +46,12 @@ TArray<TextureSetTextureDef> UPBRSurfaceModule::GetSourceTextures() const
 	switch (Microsurface)
 	{
 	case EPBRMicrosurface::Roughness:
-		SourceMaps.Add(TextureSetTextureDef{RoughnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)});
+		Info.AddSourceTexture(RoughnessDef);
+		Info.AddProcessedTexture(RoughnessDef);
 		break;
 	case EPBRMicrosurface::Smoothness:
-		SourceMaps.Add(TextureSetTextureDef{SmoothnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)});
+		Info.AddSourceTexture(SmoothnessDef);
+		Info.AddProcessedTexture(SmoothnessDef);
 		break;
 	default:
 		break;
@@ -48,30 +60,29 @@ TArray<TextureSetTextureDef> UPBRSurfaceModule::GetSourceTextures() const
 	switch (Normal)
 	{
 	case EPBRNormal::Tangent:
-		SourceMaps.Add(TextureSetTextureDef{TangentNormalName, false, 2, FVector4(0.5, 0.5, 1, 0)});
+		Info.AddSourceTexture(TangentNormalDef);
+		Info.AddProcessedTexture(TangentNormalDef);
 		break;
 	default:
 		break;
 	}
+}
 
-	return SourceMaps;
-};
-
-void UPBRSurfaceModule::CollectSampleOutputs(TMap<FName, EMaterialValueType>& Results, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+void UPBRSurfaceModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
 {
 	const UPBRSampleParams* PBRSampleParams = SampleExpression->GetSampleParams<UPBRSampleParams>();
 
 	switch (PBRSampleParams->ParameterizationOutput)
 	{
 	case EPBRParamaterization::Basecolor_Metal:
-		Results.Add(MetalName, EMaterialValueType::MCT_Float1);
+		SamplingInfo.AddSampleOutput(MetalName, EMaterialValueType::MCT_Float1);
 		// Falls through
 	case EPBRParamaterization::Dielectric:
-		Results.Add(BaseColorName, EMaterialValueType::MCT_Float3);
+		SamplingInfo.AddSampleOutput(BaseColorName, EMaterialValueType::MCT_Float3);
 		break;
 	case EPBRParamaterization::Albedo_Spec:
-		Results.Add(AlbedoName, EMaterialValueType::MCT_Float3);
-		Results.Add(SpecularName, EMaterialValueType::MCT_Float3);
+		SamplingInfo.AddSampleOutput(AlbedoName, EMaterialValueType::MCT_Float3);
+		SamplingInfo.AddSampleOutput(SpecularName, EMaterialValueType::MCT_Float3);
 		break;
 	default:
 		break;
@@ -80,10 +91,10 @@ void UPBRSurfaceModule::CollectSampleOutputs(TMap<FName, EMaterialValueType>& Re
 	switch (PBRSampleParams->MicrosurfaceOutput)
 	{
 	case EPBRMicrosurface::Roughness:
-		Results.Add(RoughnessName, EMaterialValueType::MCT_Float1);
+		SamplingInfo.AddSampleOutput(RoughnessName, EMaterialValueType::MCT_Float1);
 		break;
 	case EPBRMicrosurface::Smoothness:
-		Results.Add(SmoothnessName, EMaterialValueType::MCT_Float1);
+		SamplingInfo.AddSampleOutput(SmoothnessName, EMaterialValueType::MCT_Float1);
 		break;
 	default:
 		break;
@@ -92,13 +103,13 @@ void UPBRSurfaceModule::CollectSampleOutputs(TMap<FName, EMaterialValueType>& Re
 	switch (PBRSampleParams->NormalSpaceOutput)
 	{
 	case EPBRNormalSpace::Tangent:
-		Results.Add(TangentNormalName, EMaterialValueType::MCT_Float3);
+		SamplingInfo.AddSampleOutput(TangentNormalName, EMaterialValueType::MCT_Float3);
 		break;
 	case EPBRNormalSpace::World:
-		Results.Add(WorldNormalName, EMaterialValueType::MCT_Float3);
+		SamplingInfo.AddSampleOutput(WorldNormalName, EMaterialValueType::MCT_Float3);
 		break;
 	case EPBRNormalSpace::SurfaceGradient:
-		Results.Add(SurfaceGradientName, EMaterialValueType::MCT_Float3);
+		SamplingInfo.AddSampleOutput(SurfaceGradientName, EMaterialValueType::MCT_Float3);
 		break;
 	default:
 		break;
