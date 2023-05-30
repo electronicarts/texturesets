@@ -11,6 +11,7 @@
 #include "Materials/MaterialExpressionAppendVector.h"
 #include "Materials/MaterialExpressionNamedReroute.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
+#include "Materials/MaterialExpressionCustom.h"
 #include "MaterialEditingLibrary.h"
 
 FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(TObjectPtr<UTextureSetDefinition> Def, UMaterialExpressionTextureSetSampleParameter* Node)
@@ -51,10 +52,8 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(TObjectPtr<UTex
 		const FTextureSetPackedTextureDef& PackedTexture = Definition->PackedTextures[t];
 		UMaterialExpressionTextureObjectParameter* TextureObject = PackedTextureObjects[t];
 
-		TObjectPtr<UMaterialExpressionTextureSample> TextureSample = CreateExpression<UMaterialExpressionTextureSample>();
+		TObjectPtr<UMaterialExpression> TextureSample = MakeTextureSamplerCustomNode(UVExpression, TextureObject);
 		PackedTextureSamples.Add(TextureSample);
-		UVExpression->ConnectExpression(TextureSample->GetInput(0), 0);
-		TextureObject->ConnectExpression(TextureSample->GetInput(1), 0);
 
 		const TArray<FName> SourceChannels = PackedTexture.GetSources();
 		for (int c = 0; c < SourceChannels.Num(); c++)
@@ -112,4 +111,35 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(TObjectPtr<UTex
 void FTextureSetMaterialGraphBuilder::Finalize()
 {
 	UMaterialEditingLibrary::LayoutMaterialFunctionExpressions(MaterialFunction);
+}
+
+UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode(UMaterialExpression* Texcoord, UMaterialExpression* TexObject)
+{
+	UMaterialExpressionCustom* CustomExp = CreateExpression<UMaterialExpressionCustom>();
+
+	CustomExp->Inputs.Empty(); // required: class initializes with one input by default
+	CustomExp->Inputs.Add({"Texcoord"});
+	CustomExp->Inputs.Add({"Tex"});
+	
+	CustomExp->OutputType = CMOT_Float4;
+	CustomExp->AdditionalOutputs.Add(FCustomOutput({"R", ECustomMaterialOutputType::CMOT_Float1}));
+	CustomExp->AdditionalOutputs.Add(FCustomOutput({"G", ECustomMaterialOutputType::CMOT_Float1}));
+	CustomExp->AdditionalOutputs.Add(FCustomOutput({"B", ECustomMaterialOutputType::CMOT_Float1}));
+	CustomExp->AdditionalOutputs.Add(FCustomOutput({"A", ECustomMaterialOutputType::CMOT_Float1}));
+
+	CustomExp->Code =
+		TEXT("\
+		float4 Sample = Tex.Sample(TexSampler, Texcoord).rgba;\n\
+		R = Sample.r;\n\
+		G = Sample.g;\n\
+		B = Sample.b;\n\
+		A = Sample.a;\n\
+		return Sample;");
+
+	CustomExp->RebuildOutputs();
+
+	Texcoord->ConnectExpression(CustomExp->GetInput(0), 0);
+	TexObject->ConnectExpression(CustomExp->GetInput(1), 0);
+
+	return CustomExp;
 }

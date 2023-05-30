@@ -14,22 +14,6 @@ class FTextureSetMaterialGraphBuilder
 public:
 	FTextureSetMaterialGraphBuilder(TObjectPtr<UTextureSetDefinition> Def, UMaterialExpressionTextureSetSampleParameter* Node);
 
-private:
-	TObjectPtr<UTextureSetDefinition> Definition;
-	TObjectPtr<UMaterialFunction> MaterialFunction;
-
-	TArray<TObjectPtr<UMaterialExpressionTextureObjectParameter>> PackedTextureObjects;
-	TArray<TObjectPtr<UMaterialExpression>> PackedTextureSamples;
-
-	// Valid for both texture names "BaseColor" and with channel suffix "BaseColor.g"
-	TMap<FName, TObjectPtr<UMaterialExpression>> ProcessedTextureSamples;
-
-	// Key is the channel you want to find (e.g. "Normal.r" or "Roughness")
-	// Value is a tuple of the packed texture and channel where you'll find it
-	TMap<FName, TTuple<int, int>> PackingSource;
-
-	TMap<FName, TObjectPtr<UMaterialExpressionFunctionOutput>> SampleOutputs;
-public:
 	UMaterialFunction* GetMaterialFunction() { return MaterialFunction; }
 
 	void Finalize();
@@ -48,4 +32,22 @@ public:
 	{
 		return SampleOutputs.FindChecked(Name);
 	}
+
+private:
+	TObjectPtr<UTextureSetDefinition> Definition;
+	TObjectPtr<UMaterialFunction> MaterialFunction;
+
+	TArray<TObjectPtr<UMaterialExpressionTextureObjectParameter>> PackedTextureObjects;
+	TArray<TObjectPtr<UMaterialExpression>> PackedTextureSamples;
+
+	// Valid for both texture names "BaseColor" and with channel suffix "BaseColor.g"
+	TMap<FName, TObjectPtr<UMaterialExpression>> ProcessedTextureSamples;
+
+	// Key is the channel you want to find (e.g. "Normal.r" or "Roughness")
+	// Value is a tuple of the packed texture and channel where you'll find it
+	TMap<FName, TTuple<int, int>> PackingSource;
+
+	TMap<FName, TObjectPtr<UMaterialExpressionFunctionOutput>> SampleOutputs;
+
+	UMaterialExpression* MakeTextureSamplerCustomNode(UMaterialExpression* Texcoord, UMaterialExpression* TexObject);
 };

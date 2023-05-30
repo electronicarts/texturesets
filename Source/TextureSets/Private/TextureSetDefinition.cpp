@@ -13,6 +13,7 @@
 #include <Materials/MaterialExpressionTextureSampleParameter2D.h>
 #include <MaterialPropertyHelpers.h>
 #include "MaterialExpressionTextureSetSampleParameter.h"
+#include "ImageUtils.h"
 
 void TextureSetDefinitionSharedInfo::AddSourceTexture(const TextureSetTextureDef& Texture)
 {
@@ -36,9 +37,9 @@ const TArray<TextureSetTextureDef> TextureSetDefinitionSharedInfo::GetProcessedT
 	return ProcessedTextures;
 }
 
-int TextureSetDefinitionSharedInfo::GetProcessedTextureIndex(FName Name)
+const TextureSetTextureDef TextureSetDefinitionSharedInfo::GetProcessedTextureByName(FName Name) const
 {
-	return ProcessedTextureIndicies.FindChecked(Name);
+	return ProcessedTextures[ProcessedTextureIndicies.FindChecked(Name)];
 }
 
 void TextureSetDefinitionSamplingInfo::AddMaterialParameter(FName Name, EMaterialValueType Type)
@@ -113,6 +114,12 @@ bool UTextureSetDefinition::CanEditChange(const FProperty* InProperty) const
 	return SuperValue;
 }
 
+void UTextureSetDefinition::PostLoad()
+{
+	Super::PostLoad();
+	UpdateDefaultTextures();
+}
+
 TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames() const
 {
 	// Construct an array of all the channel names already used for packing
@@ -180,6 +187,48 @@ const TextureSetDefinitionSamplingInfo UTextureSetDefinition::GetSamplingInfo(co
 	return Info;
 }
 
+const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
+{
+	TextureSetPackingInfo PackingInfo;
+	TextureSetDefinitionSharedInfo SharedInfo = GetSharedInfo();
+
+	for (int i = 0; i < PackedTextures.Num(); i++)
+	{
+		const FTextureSetPackedTextureDef& TextureDef = PackedTextures[i];
+		TextureSetPackingInfo::TextureSetPackedTextureInfo TextureInfo;
+
+		TArray<FName> SourceNames = TextureDef.GetSources();
+		for (int c = 0; c < SourceNames.Num(); c++)
+		{
+			FString SourceTexString;
+			FString SourceChannelString;
+			SourceNames[c].ToString().Split(".", &SourceTexString, &SourceChannelString);
+			const FName SourceTexName = FName(SourceTexString);
+
+			static const TMap<FString, int> ChannelStringLookup = {
+				{"r", 0},
+				{"g", 1},
+				{"b", 2},
+				{"a", 3},
+			};
+
+			const int SourceChannel = ChannelStringLookup.FindChecked(SourceChannelString);
+
+			TextureSetTextureDef Processed = SharedInfo.GetProcessedTextureByName(FName(SourceTexName));
+
+			TextureInfo.ProcessedTextures[c] = SourceTexName;
+			TextureInfo.ProessedTextureChannels[c] = SourceChannel;
+			TextureInfo.SRGB[c] = Processed.SRGB;
+			TextureInfo.DefaultColor[c] = Processed.DefaultValue[SourceChannel];
+		}
+
+		PackingInfo.PackedTextureDefs.Add(TextureDef);
+		PackingInfo.PackedTextureInfos.Add(TextureInfo);
+	}
+
+	return PackingInfo;
+}
+
 TArray<TSubclassOf<UTextureSetAssetParams>> UTextureSetDefinition::GetRequiredAssetParamClasses() const
 {
 	TArray<TSubclassOf<UTextureSetAssetParams>> RequiredTypes;
@@ -214,10 +263,47 @@ TArray<TSubclassOf<UTextureSetSampleParams>> UTextureSetDefinition::GetRequiredS
 	return RequiredTypes;
 }
 
+void UTextureSetDefinition::UpdateDefaultTextures()
+{
+	DefaultTextures.Empty(PackedTextures.Num());
+
+	TextureSetPackingInfo PackingInfo = GetPackingInfo();
+
+	while (DefaultTextures.Num() < PackedTextures.Num())
+	{
+		const FTextureSetPackedTextureDef& Def = PackedTextures[DefaultTextures.Num()];
+
+		FString TextureName = "DefaultTexture_" + FString::FromInt(DefaultTextures.Num());
+		const int DefaultTextureSize = 4;
+
+		FLinearColor SourceColor = FLinearColor(PackingInfo.GetDefaultColor(DefaultTextures.Num()));
+
+		// TODO linearcolor
+		TArray<FColor> DefaultData;
+
+		for (int i = 0; i < (DefaultTextureSize * DefaultTextureSize); i++)
+			DefaultData.Add(SourceColor.ToFColor(false));
+
+		EObjectFlags Flags = RF_NoFlags;
+
+		FCreateTexture2DParameters Params;
+		Params.bUseAlpha = Def.UsedChannels() >= 4;
+		Params.CompressionSettings = Def.CompressionSettings;
+		Params.bDeferCompression = false;
+		Params.bSRGB = Def.GetHardwareSRGBEnabled();
+		Params.bVirtualTexture = false;
+		//Params.MipGenSettings;
+		//Params.TextureGroup;
+
+		UTexture2D* DefaultTexture = FImageUtils::CreateTexture2D(4, 4, DefaultData, this, TextureName, Flags, Params);
+
+		DefaultTextures.Add(DefaultTexture);
+	}
+}
+
 UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int index) const
 {
-	// TODO: Actually get a small texture with the correct default colors.
-	return LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), nullptr, LOAD_None, nullptr);
+	return DefaultTextures[index];
 }
 
 void UTextureSetDefinition::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
@@ -245,4 +331,9 @@ UObject* UTextureSetDefinitionFactory::FactoryCreateNew(UClass* Class, UObject* 
 	EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
 	return NewObject<UTextureSetDefinition>(InParent, Class, Name, Flags);
+}
+
+FVector4 TextureSetPackingInfo::GetDefaultColor(int index)
+{
+	return PackedTextureInfos[index].DefaultColor;
 }

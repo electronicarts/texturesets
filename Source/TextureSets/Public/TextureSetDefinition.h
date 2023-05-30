@@ -54,7 +54,7 @@ public:
 
 	const TArray<TextureSetTextureDef> GetSourceTextures() const;
 	const TArray<TextureSetTextureDef> GetProcessedTextures() const;
-	int GetProcessedTextureIndex(FName Name);
+	const TextureSetTextureDef GetProcessedTextureByName(FName Name) const;
 
 private:
 	// Input texture maps which are to be processed
@@ -62,6 +62,26 @@ private:
 	// Processed texture maps which are to be packed
 	TArray<TextureSetTextureDef> ProcessedTextures;
 	TMap<FName, int> ProcessedTextureIndicies;
+};
+
+struct TextureSetPackingInfo
+{
+	friend class UTextureSetDefinition;
+public:
+	FVector4 GetDefaultColor(int index);
+
+private:
+	struct TextureSetPackedTextureInfo
+	{
+	public:
+		FName ProcessedTextures[4];
+		int ProessedTextureChannels[4];
+		bool SRGB[4];
+		FVector4 DefaultColor;
+	};
+
+	TArray<FTextureSetPackedTextureDef> PackedTextureDefs;
+	TArray<TextureSetPackedTextureInfo> PackedTextureInfos;
 };
 
 // Info which is needed to generate the sampling graph for a texture set
@@ -130,21 +150,17 @@ public:
 	// Defined as {".r", ".g", ".b", ".a"}
 	static const FString ChannelSuffixes[4];
 
-	UPROPERTY(EditAnywhere)
-	TArray<UTextureSetDefinitionModule*> Modules;
-
-	UPROPERTY(EditAnywhere, meta=(TitleProperty="CompressionSettings"))
-	TArray<FTextureSetPackedTextureDef> PackedTextures;
-
 #if WITH_EDITOR
 	virtual bool CanEditChange(const FProperty* InProperty) const override;
 #endif
+	virtual void PostLoad() override;
 
 	UFUNCTION(CallInEditor)
 	TArray<FName> GetUnpackedChannelNames() const;
 
 	const TextureSetDefinitionSharedInfo GetSharedInfo() const;
 	const TextureSetDefinitionSamplingInfo GetSamplingInfo(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
+	const TextureSetPackingInfo GetPackingInfo() const;
 
 	TArray<TSubclassOf<UTextureSetAssetParams>> GetRequiredAssetParamClasses() const;
 	TArray<TSubclassOf<UTextureSetSampleParams>> GetRequiredSampleParamClasses() const;
@@ -152,6 +168,19 @@ public:
 	UTexture* GetDefaultPackedTexture(int index) const;
 
 	void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression, FTextureSetMaterialGraphBuilder& Builder) const;
+
+public: // TODO: Make Private
+
+	UPROPERTY(EditAnywhere)
+	TArray<UTextureSetDefinitionModule*> Modules;
+
+	UPROPERTY(EditAnywhere, meta=(TitleProperty="CompressionSettings"))
+	TArray<FTextureSetPackedTextureDef> PackedTextures;
+
+	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere
+	TArray<UTexture*> DefaultTextures;
+
+	void UpdateDefaultTextures();
 };
 
 UCLASS()
