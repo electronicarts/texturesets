@@ -23,9 +23,6 @@ void UTextureSet::PostLoad()
 void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
-
-	UE_LOG(LogTemp, Warning, TEXT("Changed me: %s"), *PropertyChangedEvent.GetPropertyName().ToString());
-
 	const FName ChangedPropName = PropertyChangedEvent.GetPropertyName();
 
 	if (ChangedPropName == GET_MEMBER_NAME_CHECKED(UTextureSet, Definition)

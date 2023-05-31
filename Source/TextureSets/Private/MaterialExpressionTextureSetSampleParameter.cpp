@@ -25,6 +25,11 @@ UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampl
 	bShowOutputs         = true;
 }
 
+FName UMaterialExpressionTextureSetSampleParameter::GetTextureParameterName(int TextureIndex) const
+{
+	return FName(ParameterName.ToString() + "_PACKED_" + FString::FromInt(TextureIndex));
+}
+
 UMaterialFunction* UMaterialExpressionTextureSetSampleParameter::CreateMaterialFunction()
 {
 	if (!IsValid(Definition))

@@ -101,20 +101,18 @@ void FTextureSetsModule::OnMaterialInstanceOpenedForEdit(UMaterialInstance* Mate
 
 		if (IsValid(TextureSetExpression))
 		{
-			UTextureSetAssetUserData * TextureSetOverrides = MaterialInstancePtr->GetAssetUserData<UTextureSetAssetUserData>();
-			if (!TextureSetOverrides)
+			UTextureSetAssetUserData* TextureSetUserData = MaterialInstancePtr->GetAssetUserData<UTextureSetAssetUserData>();
+			if (!TextureSetUserData)
 			{
-				TextureSetOverrides = NewObject<UTextureSetAssetUserData>();
-				MaterialInstance->AddAssetUserData(TextureSetOverrides);
+				TextureSetUserData = NewObject<UTextureSetAssetUserData>(MaterialInstancePtr);
+				MaterialInstance->AddAssetUserData(TextureSetUserData);
 			}
 
-			FGuid Guid = TextureSetExpression->MaterialExpressionGuid;
-			auto OverrideInstance = TextureSetOverrides->TexturesSetOverrides.FindByPredicate([Guid](const FSetOverride& SetOverride) { return SetOverride.Guid == Guid; });
+			const FGuid NodeGuid = TextureSetExpression->MaterialExpressionGuid;
+			auto OverrideInstance = TextureSetUserData->TexturesSetOverrides.FindByPredicate([NodeGuid](const FSetOverride& SetOverride) { return SetOverride.MaterialExpressionGuid == NodeGuid; });
 			if (OverrideInstance)
 			{
-				// Update existing override with the correct values
-				OverrideInstance->DefaultTextureSet = TextureSetExpression->DefaultTextureSet;
-				OverrideInstance->Definition = TextureSetExpression->Definition;
+				// Update existing override with the correct value
 				OverrideInstance->Name = TextureSetExpression->ParameterName;
 			}
 			else
@@ -123,12 +121,10 @@ void FTextureSetsModule::OnMaterialInstanceOpenedForEdit(UMaterialInstance* Mate
 				FSetOverride Override;
 				Override.Name = TextureSetExpression->ParameterName;
 				Override.TextureSet = TextureSetExpression->DefaultTextureSet;
-				Override.DefaultTextureSet = TextureSetExpression->DefaultTextureSet;
-				Override.Definition = TextureSetExpression->Definition;
-				Override.Guid = Guid;
+				Override.MaterialExpressionGuid = NodeGuid;
 				Override.IsOverridden = false;
 			
-				TextureSetOverrides->AddOverride(Override);
+				TextureSetUserData->TexturesSetOverrides.Add(Override);
 			}
 		}
 	}

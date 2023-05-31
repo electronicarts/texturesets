@@ -3,17 +3,21 @@
 #pragma once
 
 #include "MaterialGraph/MaterialGraphNode.h"
+#include "TextureSetAssetUserData.h"
+
+class UMaterialExpressionTextureSetSampleParameter;
 
 class FTextureSetEditingUtils
 {
 public:
 	template <class NodeType>
 	static UMaterialGraphNode* InitExpressionNewNode(UMaterialGraph* Graph, UMaterialExpression* Expression,
-	                                                 bool bUserInvoked);
+		bool bUserInvoked);
 
 	static TArray<FName> FindReferencers(FName PackageName);
+	static const UMaterialExpressionTextureSetSampleParameter* FindSampleExpression(const FSetOverride& TextureSetOverride, UMaterial* Material);
 
-	static void UpdateMaterialInstance(UMaterialInstance* MaterialInstancePtr);
+	static void UpdateMaterialInstance(UMaterialInstance* MaterialInstance);
 };
 
 

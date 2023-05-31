@@ -36,6 +36,7 @@
 #include "TextureSetEditingUtils.h"
 #include "DetailWidgetRow.h"
 #include "IDetailGroup.h"
+#include "MaterialExpressionTextureSetSampleParameter.h"
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
@@ -121,24 +122,23 @@ void STextureSetParameterWidget::ToggleTextureSetOverridden(ECheckBoxState NewSt
 
 bool STextureSetParameterWidget::OnShouldFilterTextureSetAsset(const FAssetData& InAssetData)
 {
-	UTextureSet* NewTextureSet = (UTextureSet*)InAssetData.GetAsset();
+	const UTextureSet* NewTextureSet = CastChecked<UTextureSet>(InAssetData.GetAsset());
 
-	if (NewTextureSet)
+	if (NewTextureSet && MaterialInstance && MaterialInstance->GetMaterial())
 	{
-		if (MaterialInstance)
+		const UTextureSetAssetUserData* TextureSetUserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+		if (IsValid(TextureSetUserData))
 		{
-			UTextureSetAssetUserData* TextureSetOverrides = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
-			if (IsValid(TextureSetOverrides))
+			if (TextureSetUserData->TexturesSetOverrides.IsValidIndex(ParameterIndex))
 			{
-				if (TextureSetOverrides->TexturesSetOverrides.IsValidIndex(ParameterIndex))
-				{
-					FSetOverride& TextureSetOverride = TextureSetOverrides->TexturesSetOverrides[ParameterIndex];
+				const FSetOverride& TextureSetOverride = TextureSetUserData->TexturesSetOverrides[ParameterIndex];
 
-					const FString& currentDefinitionPath = TextureSetOverride.Definition->GetPathName();
-					const FString& newDefinitionPath = NewTextureSet->Definition->GetPathName();
-					if (newDefinitionPath == currentDefinitionPath)
-						return false;
-				}
+				const UMaterialExpressionTextureSetSampleParameter* SampleExpression = FTextureSetEditingUtils::FindSampleExpression(TextureSetOverride, MaterialInstance->GetMaterial());
+
+				check(SampleExpression);
+
+				if (NewTextureSet->Definition == SampleExpression->Definition)
+					return false;
 			}
 		}
 	}
@@ -158,8 +158,6 @@ FString STextureSetParameterWidget::GetTextureSetAssetPath() const
 				
 				if (TextureSetOverride.TextureSet)
 					return TextureSetOverride.TextureSet->GetPathName();
-				else if (TextureSetOverride.DefaultTextureSet)
-					return TextureSetOverride.DefaultTextureSet->GetPathName();
 			}
 		}
 	}

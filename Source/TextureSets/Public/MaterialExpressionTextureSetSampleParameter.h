@@ -51,6 +51,8 @@ public:
 		return GetDefault<T>(); // Not found, return the default class
 	}
 
+	FName GetTextureParameterName(int TextureIndex) const;
+
 	virtual class UMaterialFunction* CreateMaterialFunction() override;
 
 private:

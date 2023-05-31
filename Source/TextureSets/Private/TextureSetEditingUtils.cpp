@@ -15,6 +15,7 @@
 #include "Materials/MaterialInstance.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "TextureSet.h"
+#include "TextureSetDefinition.h"
 #include "TextureSetAssetUserData.h"
 
 TArray<FName> FTextureSetEditingUtils::FindReferencers(const FName PackageName)
@@ -25,59 +26,51 @@ TArray<FName> FTextureSetEditingUtils::FindReferencers(const FName PackageName)
 	return HardDependencies;
 }
 
-
-void FTextureSetEditingUtils::UpdateMaterialInstance(UMaterialInstance* MaterialInstancePtr)
+const UMaterialExpressionTextureSetSampleParameter* FTextureSetEditingUtils::FindSampleExpression(const FSetOverride& TextureSetOverride, UMaterial* Material)
 {
-	if (!MaterialInstancePtr)
-		return;
-
-	UTextureSetAssetUserData* tsAssetUserData = MaterialInstancePtr->GetAssetUserDataChecked<UTextureSetAssetUserData>();
-	if (!tsAssetUserData)
+	TArray<const UMaterialExpressionTextureSetSampleParameter*> SamplerExpressions;
+	Material->GetAllExpressionsOfType<UMaterialExpressionTextureSetSampleParameter>(SamplerExpressions);
+	
+	const TArray<UMaterialExpression*>* ExpressionList = Material->EditorParameters.Find(TextureSetOverride.Name);
+	for (const UMaterialExpressionTextureSetSampleParameter* CurNode : SamplerExpressions)
 	{
-		return;
-	}
-
-	// Ryan: Fix and Optimize me
-	for (auto Expression : MaterialInstancePtr->GetMaterial()->GetExpressions())
-	{
-		if (!Expression->IsA(UMaterialExpressionTextureSetSampleParameter::StaticClass()))
+		if (CurNode->ParameterName == TextureSetOverride.Name || CurNode->MaterialExpressionGuid == TextureSetOverride.MaterialExpressionGuid)
 		{
+			return CurNode;
+		}
+	}
+	return nullptr;
+}
+
+
+void FTextureSetEditingUtils::UpdateMaterialInstance(UMaterialInstance* MaterialInstance)
+{
+	check(MaterialInstance);
+	check(MaterialInstance->GetMaterial());
+
+	UTextureSetAssetUserData* tsAssetUserData = MaterialInstance->GetAssetUserDataChecked<UTextureSetAssetUserData>();
+
+	for (const FSetOverride& TextureSetOverride : tsAssetUserData->TexturesSetOverrides)
+	{
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression = FindSampleExpression(TextureSetOverride, MaterialInstance->GetMaterial());
+		if (SampleExpression == nullptr)
 			continue;
-		}
 
-		for (auto Override : tsAssetUserData->TexturesSetOverrides)
+		UTextureSetDefinition* Definition = SampleExpression->Definition;
+		if (Definition == nullptr)
+			continue;
+
+		// Set the texture parameter for each cooked texture
+		for (int i = 0; i < Definition->PackedTextures.Num(); i++)
 		{
-			if (Expression->MaterialExpressionGuid != Override.Guid) // Make me better
+			if (TextureSetOverride.TextureSet->CookedTextures.Num() > i && TextureSetOverride.TextureSet->CookedTextures[i] != nullptr)
 			{
-				continue;
-			}
-
-			if (IsValid(Override.TextureSet))
-			{
-				// TODO: Use cooked textures, not source textures
-				for (auto& pair : Override.TextureSet->SourceTextures)
-				{
-					const FName& Name = pair.Key;
-					const TObjectPtr<UTexture> Texture = pair.Value;
-
-					auto OverrideInstance = MaterialInstancePtr->TextureParameterValues.FindByPredicate([Name](const FTextureParameterValue& Param) { return Param.ParameterInfo.Name.IsEqual(Name); });
-
-					if (!OverrideInstance)
-					{
-						FTextureParameterValue TextureSetOverride;
-						TextureSetOverride.ParameterValue = Texture;
-						TextureSetOverride.ParameterInfo.Name = Name;
-						MaterialInstancePtr->TextureParameterValues.Add(TextureSetOverride);
-					}
-					else
-					{
-						OverrideInstance->ParameterValue = Texture;
-					}
-				}
+				FTextureParameterValue TextureParameter;
+				TextureParameter.ParameterValue = TextureSetOverride.TextureSet->CookedTextures[i];
+				TextureParameter.ParameterInfo.Name = SampleExpression->GetTextureParameterName(i);
+				MaterialInstance->TextureParameterValues.Add(TextureParameter);
 			}
 		}
 	}
-
-
 }
 

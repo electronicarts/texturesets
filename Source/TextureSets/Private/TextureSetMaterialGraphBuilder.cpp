@@ -31,7 +31,7 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(TObjectPtr<UTex
 	// Create Texture Parameters for each packed texture
 	for (int i = 0; i < Definition->PackedTextures.Num(); i++)
 	{
-		const FName PackedTextureName = FName(Node->ParameterName.ToString() + "_PACKED_" + FString::FromInt(i));
+		const FName PackedTextureName = Node->GetTextureParameterName(i);
 
 		TObjectPtr<UMaterialExpressionTextureObjectParameter> TextureObject = CreateExpression<UMaterialExpressionTextureObjectParameter>();
 

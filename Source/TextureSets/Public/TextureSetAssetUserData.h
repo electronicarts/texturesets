@@ -16,20 +16,15 @@ struct FSetOverride
 	
 	UPROPERTY(VisibleAnywhere)
 	FName Name;
+
 	UPROPERTY(EditAnywhere)
 	UTextureSet* TextureSet;
 
 	UPROPERTY()
-	UTextureSet* DefaultTextureSet;
-	UPROPERTY()
-	UTextureSetDefinition* Definition;
+	FGuid MaterialExpressionGuid;
 
 	UPROPERTY()
-	FGuid Guid;
-	UPROPERTY()
 	bool IsOverridden;
-	// UPROPERTY()
-	// TArray< TObjectPtr<UAssetUserData> > AssetUserData;
 };
 
 UCLASS(BlueprintType)
@@ -38,13 +33,9 @@ class TEXTURESETS_API UTextureSetAssetUserData : public UAssetUserData
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<FSetOverride> TexturesSetOverrides;
-	
-
-	UTextureSetAssetUserData(){}
-	void AddOverride(FSetOverride& Override);
-
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+
+	UPROPERTY(EditAnywhere)
+	TArray<FSetOverride> TexturesSetOverrides;
 	
 };
