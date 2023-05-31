@@ -154,6 +154,7 @@ public:
 	virtual bool CanEditChange(const FProperty* InProperty) const override;
 #endif
 	virtual void PostLoad() override;
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 
 	UFUNCTION(CallInEditor)
 	TArray<FName> GetUnpackedChannelNames() const;
@@ -177,7 +178,7 @@ public: // TODO: Make Private
 	UPROPERTY(EditAnywhere, meta=(TitleProperty="CompressionSettings"))
 	TArray<FTextureSetPackedTextureDef> PackedTextures;
 
-	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere
+
 	TArray<UTexture*> DefaultTextures;
 
 	void UpdateDefaultTextures();

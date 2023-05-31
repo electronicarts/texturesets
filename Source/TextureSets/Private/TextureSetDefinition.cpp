@@ -120,6 +120,17 @@ void UTextureSetDefinition::PostLoad()
 	UpdateDefaultTextures();
 }
 
+void UTextureSetDefinition::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	const FName ChangedPropName = PropertyChangedEvent.GetPropertyName();
+
+	if (ChangedPropName == GET_MEMBER_NAME_CHECKED(UTextureSetDefinition, PackedTextures))
+	{
+		UpdateDefaultTextures();
+	}
+}
+
 TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames() const
 {
 	// Construct an array of all the channel names already used for packing
