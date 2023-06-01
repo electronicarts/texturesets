@@ -52,6 +52,7 @@ public:
 	}
 
 	FName GetTextureParameterName(int TextureIndex) const;
+	static bool IsTextureSetParameterName(FName Name);
 
 	virtual class UMaterialFunction* CreateMaterialFunction() override;
 

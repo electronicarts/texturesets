@@ -27,7 +27,12 @@ UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampl
 
 FName UMaterialExpressionTextureSetSampleParameter::GetTextureParameterName(int TextureIndex) const
 {
-	return FName(ParameterName.ToString() + "_PACKED_" + FString::FromInt(TextureIndex));
+	return FName("TEXSET_" + ParameterName.ToString() + "_PACKED_" + FString::FromInt(TextureIndex));
+}
+
+bool UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(FName Name)
+{
+	return Name.ToString().StartsWith("TEXSET_", ESearchCase::IgnoreCase);
 }
 
 UMaterialFunction* UMaterialExpressionTextureSetSampleParameter::CreateMaterialFunction()

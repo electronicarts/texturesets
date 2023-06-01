@@ -17,13 +17,13 @@ struct FSetOverride
 	UPROPERTY(VisibleAnywhere)
 	FName Name;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(VisibleAnywhere)
 	UTextureSet* TextureSet;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere)
 	FGuid MaterialExpressionGuid;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere)
 	bool IsOverridden;
 };
 
@@ -33,9 +33,20 @@ class TEXTURESETS_API UTextureSetAssetUserData : public UAssetUserData
 	GENERATED_BODY()
 
 public:
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	// UObject Overrides
+	virtual void PostInitProperties() override;
+	virtual void PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext) override;
 
-	UPROPERTY(EditAnywhere)
+	// UAssetUserData Overrides
+	virtual void PostLoadOwner() override;
+
+	void UpdateTextureSetParameters();
+	void ClearTextureSetParameters();
+
+	UPROPERTY(VisibleAnywhere)
 	TArray<FSetOverride> TexturesSetOverrides;
+
+private:
+	UMaterialInstance* MaterialInstance;
 	
 };

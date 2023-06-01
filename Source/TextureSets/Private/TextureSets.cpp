@@ -76,16 +76,6 @@ void FTextureSetsModule::UnregisterAssetTools()
 	}
 }
 
-void FTextureSetsModule::OnMIPostEditProperty(UMaterialInstance* MaterialInstancePtr, FPropertyChangedEvent& PropertyChangedEvent)
-{
-	if (PropertyChangedEvent.ChangeType != EPropertyChangeType::ValueSet || !PropertyChangedEvent.GetPropertyName().IsEqual("AssetUserData"))
-	{
-		return;
-	}
-
-	FTextureSetEditingUtils::UpdateMaterialInstance(MaterialInstancePtr);
-}
-
 void FTextureSetsModule::OnMaterialInstanceOpenedForEdit(UMaterialInstance* MaterialInstancePtr)
 {
 	UMaterialInstance* MaterialInstance = MaterialInstancePtr;
@@ -128,25 +118,16 @@ void FTextureSetsModule::OnMaterialInstanceOpenedForEdit(UMaterialInstance* Mate
 			}
 		}
 	}
-
-	MaterialInstance->OnPostEditChangeProperty().AddRaw(this, &FTextureSetsModule::OnMIPostEditProperty);
-	
 }
 
-void FTextureSetsModule::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstancePtr, IDetailCategoryBuilder& GroupsCategory)
+void FTextureSetsModule::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstance, IDetailCategoryBuilder& GroupsCategory)
 {
-	UMaterialInstanceConstant* MaterialInstance = MaterialInstancePtr;
-	if (!MaterialInstance)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("No material instance found"));
-		return;
-	}
+	check(MaterialInstance);
+
 	UTextureSetAssetUserData* TextureSetOverrides = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	// Not an error if user data doesn't exist, just means this material doesn't contain a texture set.
 	if (!TextureSetOverrides)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("No TextureSetAsset UserData found"));
 		return;
-	}
 
 	const FName& GroupName = FMaterialPropertyHelpers::TextureSetParamName;
 	IDetailGroup& DetailGroup = GroupsCategory.AddGroup(GroupName, FText::FromName(GroupName), false, true);
@@ -162,7 +143,7 @@ void FTextureSetsModule::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceCons
 	{
 		DetailGroup.AddWidgetRow()
 			[
-				SNew(STextureSetParameterWidget, (UMaterialInstance*)MaterialInstance, ParameterIndex)
+				SNew(STextureSetParameterWidget, MaterialInstance, ParameterIndex)
 			];
 	}
 

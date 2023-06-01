@@ -12,7 +12,7 @@
 
 class FName;
 class FString;
-class UMaterialInstance;
+class UMaterialInstanceConstant;
 
 /**
  * The widget to display metadata as a table of tag/value rows
@@ -29,7 +29,7 @@ public:
 	 * @param	InArgs				Declaration used by the SNew() macro to construct this widget
 	 * @param	InMetaData			The metadata tags/values to display in the table view widget
 	 */
-	void Construct(const FArguments& InArgs, UMaterialInstance* MaterialInstance, UINT ParameterIndex);
+	void Construct(const FArguments& InArgs, UMaterialInstanceConstant* MaterialInstance, UINT ParameterIndex);
 
 private:
 
@@ -40,6 +40,6 @@ private:
 	FString GetTextureSetAssetPath() const;
 	void OnTextureSetAssetChanged(const FAssetData& InAssetData);
 
-	UMaterialInstance* MaterialInstance;
+	UMaterialInstanceConstant* MaterialInstance;
 	UINT ParameterIndex;
 };

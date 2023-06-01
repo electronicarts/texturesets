@@ -29,7 +29,6 @@ private:
 
 	// Callbacks
 	void OnMaterialInstanceOpenedForEdit(UMaterialInstance*);
-	void OnMIPostEditProperty(UMaterialInstance* MaterialInstancePtr, FPropertyChangedEvent& PropertyChangedEvent);
 
 	void OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstance, IDetailCategoryBuilder& GroupsCategory);
 

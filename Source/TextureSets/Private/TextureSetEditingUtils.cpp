@@ -41,36 +41,3 @@ const UMaterialExpressionTextureSetSampleParameter* FTextureSetEditingUtils::Fin
 	}
 	return nullptr;
 }
-
-
-void FTextureSetEditingUtils::UpdateMaterialInstance(UMaterialInstance* MaterialInstance)
-{
-	check(MaterialInstance);
-	check(MaterialInstance->GetMaterial());
-
-	UTextureSetAssetUserData* tsAssetUserData = MaterialInstance->GetAssetUserDataChecked<UTextureSetAssetUserData>();
-
-	for (const FSetOverride& TextureSetOverride : tsAssetUserData->TexturesSetOverrides)
-	{
-		const UMaterialExpressionTextureSetSampleParameter* SampleExpression = FindSampleExpression(TextureSetOverride, MaterialInstance->GetMaterial());
-		if (SampleExpression == nullptr)
-			continue;
-
-		UTextureSetDefinition* Definition = SampleExpression->Definition;
-		if (Definition == nullptr)
-			continue;
-
-		// Set the texture parameter for each cooked texture
-		for (int i = 0; i < Definition->PackedTextures.Num(); i++)
-		{
-			if (TextureSetOverride.TextureSet->CookedTextures.Num() > i && TextureSetOverride.TextureSet->CookedTextures[i] != nullptr)
-			{
-				FTextureParameterValue TextureParameter;
-				TextureParameter.ParameterValue = TextureSetOverride.TextureSet->CookedTextures[i];
-				TextureParameter.ParameterInfo.Name = SampleExpression->GetTextureParameterName(i);
-				MaterialInstance->TextureParameterValues.Add(TextureParameter);
-			}
-		}
-	}
-}
-
