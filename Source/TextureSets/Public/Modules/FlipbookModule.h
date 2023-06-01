@@ -43,4 +43,6 @@ public:
 	virtual void BuildSamplingInfo(
 		TextureSetDefinitionSamplingInfo& SamplingInfo,
 		const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
+
+	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) override;
 };

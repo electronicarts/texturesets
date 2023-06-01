@@ -128,11 +128,15 @@ public:
 
 	virtual void BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) {};
 
+	virtual int32 ComputeProcessingHash() { return 0; }
+
 	// Process the source data into the intermediate results
 	// Transforms source elements into processed data
 	// Sets values of shader constants
 	// TODO: Define arguments and return values
 	virtual void Process(const UTextureSetAssetParams* AssetParams) {}
+
+	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) { return 0; }
 
 	// Logic (material graph) for unpacking data
 	// Transforms processed data into desired output elements
@@ -167,6 +171,8 @@ public:
 	TArray<TSubclassOf<UTextureSetSampleParams>> GetRequiredSampleParamClasses() const;
 
 	UTexture* GetDefaultPackedTexture(int index) const;
+
+	int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
 
 	void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression, FTextureSetMaterialGraphBuilder& Builder) const;
 

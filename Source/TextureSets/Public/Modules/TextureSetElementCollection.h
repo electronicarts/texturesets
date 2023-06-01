@@ -26,6 +26,16 @@ public:
 	FVector4 DefaultValue;
 };
 
+FORCEINLINE uint32 GetTypeHash(const FElementDefinition& Def)
+{
+	uint32 Hash = 0;
+	Hash = HashCombine(Hash, GetTypeHash(Def.ElementName));
+	Hash = HashCombine(Hash, GetTypeHash(Def.SRGB));
+	Hash = HashCombine(Hash, GetTypeHash(Def.ChannelCount));
+	Hash = HashCombine(Hash, GetTypeHash(Def.DefaultValue));
+	return int32();
+}
+
 // Allows users to define a custom set of elements that can be packed, and unpacked with no extra processing.
 UCLASS(Abstract, Blueprintable)
 class UTextureSetElementCollection : public UTextureSetDefinitionModule
@@ -39,6 +49,8 @@ public:
 	virtual void BuildSamplingInfo(
 		TextureSetDefinitionSamplingInfo& SamplingInfo,
 		const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
+	
+	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) override;
 
 	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 		FTextureSetMaterialGraphBuilder& Builder) const override;

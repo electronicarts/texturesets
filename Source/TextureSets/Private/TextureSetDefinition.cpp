@@ -317,6 +317,19 @@ UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int index) const
 	return DefaultTextures[index];
 }
 
+int32 UTextureSetDefinition::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+{
+	uint32 Hash = 0;
+
+	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredTypes;
+	for (UTextureSetDefinitionModule* Module : Modules)
+	{
+		Hash = HashCombine(Hash, Module->ComputeSamplingHash(SampleExpression));
+	}
+
+	return Hash;
+}
+
 void UTextureSetDefinition::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const
 {

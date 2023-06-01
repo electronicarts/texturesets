@@ -29,6 +29,17 @@ void UTextureSetElementCollection::BuildSamplingInfo(TextureSetDefinitionSamplin
 	}
 }
 
+int32 UTextureSetElementCollection::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+{
+	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
+	for (const FElementDefinition& Element: Elements)
+	{
+		Hash = HashCombine(Hash, GetTypeHash(Element));
+	}
+	
+	return Hash;
+}
+
 void UTextureSetElementCollection::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const
 {

@@ -12,6 +12,18 @@ void UFlipbookModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
 	}
 }
 
+int32 UFlipbookModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+{
+	const UFlipbookSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UFlipbookSampleParams>();
+
+	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
+
+	Hash = HashCombine(Hash, GetTypeHash(HeightSampleParams->bBlendFrames));
+	Hash = HashCombine(Hash, GetTypeHash(bUseMotionVectors)); 
+
+	return Hash;
+}
+
 void UFlipbookModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
 {
 	const UFlipbookSampleParams* FlipbookSampleParams = SampleExpression->GetSampleParams<UFlipbookSampleParams>();

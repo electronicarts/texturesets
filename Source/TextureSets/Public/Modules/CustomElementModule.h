@@ -21,6 +21,7 @@ public:
 		TextureSetDefinitionSamplingInfo& SamplingInfo,
 		const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
 
+	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) override;
 
 	virtual void GenerateSamplingGraph(
 		const UMaterialExpressionTextureSetSampleParameter* SampleExpression,

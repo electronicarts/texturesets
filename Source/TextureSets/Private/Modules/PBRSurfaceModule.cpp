@@ -116,6 +116,22 @@ void UPBRSurfaceModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& Samp
 	}
 }
 
+int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+{
+	const UPBRSampleParams* SampleParams = SampleExpression->GetSampleParams<UPBRSampleParams>();
+
+	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
+
+	Hash = HashCombine(Hash, GetTypeHash(SampleParams->ParameterizationOutput));
+	Hash = HashCombine(Hash, GetTypeHash(SampleParams->NormalSpaceOutput));
+	Hash = HashCombine(Hash, GetTypeHash(SampleParams->MicrosurfaceOutput));
+	Hash = HashCombine(Hash, GetTypeHash(Paramaterization));
+	Hash = HashCombine(Hash, GetTypeHash(Microsurface));
+	Hash = HashCombine(Hash, GetTypeHash(Normal));
+
+	return Hash;
+}
+
 void UPBRSurfaceModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const
 {

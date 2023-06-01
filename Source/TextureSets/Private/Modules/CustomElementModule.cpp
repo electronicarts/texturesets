@@ -18,6 +18,18 @@ void UCustomElementModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& S
 	SamplingInfo.AddSampleOutput(ElementName, ValueTypeLookup[ChannelCount]);
 }
 
+int32 UCustomElementModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+{
+	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
+
+	Hash = HashCombine(Hash, GetTypeHash(ElementName));
+	Hash = HashCombine(Hash, GetTypeHash(SRGB));
+	Hash = HashCombine(Hash, GetTypeHash(ChannelCount));
+	Hash = HashCombine(Hash, GetTypeHash(DefaultValue));
+
+	return Hash;
+}
+
 void UCustomElementModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const
 {

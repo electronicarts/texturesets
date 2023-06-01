@@ -29,6 +29,17 @@ void UHeightModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& Sampling
 	SamplingInfo.AddSampleOutput("Height", EMaterialValueType::MCT_Float1);
 }
 
+int32 UHeightModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+{
+	const UHeightSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UHeightSampleParams>();
+
+	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
+
+	Hash = HashCombine(Hash, GetTypeHash(HeightSampleParams->bEnableParallaxOcclusionMapping));
+
+	return Hash;
+}
+
 void UHeightModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const
 {
