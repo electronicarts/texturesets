@@ -7,7 +7,7 @@
 #include "MaterialPropertyHelpers.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "TextureSet.h"
-#include "TextureSetAssetUserData.h"
+#include "TextureSetsMaterialInstanceUserData.h"
 #include "TextureSetEditingUtils.h"
 #include "MaterialEditor/Public/MaterialEditorModule.h"
 #include "MaterialEditor/MaterialEditorInstanceConstant.h"
@@ -86,12 +86,12 @@ void FTextureSetsModule::UpdateAssetUserData(UMaterialInstance* MaterialInstance
 	TArray<const UMaterialExpressionTextureSetSampleParameter*> TextureSetExpressions;
 	MaterialInstance->GetMaterial()->GetAllExpressionsOfType<UMaterialExpressionTextureSetSampleParameter>(TextureSetExpressions);
 
-	UTextureSetAssetUserData* TextureSetUserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	UTextureSetsMaterialInstanceUserData* TextureSetUserData = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
 
 	// If there are no texture set expressions, we can clear TextureSetUserData
 	if (TextureSetExpressions.IsEmpty() && IsValid(TextureSetUserData))
 	{
-		MaterialInstance->RemoveUserDataOfClass(UTextureSetAssetUserData::StaticClass());
+		MaterialInstance->RemoveUserDataOfClass(UTextureSetsMaterialInstanceUserData::StaticClass());
 		return; // Done here, not a material that needs texture set stuff.
 	}
 
@@ -109,7 +109,7 @@ void FTextureSetsModule::UpdateAssetUserData(UMaterialInstance* MaterialInstance
 		// This is so the user data is only added if there is a texture set expression.
 		if (!IsValid(TextureSetUserData))
 		{
-			TextureSetUserData = NewObject<UTextureSetAssetUserData>(MaterialInstance);
+			TextureSetUserData = NewObject<UTextureSetsMaterialInstanceUserData>(MaterialInstance);
 			MaterialInstance->AddAssetUserData(TextureSetUserData);
 		}
 
@@ -149,7 +149,7 @@ void FTextureSetsModule::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceCons
 {
 	check(MaterialInstance);
 
-	UTextureSetAssetUserData* TextureSetOverrides = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	UTextureSetsMaterialInstanceUserData* TextureSetOverrides = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
 	// Not an error if user data doesn't exist, just means this material doesn't contain a texture set.
 	if (!TextureSetOverrides)
 		return;

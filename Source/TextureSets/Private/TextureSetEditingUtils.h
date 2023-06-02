@@ -3,7 +3,6 @@
 #pragma once
 
 #include "MaterialGraph/MaterialGraphNode.h"
-#include "TextureSetAssetUserData.h"
 
 class UMaterialExpressionTextureSetSampleParameter;
 

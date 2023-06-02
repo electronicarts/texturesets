@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/AssetUserData.h"
-#include "TextureSetAssetUserData.generated.h"
+#include "TextureSetsMaterialInstanceUserData.generated.h"
 
 class UTextureSet;
 class UTextureSetDefinition;
@@ -25,7 +25,7 @@ struct FSetOverride
 };
 
 UCLASS(BlueprintType)
-class TEXTURESETS_API UTextureSetAssetUserData : public UAssetUserData
+class TEXTURESETS_API UTextureSetsMaterialInstanceUserData : public UAssetUserData
 {
 	GENERATED_BODY()
 

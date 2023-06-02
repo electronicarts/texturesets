@@ -16,7 +16,6 @@
 #include "Materials/MaterialInstanceConstant.h"
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
-#include "TextureSetAssetUserData.h"
 
 TArray<FName> FTextureSetEditingUtils::FindReferencers(const FName PackageName)
 {

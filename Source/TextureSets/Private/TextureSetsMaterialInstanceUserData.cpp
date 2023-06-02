@@ -1,6 +1,6 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#include "TextureSetAssetUserData.h"
+#include "TextureSetsMaterialInstanceUserData.h"
 
 #include "Materials/MaterialInstance.h"
 #include "Materials/MaterialInstanceConstant.h"
@@ -10,7 +10,7 @@
 #include "TextureSetDefinition.h"
 #include "TextureSet.h"
 
-void UTextureSetAssetUserData::PostInitProperties()
+void UTextureSetsMaterialInstanceUserData::PostInitProperties()
 {
 	Super::PostInitProperties();
 	if (GetClass()->GetDefaultObject() != this)
@@ -20,7 +20,7 @@ void UTextureSetAssetUserData::PostInitProperties()
 	}
 }
 
-void UTextureSetAssetUserData::PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext)
+void UTextureSetsMaterialInstanceUserData::PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext)
 {
 	Super::PreSaveRoot(ObjectSaveContext);
 
@@ -29,7 +29,7 @@ void UTextureSetAssetUserData::PreSaveRoot(FObjectPreSaveRootContext ObjectSaveC
 	ClearTextureSetParameters();
 }
 
-void UTextureSetAssetUserData::PostLoadOwner()
+void UTextureSetsMaterialInstanceUserData::PostLoadOwner()
 {
 	Super::PostLoadOwner();
 
@@ -37,7 +37,7 @@ void UTextureSetAssetUserData::PostLoadOwner()
 	UpdateTextureSetParameters();
 }
 
-void UTextureSetAssetUserData::ClearTextureSetParameters()
+void UTextureSetsMaterialInstanceUserData::ClearTextureSetParameters()
 {
 	for(int i = 0; i < MaterialInstance->TextureParameterValues.Num(); i++)
 	{
@@ -50,7 +50,7 @@ void UTextureSetAssetUserData::ClearTextureSetParameters()
 	}
 }
 
-void UTextureSetAssetUserData::UpdateTextureSetParameters()
+void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 {
 	if (!IsValid(MaterialInstance->GetMaterial()))
 		return;

@@ -30,7 +30,7 @@
 #include "PropertyCustomizationHelpers.h"
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
-#include "TextureSetAssetUserData.h"
+#include "TextureSetsMaterialInstanceUserData.h"
 #include "Materials/MaterialInstance.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "TextureSetEditingUtils.h"
@@ -47,7 +47,7 @@ void STextureSetParameterWidget::Construct(const FArguments& InArgs, UMaterialIn
 	MaterialInstance = InMaterialInstance;
 	Parameter = InParameter;
 
-	UTextureSetAssetUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	UTextureSetsMaterialInstanceUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
 	check(UserData);
 
 	FSetOverride& Override = UserData->TexturesSetOverrides.FindChecked(Parameter);
@@ -86,7 +86,7 @@ void STextureSetParameterWidget::Construct(const FArguments& InArgs, UMaterialIn
 
 ECheckBoxState STextureSetParameterWidget::IsTextureSetOverridden() const
 {
-	UTextureSetAssetUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	UTextureSetsMaterialInstanceUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
 	check(UserData);
 
 	const FSetOverride& Override = UserData->TexturesSetOverrides.FindChecked(Parameter);
@@ -97,7 +97,7 @@ ECheckBoxState STextureSetParameterWidget::IsTextureSetOverridden() const
 
 void STextureSetParameterWidget::ToggleTextureSetOverridden(ECheckBoxState NewState)
 {
-	UTextureSetAssetUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	UTextureSetsMaterialInstanceUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
 	check(UserData);
 
 	FSetOverride& Override = UserData->TexturesSetOverrides.FindChecked(Parameter);
@@ -129,7 +129,7 @@ FString STextureSetParameterWidget::GetTextureSetAssetPath() const
 {
 	check(MaterialInstance);
 
-	const UTextureSetAssetUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	const UTextureSetsMaterialInstanceUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
 	check(UserData);
 
 	const FSetOverride& TextureSetOverride = UserData->TexturesSetOverrides.FindChecked(Parameter);
@@ -144,7 +144,7 @@ void STextureSetParameterWidget::OnTextureSetAssetChanged(const FAssetData& InAs
 {
 	check(MaterialInstance);
 
-	UTextureSetAssetUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	UTextureSetsMaterialInstanceUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
 	check(UserData);
 
 	FSetOverride& TextureSetOverride = UserData->TexturesSetOverrides.FindChecked(Parameter);
