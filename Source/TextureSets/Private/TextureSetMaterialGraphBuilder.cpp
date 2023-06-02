@@ -18,8 +18,10 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(TObjectPtr<UTex
 	: Definition(Def)
 {
 	check(Definition);
-	TextureSetDefinitionSharedInfo SharedInfo = Definition->GetSharedInfo();
-	TextureSetDefinitionSamplingInfo SamplingInfo = Definition->GetSamplingInfo(Node);
+	const TextureSetDefinitionSharedInfo SharedInfo = Definition->GetSharedInfo();
+	const TextureSetDefinitionSamplingInfo SamplingInfo = Definition->GetSamplingInfo(Node);
+	const TextureSetPackingInfo PackingInfo = Definition->GetPackingInfo();
+	const TArray<FTextureSetPackedTextureDef> PackedTextures = PackingInfo.GetPackedTextures();
 
 	FName FunctionName = MakeUniqueObjectName(Node, UMaterialFunction::StaticClass(), Node->ParameterName, EUniqueObjectNameOptions::GloballyUnique);
 	MaterialFunction = NewObject<UMaterialFunction>(Node, FunctionName);
@@ -29,7 +31,7 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(TObjectPtr<UTex
 	UVExpression->InputName = TEXT("UV");
 
 	// Create Texture Parameters for each packed texture
-	for (int i = 0; i < Definition->PackedTextures.Num(); i++)
+	for (int i = 0; i < PackedTextures.Num(); i++)
 	{
 		const FName PackedTextureName = Node->GetTextureParameterName(i);
 
@@ -47,9 +49,9 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(TObjectPtr<UTex
 	}
 
 	// Sample each packed texture
-	for (int t = 0; t < Definition->PackedTextures.Num(); t++)
+	for (int t = 0; t < PackedTextures.Num(); t++)
 	{
-		const FTextureSetPackedTextureDef& PackedTexture = Definition->PackedTextures[t];
+		const FTextureSetPackedTextureDef& PackedTexture = PackedTextures[t];
 		UMaterialExpressionTextureObjectParameter* TextureObject = PackedTextureObjects[t];
 
 		TObjectPtr<UMaterialExpression> TextureSample = MakeTextureSamplerCustomNode(UVExpression, TextureObject);

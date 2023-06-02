@@ -20,16 +20,6 @@ public:
 	FVector4 DefaultValue; // Used as a fallback if this map is not provided
 };
 
-enum class ESourceParameterType
-{
-	Scalar,
-	Vector2,
-	Vector3,
-	Vector4,
-	Color,
-	Boolean,
-};
-
 // Data class which is instanced on each texture set asset. Module can use this to allow users to configure asset settings.
 UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
 class UTextureSetAssetParams : public UObject
@@ -64,11 +54,14 @@ private:
 	TMap<FName, int> ProcessedTextureIndicies;
 };
 
+// Info used for packing, not exposed to the modules
 struct TextureSetPackingInfo
 {
 	friend class UTextureSetDefinition;
 public:
-	FVector4 GetDefaultColor(int index);
+	FVector4 GetDefaultColor(int index) const;
+	const TArray<FTextureSetPackedTextureDef> GetPackedTextures() const { return PackedTextureDefs; }
+	const int NumPackedTextures() const { return PackedTextureDefs.Num(); }
 
 private:
 	struct TextureSetPackedTextureInfo
@@ -106,6 +99,7 @@ private:
 	TMap<FName, EMaterialValueType> SampleOutputs;
 };
 
+// Abstract class for texture set modules. Modules provide a mechanism for extending textures sets with additional functionality.
 UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
 class UTextureSetDefinitionModule : public UObject
 {
@@ -124,10 +118,13 @@ public:
 	// Which class this module uses to attach parameters to the sampler material expression
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const { return nullptr; }
 
+	// Use in subclasses to add to the shared info
 	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) {};
 
+	// Use in subclasses to add to the sampling info
 	virtual void BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) {};
 
+	// Compute a hash for the module processing. If this hash changes, it triggers a texture-sets to be re-processed.
 	virtual int32 ComputeProcessingHash() { return 0; }
 
 	// Process the source data into the intermediate results
@@ -136,6 +133,7 @@ public:
 	// TODO: Define arguments and return values
 	virtual void Process(const UTextureSetAssetParams* AssetParams) {}
 
+	// Compute a hash for the sampling graph. If this hash changes, it triggers the sampling graph to be re-generated.
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) { return 0; }
 
 	// Logic (material graph) for unpacking data
@@ -144,6 +142,8 @@ public:
 	FTextureSetMaterialGraphBuilder& Builder) const {}
 };
 
+// The texture set definition. Definitions consist primarily of a list of modules, and a packing definition.
+// The definition is configurable, and drives most other aspects of the texture-set from import to packing to sampling.
 UCLASS()
 class TEXTURESETS_API UTextureSetDefinition : public UDataAsset
 {
@@ -154,6 +154,7 @@ public:
 	// Defined as {".r", ".g", ".b", ".a"}
 	static const FString ChannelSuffixes[4];
 
+	// UObject Overrides
 #if WITH_EDITOR
 	virtual bool CanEditChange(const FProperty* InProperty) const override;
 #endif
@@ -170,13 +171,14 @@ public:
 	TArray<TSubclassOf<UTextureSetAssetParams>> GetRequiredAssetParamClasses() const;
 	TArray<TSubclassOf<UTextureSetSampleParams>> GetRequiredSampleParamClasses() const;
 
+	// Get the default packed texture for a specific packed texture index
 	UTexture* GetDefaultPackedTexture(int index) const;
 
 	int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
 
 	void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression, FTextureSetMaterialGraphBuilder& Builder) const;
 
-public: // TODO: Make Private
+private:
 
 	UPROPERTY(EditAnywhere)
 	TArray<UTextureSetDefinitionModule*> Modules;

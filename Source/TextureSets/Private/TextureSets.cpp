@@ -4,23 +4,16 @@
 
 #include "IMaterialEditor.h"
 #include "MaterialEditorUtilities.h"
-#include "MaterialPropertyHelpers.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "TextureSet.h"
 #include "TextureSetsMaterialInstanceUserData.h"
 #include "TextureSetEditingUtils.h"
-#include "MaterialEditor/Public/MaterialEditorModule.h"
-#include "MaterialEditor/MaterialEditorInstanceConstant.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSet.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSetDefinition.h"
 #include "MaterialGraph/MaterialGraph.h"
 #include "Materials/MaterialExpressionExecBegin.h"
 #include "Materials/MaterialExpressionExecEnd.h"
-#include "Materials/MaterialInstance.h"
-#include "Materials/MaterialInstanceConstant.h"
-#include "DetailWidgetRow.h"
-#include "IDetailGroup.h"
-#include "STextureSetParameterWidget.h"
+
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
@@ -33,15 +26,12 @@ TAutoConsoleVariable<bool> CVarVisualizeMaterialGraph(
 void FTextureSetsModule::StartupModule()
 {
 	RegisterAssetTools();
-	// This is how we could extend a toolbar
-	IMaterialEditorModule* MaterialEditorModule = &FModuleManager::LoadModuleChecked<IMaterialEditorModule>( "MaterialEditor" );
-	MaterialEditorModule->OnMaterialInstanceOpenedForEdit().AddRaw(this, &FTextureSetsModule::OnMaterialInstanceOpenedForEdit);
-
-	UMaterialEditorInstanceConstant::OnCreateGroupsWidget.BindRaw(this, &FTextureSetsModule::OnMICreateGroupsWidget);
+	UTextureSetsMaterialInstanceUserData::RegisterCallbacks();
 }
 
 void FTextureSetsModule::ShutdownModule()
 {
+	UTextureSetsMaterialInstanceUserData::UnregisterCallbacks();
 	UnregisterAssetTools();
 }
 
@@ -74,104 +64,6 @@ void FTextureSetsModule::UnregisterAssetTools()
 			AssetTools.UnregisterAssetTypeActions(Action);
 		}
 	}
-}
-
-void FTextureSetsModule::UpdateAssetUserData(UMaterialInstance* MaterialInstance)
-{
-	check(MaterialInstance);
-
-	if (!IsValid(MaterialInstance->GetMaterial()))
-		return; // Possible if parent has not been assigned yet.
-
-	TArray<const UMaterialExpressionTextureSetSampleParameter*> TextureSetExpressions;
-	MaterialInstance->GetMaterial()->GetAllExpressionsOfType<UMaterialExpressionTextureSetSampleParameter>(TextureSetExpressions);
-
-	UTextureSetsMaterialInstanceUserData* TextureSetUserData = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
-
-	// If there are no texture set expressions, we can clear TextureSetUserData
-	if (TextureSetExpressions.IsEmpty() && IsValid(TextureSetUserData))
-	{
-		MaterialInstance->RemoveUserDataOfClass(UTextureSetsMaterialInstanceUserData::StaticClass());
-		return; // Done here, not a material that needs texture set stuff.
-	}
-
-	TArray<FGuid> UnusedOverrides;
-
-	if (IsValid(TextureSetUserData))
-		TextureSetUserData->TexturesSetOverrides.GetKeys(UnusedOverrides);
-
-	for (const UMaterialExpressionTextureSetSampleParameter* TextureSetExpression : TextureSetExpressions)
-	{
-		check(TextureSetExpression);
-
-		// Add texture set user data if it doesn't exist
-		// Note that this happens inside the loop of texture set expressions.
-		// This is so the user data is only added if there is a texture set expression.
-		if (!IsValid(TextureSetUserData))
-		{
-			TextureSetUserData = NewObject<UTextureSetsMaterialInstanceUserData>(MaterialInstance);
-			MaterialInstance->AddAssetUserData(TextureSetUserData);
-		}
-
-		const FGuid NodeGuid = TextureSetExpression->MaterialExpressionGuid;
-		auto OverrideInstance = TextureSetUserData->TexturesSetOverrides.Find(NodeGuid);
-		if (OverrideInstance)
-		{
-			// Update existing override with the correct value
-			OverrideInstance->Name = TextureSetExpression->ParameterName;
-			UnusedOverrides.RemoveSingle(NodeGuid);
-		}
-		else
-		{
-			// Add new override
-			FSetOverride Override;
-
-			// TODO: See if there are any old overrides with the same name, which we could use to recover values from.
-			Override.Name = TextureSetExpression->ParameterName;
-			Override.TextureSet = TextureSetExpression->DefaultTextureSet;
-			Override.IsOverridden = false;
-
-			TextureSetUserData->TexturesSetOverrides.Add(NodeGuid, Override);
-		}
-	}
-
-	// Clear any overrides we no longer need.
-	for (FGuid Unused : UnusedOverrides)
-		TextureSetUserData->TexturesSetOverrides.Remove(Unused);
-}
-
-void FTextureSetsModule::OnMaterialInstanceOpenedForEdit(UMaterialInstance* MaterialInstance)
-{
-	UpdateAssetUserData(MaterialInstance);
-}
-
-void FTextureSetsModule::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstance, IDetailCategoryBuilder& GroupsCategory)
-{
-	check(MaterialInstance);
-
-	UTextureSetsMaterialInstanceUserData* TextureSetOverrides = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
-	// Not an error if user data doesn't exist, just means this material doesn't contain a texture set.
-	if (!TextureSetOverrides)
-		return;
-
-	const FName& GroupName = FMaterialPropertyHelpers::TextureSetParamName;
-	IDetailGroup& DetailGroup = GroupsCategory.AddGroup(GroupName, FText::FromName(GroupName), false, true);
-
-	DetailGroup.HeaderRow()
-		.NameContent()
-		[
-			SNew(STextBlock)
-			.Text(FText::FromName(DetailGroup.GetGroupName()))
-		];
-
-	for (const auto& [Guid, Override] : TextureSetOverrides->TexturesSetOverrides)
-	{
-		DetailGroup.AddWidgetRow()
-			[
-				SNew(STextureSetParameterWidget, MaterialInstance, Guid)
-			];
-	}
-
 }
 
 #undef LOCTEXT_NAMESPACE
