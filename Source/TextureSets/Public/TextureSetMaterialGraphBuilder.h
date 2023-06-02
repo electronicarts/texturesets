@@ -20,7 +20,9 @@ public:
 
 	template <class T> T* CreateExpression()
 	{
-		return Cast<T>(UMaterialEditingLibrary::CreateMaterialExpressionInFunction(MaterialFunction, T::StaticClass()));
+		UMaterialExpression* Expression = UMaterialEditingLibrary::CreateMaterialExpressionInFunction(MaterialFunction, T::StaticClass());
+		Expression->SetFlags(Expression->GetFlags() | RF_Transient); // Ensure these expressions are never saved
+		return Cast<T>(Expression);
 	}
 
 	UMaterialExpression* GetProcessedTextureSample(FName Name)

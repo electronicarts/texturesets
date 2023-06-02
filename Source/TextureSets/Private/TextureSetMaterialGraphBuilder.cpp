@@ -24,7 +24,8 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(TObjectPtr<UTex
 	const TArray<FTextureSetPackedTextureDef> PackedTextures = PackingInfo.GetPackedTextures();
 
 	FName FunctionName = MakeUniqueObjectName(Node, UMaterialFunction::StaticClass(), Node->ParameterName, EUniqueObjectNameOptions::GloballyUnique);
-	MaterialFunction = NewObject<UMaterialFunction>(Node, FunctionName);
+	EObjectFlags Flags = RF_Transient; // Ensure it's never saved
+	MaterialFunction = NewObject<UMaterialFunction>(Node, FunctionName, Flags);
 
 	TObjectPtr<UMaterialExpressionFunctionInput> UVExpression = CreateExpression<UMaterialExpressionFunctionInput>();
 	UVExpression->InputType = EFunctionInputType::FunctionInput_Vector2;
