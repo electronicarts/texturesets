@@ -211,6 +211,9 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 		TArray<FName> SourceNames = TextureDef.GetSources();
 		for (int c = 0; c < SourceNames.Num(); c++)
 		{
+			if (SourceNames[c].IsNone())
+				continue;
+
 			FString SourceTexString;
 			FString SourceChannelString;
 			SourceNames[c].ToString().Split(".", &SourceTexString, &SourceChannelString);
@@ -295,7 +298,7 @@ void UTextureSetDefinition::UpdateDefaultTextures()
 		for (int i = 0; i < (DefaultTextureSize * DefaultTextureSize); i++)
 			DefaultData.Add(SourceColor.ToFColor(false));
 
-		EObjectFlags Flags = RF_NoFlags;
+		EObjectFlags Flags = RF_Public | RF_Transient;
 
 		FCreateTexture2DParameters Params;
 		Params.bUseAlpha = Def.UsedChannels() >= 4;
