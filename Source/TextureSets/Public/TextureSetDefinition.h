@@ -184,7 +184,7 @@ public: // TODO: Make Private
 	UPROPERTY(EditAnywhere, meta=(TitleProperty="CompressionSettings"))
 	TArray<FTextureSetPackedTextureDef> PackedTextures;
 
-
+	UPROPERTY(VisibleAnywhere, DuplicateTransient)
 	TArray<UTexture*> DefaultTextures;
 
 	void UpdateDefaultTextures();
