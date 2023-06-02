@@ -27,9 +27,11 @@ private:
 
 	TArray<TSharedRef<IAssetTypeActions>> RegisteredAssetTypeActions;
 
-	// Callbacks
-	void OnMaterialInstanceOpenedForEdit(UMaterialInstance*);
+	// Ensures user data is in sync with the material
+	void UpdateAssetUserData(UMaterialInstance* MaterialInstance);
 
+	// Callbacks
+	void OnMaterialInstanceOpenedForEdit(UMaterialInstance* MaterialInstance);
 	void OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstance, IDetailCategoryBuilder& GroupsCategory);
 
 };

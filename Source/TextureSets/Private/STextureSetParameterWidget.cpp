@@ -41,14 +41,16 @@
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
-void STextureSetParameterWidget::Construct(const FArguments& InArgs, UMaterialInstanceConstant* InMaterialInstance, UINT InParameterIndex)
+void STextureSetParameterWidget::Construct(const FArguments& InArgs, UMaterialInstanceConstant* InMaterialInstance, FGuid InParameter)
 {
 	check(InMaterialInstance);
 	MaterialInstance = InMaterialInstance;
-	ParameterIndex = InParameterIndex;
+	Parameter = InParameter;
 
-	UTextureSetAssetUserData* TextureSetOverrides = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
-	const FSetOverride & SetOverride = TextureSetOverrides->TexturesSetOverrides[ParameterIndex];
+	UTextureSetAssetUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	check(UserData);
+
+	FSetOverride& Override = UserData->TexturesSetOverrides.FindChecked(Parameter);
 
 	ChildSlot
 	[
@@ -65,7 +67,7 @@ void STextureSetParameterWidget::Construct(const FArguments& InArgs, UMaterialIn
 			.Padding(4)
 			[
 				SNew(STextBlock)
-				.Text(FText::FromName(SetOverride.Name))
+				.Text(FText::FromName(Override.Name))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -84,112 +86,79 @@ void STextureSetParameterWidget::Construct(const FArguments& InArgs, UMaterialIn
 
 ECheckBoxState STextureSetParameterWidget::IsTextureSetOverridden() const
 {
-	if (MaterialInstance)
-	{
-		UTextureSetAssetUserData* TextureSetOverrides = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
-		if (TextureSetOverrides)
-		{
-			if (TextureSetOverrides->TexturesSetOverrides.IsValidIndex(ParameterIndex))
-			{
-				const FSetOverride& TextureSetOverride = TextureSetOverrides->TexturesSetOverrides[ParameterIndex];
-				return TextureSetOverride.IsOverridden ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-			}
-		}
-	}
+	UTextureSetAssetUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	check(UserData);
+
+	const FSetOverride& Override = UserData->TexturesSetOverrides.FindChecked(Parameter);
+	return Override.IsOverridden ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 
 	return ECheckBoxState::Unchecked;
 }
 
 void STextureSetParameterWidget::ToggleTextureSetOverridden(ECheckBoxState NewState)
 {
-	if (MaterialInstance)
-	{
-		UTextureSetAssetUserData* TextureSetOverrides = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
-		if (TextureSetOverrides)
-		{
-			if (TextureSetOverrides->TexturesSetOverrides.IsValidIndex(ParameterIndex))
-			{
-				FSetOverride& TextureSetOverride = TextureSetOverrides->TexturesSetOverrides[ParameterIndex];
-				TextureSetOverride.IsOverridden = (NewState == ECheckBoxState::Checked);
+	UTextureSetAssetUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	check(UserData);
 
-				TextureSetOverrides->UpdateTextureSetParameters();
-				
-				FPropertyChangedEvent DummyEvent(nullptr);
-				MaterialInstance->PostEditChangeProperty(DummyEvent);
+	FSetOverride& Override = UserData->TexturesSetOverrides.FindChecked(Parameter);
+	Override.IsOverridden = (NewState == ECheckBoxState::Checked);
 
-				// Trigger a redraw of the UI
-				UMaterialEditingLibrary::RefreshMaterialEditor(MaterialInstance);
-			}
-		}
-	}
+	UserData->UpdateTextureSetParameters();
+		
+	FPropertyChangedEvent DummyEvent(nullptr);
+	MaterialInstance->PostEditChangeProperty(DummyEvent);
 
+	// Trigger a redraw of the UI
+	UMaterialEditingLibrary::RefreshMaterialEditor(MaterialInstance);
 }
 
 bool STextureSetParameterWidget::OnShouldFilterTextureSetAsset(const FAssetData& InAssetData)
 {
-	check(MaterialInstance);
-	const UTextureSetAssetUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	check(MaterialInstance->GetMaterial());
+
 	const UTextureSet* NewTextureSet = CastChecked<UTextureSet>(InAssetData.GetAsset());
+	check(NewTextureSet);
 
-	if (IsValid(UserData))
-	{
-		if (UserData->TexturesSetOverrides.IsValidIndex(ParameterIndex))
-		{
-			const FSetOverride& TextureSetOverride = UserData->TexturesSetOverrides[ParameterIndex];
+	const UMaterialExpressionTextureSetSampleParameter* SampleExpression = FTextureSetEditingUtils::FindSampleExpression(Parameter, MaterialInstance->GetMaterial());
+	check(SampleExpression);
 
-			const UMaterialExpressionTextureSetSampleParameter* SampleExpression = FTextureSetEditingUtils::FindSampleExpression(TextureSetOverride, MaterialInstance->GetMaterial());
-
-			check(SampleExpression);
-
-			if (NewTextureSet->Definition == SampleExpression->Definition)
-				return false;
-		}
-	}
-	return true;
+	return NewTextureSet->Definition != SampleExpression->Definition;
 }
 
 FString STextureSetParameterWidget::GetTextureSetAssetPath() const
 {
 	check(MaterialInstance);
+
 	const UTextureSetAssetUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	check(UserData);
 
-	if (UserData)
-	{
-		if (UserData->TexturesSetOverrides.IsValidIndex(ParameterIndex))
-		{
-			const FSetOverride& TextureSetOverride = UserData->TexturesSetOverrides[ParameterIndex];
+	const FSetOverride& TextureSetOverride = UserData->TexturesSetOverrides.FindChecked(Parameter);
 				
-			if (TextureSetOverride.TextureSet)
-				return TextureSetOverride.TextureSet->GetPathName();
-		}
-	}
-
-	return FString();
+	if (TextureSetOverride.TextureSet)
+		return TextureSetOverride.TextureSet->GetPathName();
+	else
+		return FString();
 }
 
 void STextureSetParameterWidget::OnTextureSetAssetChanged(const FAssetData& InAssetData)
 {
 	check(MaterialInstance);
+
 	UTextureSetAssetUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+	check(UserData);
 
-	if (UserData)
-	{
-		if (UserData->TexturesSetOverrides.IsValidIndex(ParameterIndex))
-		{
-			FSetOverride& TextureSetOverride = UserData->TexturesSetOverrides[ParameterIndex];
+	FSetOverride& TextureSetOverride = UserData->TexturesSetOverrides.FindChecked(Parameter);
+	UTextureSet* NewTextureSet = Cast<UTextureSet>(InAssetData.GetAsset());
 
-			UTextureSet* NewTextureSet = Cast<UTextureSet>(InAssetData.GetAsset());
-			TextureSetOverride.TextureSet = NewTextureSet;
+	TextureSetOverride.TextureSet = NewTextureSet;
 
-			UserData->UpdateTextureSetParameters();
+	UserData->UpdateTextureSetParameters();
 
-			FPropertyChangedEvent DummyEvent(nullptr);
-			MaterialInstance->PostEditChangeProperty(DummyEvent);
+	FPropertyChangedEvent DummyEvent(nullptr);
+	MaterialInstance->PostEditChangeProperty(DummyEvent);
 
-			// Trigger a redraw of the UI
-			UMaterialEditingLibrary::RefreshMaterialEditor(MaterialInstance);
-		}
-	}
+	// Trigger a redraw of the UI
+	UMaterialEditingLibrary::RefreshMaterialEditor(MaterialInstance);
 }
 
 #undef LOCTEXT_NAMESPACE

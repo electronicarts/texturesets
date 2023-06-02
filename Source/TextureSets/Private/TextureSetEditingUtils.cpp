@@ -26,18 +26,17 @@ TArray<FName> FTextureSetEditingUtils::FindReferencers(const FName PackageName)
 	return HardDependencies;
 }
 
-const UMaterialExpressionTextureSetSampleParameter* FTextureSetEditingUtils::FindSampleExpression(const FSetOverride& TextureSetOverride, UMaterial* Material)
+const UMaterialExpressionTextureSetSampleParameter* FTextureSetEditingUtils::FindSampleExpression(const FGuid& NodeID, UMaterial* Material)
 {
+	// FindExpressionByGUID() doesn't work because it ignores subclasses of material function calls. We need to re-implement a search.
+
 	TArray<const UMaterialExpressionTextureSetSampleParameter*> SamplerExpressions;
 	Material->GetAllExpressionsOfType<UMaterialExpressionTextureSetSampleParameter>(SamplerExpressions);
 	
-	const TArray<UMaterialExpression*>* ExpressionList = Material->EditorParameters.Find(TextureSetOverride.Name);
 	for (const UMaterialExpressionTextureSetSampleParameter* CurNode : SamplerExpressions)
 	{
-		if (CurNode->ParameterName == TextureSetOverride.Name || CurNode->MaterialExpressionGuid == TextureSetOverride.MaterialExpressionGuid)
-		{
+		if (CurNode->MaterialExpressionGuid == NodeID)
 			return CurNode;
-		}
 	}
 	return nullptr;
 }

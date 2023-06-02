@@ -52,15 +52,18 @@ void UTextureSetAssetUserData::ClearTextureSetParameters()
 
 void UTextureSetAssetUserData::UpdateTextureSetParameters()
 {
+	if (!IsValid(MaterialInstance->GetMaterial()))
+		return;
+	
 	// Remove any exsting texture set related parameters, as we're about to re-create the ones that are needed.
 	ClearTextureSetParameters();
 
-	for (const FSetOverride& TextureSetOverride : TexturesSetOverrides)
+	for (const auto& [Guid, TextureSetOverride] : TexturesSetOverrides)
 	{
 		if (!TextureSetOverride.IsOverridden || TextureSetOverride.TextureSet == nullptr)
 			continue;
 
-		const UMaterialExpressionTextureSetSampleParameter* SampleExpression = FTextureSetEditingUtils::FindSampleExpression(TextureSetOverride, MaterialInstance->GetMaterial());
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression = FTextureSetEditingUtils::FindSampleExpression(Guid, MaterialInstance->GetMaterial());
 		if (SampleExpression == nullptr)
 			continue;
 

@@ -76,48 +76,73 @@ void FTextureSetsModule::UnregisterAssetTools()
 	}
 }
 
-void FTextureSetsModule::OnMaterialInstanceOpenedForEdit(UMaterialInstance* MaterialInstancePtr)
+void FTextureSetsModule::UpdateAssetUserData(UMaterialInstance* MaterialInstance)
 {
-	UMaterialInstance* MaterialInstance = MaterialInstancePtr;
-	if (!MaterialInstance)
+	check(MaterialInstance);
+
+	if (!IsValid(MaterialInstance->GetMaterial()))
+		return; // Possible if parent has not been assigned yet.
+
+	TArray<const UMaterialExpressionTextureSetSampleParameter*> TextureSetExpressions;
+	MaterialInstance->GetMaterial()->GetAllExpressionsOfType<UMaterialExpressionTextureSetSampleParameter>(TextureSetExpressions);
+
+	UTextureSetAssetUserData* TextureSetUserData = MaterialInstance->GetAssetUserData<UTextureSetAssetUserData>();
+
+	// If there are no texture set expressions, we can clear TextureSetUserData
+	if (TextureSetExpressions.IsEmpty() && IsValid(TextureSetUserData))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("No material instance found"));
-		return;
+		MaterialInstance->RemoveUserDataOfClass(UTextureSetAssetUserData::StaticClass());
+		return; // Done here, not a material that needs texture set stuff.
 	}
-	
-	for (auto Expression : MaterialInstance->GetMaterial()->GetExpressions())
+
+	TArray<FGuid> UnusedOverrides;
+
+	if (IsValid(TextureSetUserData))
+		TextureSetUserData->TexturesSetOverrides.GetKeys(UnusedOverrides);
+
+	for (const UMaterialExpressionTextureSetSampleParameter* TextureSetExpression : TextureSetExpressions)
 	{
-		const UMaterialExpressionTextureSetSampleParameter* TextureSetExpression = Cast<UMaterialExpressionTextureSetSampleParameter>(Expression);
+		check(TextureSetExpression);
 
-		if (IsValid(TextureSetExpression))
+		// Add texture set user data if it doesn't exist
+		// Note that this happens inside the loop of texture set expressions.
+		// This is so the user data is only added if there is a texture set expression.
+		if (!IsValid(TextureSetUserData))
 		{
-			UTextureSetAssetUserData* TextureSetUserData = MaterialInstancePtr->GetAssetUserData<UTextureSetAssetUserData>();
-			if (!TextureSetUserData)
-			{
-				TextureSetUserData = NewObject<UTextureSetAssetUserData>(MaterialInstancePtr);
-				MaterialInstance->AddAssetUserData(TextureSetUserData);
-			}
+			TextureSetUserData = NewObject<UTextureSetAssetUserData>(MaterialInstance);
+			MaterialInstance->AddAssetUserData(TextureSetUserData);
+		}
 
-			const FGuid NodeGuid = TextureSetExpression->MaterialExpressionGuid;
-			auto OverrideInstance = TextureSetUserData->TexturesSetOverrides.FindByPredicate([NodeGuid](const FSetOverride& SetOverride) { return SetOverride.MaterialExpressionGuid == NodeGuid; });
-			if (OverrideInstance)
-			{
-				// Update existing override with the correct value
-				OverrideInstance->Name = TextureSetExpression->ParameterName;
-			}
-			else
-			{
-				// Add new override
-				FSetOverride Override;
-				Override.Name = TextureSetExpression->ParameterName;
-				Override.TextureSet = TextureSetExpression->DefaultTextureSet;
-				Override.MaterialExpressionGuid = NodeGuid;
-				Override.IsOverridden = false;
-			
-				TextureSetUserData->TexturesSetOverrides.Add(Override);
-			}
+		const FGuid NodeGuid = TextureSetExpression->MaterialExpressionGuid;
+		auto OverrideInstance = TextureSetUserData->TexturesSetOverrides.Find(NodeGuid);
+		if (OverrideInstance)
+		{
+			// Update existing override with the correct value
+			OverrideInstance->Name = TextureSetExpression->ParameterName;
+			UnusedOverrides.RemoveSingle(NodeGuid);
+		}
+		else
+		{
+			// Add new override
+			FSetOverride Override;
+
+			// TODO: See if there are any old overrides with the same name, which we could use to recover values from.
+			Override.Name = TextureSetExpression->ParameterName;
+			Override.TextureSet = TextureSetExpression->DefaultTextureSet;
+			Override.IsOverridden = false;
+
+			TextureSetUserData->TexturesSetOverrides.Add(NodeGuid, Override);
 		}
 	}
+
+	// Clear any overrides we no longer need.
+	for (FGuid Unused : UnusedOverrides)
+		TextureSetUserData->TexturesSetOverrides.Remove(Unused);
+}
+
+void FTextureSetsModule::OnMaterialInstanceOpenedForEdit(UMaterialInstance* MaterialInstance)
+{
+	UpdateAssetUserData(MaterialInstance);
 }
 
 void FTextureSetsModule::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstance, IDetailCategoryBuilder& GroupsCategory)
@@ -139,11 +164,11 @@ void FTextureSetsModule::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceCons
 			.Text(FText::FromName(DetailGroup.GetGroupName()))
 		];
 
-	for (UINT ParameterIndex = 0; ParameterIndex < (UINT)TextureSetOverrides->TexturesSetOverrides.Num(); ParameterIndex++)
+	for (const auto& [Guid, Override] : TextureSetOverrides->TexturesSetOverrides)
 	{
 		DetailGroup.AddWidgetRow()
 			[
-				SNew(STextureSetParameterWidget, MaterialInstance, ParameterIndex)
+				SNew(STextureSetParameterWidget, MaterialInstance, Guid)
 			];
 	}
 

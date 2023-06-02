@@ -15,7 +15,7 @@ public:
 		bool bUserInvoked);
 
 	static TArray<FName> FindReferencers(FName PackageName);
-	static const UMaterialExpressionTextureSetSampleParameter* FindSampleExpression(const FSetOverride& TextureSetOverride, UMaterial* Material);
+	static const UMaterialExpressionTextureSetSampleParameter* FindSampleExpression(const FGuid& NodeID, UMaterial* Material);
 };
 
 

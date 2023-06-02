@@ -21,9 +21,6 @@ struct FSetOverride
 	UTextureSet* TextureSet;
 
 	UPROPERTY(VisibleAnywhere)
-	FGuid MaterialExpressionGuid;
-
-	UPROPERTY(VisibleAnywhere)
 	bool IsOverridden;
 };
 
@@ -44,7 +41,7 @@ public:
 	void ClearTextureSetParameters();
 
 	UPROPERTY(VisibleAnywhere)
-	TArray<FSetOverride> TexturesSetOverrides;
+	TMap<FGuid, FSetOverride> TexturesSetOverrides;
 
 private:
 	UMaterialInstance* MaterialInstance;
