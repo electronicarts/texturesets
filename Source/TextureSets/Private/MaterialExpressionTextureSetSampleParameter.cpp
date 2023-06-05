@@ -3,17 +3,16 @@
 #include "MaterialExpressionTextureSetSampleParameter.h"
 
 #include "TextureSetMaterialGraphBuilder.h"
-#include "MaterialPropertyHelpers.h"
-#include "IMaterialEditor.h"
-#include "MaterialCompiler.h"
-#include "MaterialEditorUtilities.h"
-#include "MaterialHLSLGenerator.h"
+//#include "MaterialPropertyHelpers.h"
+//#include "IMaterialEditor.h"
+//#include "MaterialCompiler.h"
+//#include "MaterialEditorUtilities.h"
+//#include "MaterialHLSLGenerator.h"
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
 #include "HLSLTree/HLSLTreeCommon.h"
-#include "Kismet2/BlueprintEditorUtils.h"
-#include "MaterialGraph/MaterialGraphNode.h"
-#include "MaterialGraph/MaterialGraphSchema.h"
+//#include "MaterialGraph/MaterialGraphNode.h"
+//#include "MaterialGraph/MaterialGraphSchema.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionTextureSampleParameter2D.h"
@@ -35,6 +34,7 @@ bool UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(FNa
 	return Name.ToString().StartsWith("TEXSET_", ESearchCase::IgnoreCase);
 }
 
+#if WITH_EDITOR
 UMaterialFunction* UMaterialExpressionTextureSetSampleParameter::CreateMaterialFunction()
 {
 	if (!IsValid(Definition))
@@ -50,7 +50,9 @@ UMaterialFunction* UMaterialExpressionTextureSetSampleParameter::CreateMaterialF
 
 	return GraphBuilder.GetMaterialFunction();
 }
+#endif
 
+#if WITH_EDITOR
 void UMaterialExpressionTextureSetSampleParameter::UpdateSampleParamArray()
 {
 	if (!IsValid(Definition))
@@ -83,3 +85,4 @@ void UMaterialExpressionTextureSetSampleParameter::UpdateSampleParamArray()
 		}
 	}
 }
+#endif

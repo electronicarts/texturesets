@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class TextureSets : ModuleRules
+public class TextureSetsEditor : ModuleRules
 {
-	public TextureSets(ReadOnlyTargetRules Target) : base(Target)
+	public TextureSetsEditor(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		
@@ -29,21 +29,12 @@ public class TextureSets : ModuleRules
 				// ... add other public dependencies that you statically link with here ...
 				"Engine",
 				"RHI",
+				"UnrealEd",
+				"GraphEditor",
+				"TextureSets",
 			}
 			);
-
-		if (Target.bBuildEditor)
-		{
-			PublicDependencyModuleNames.AddRange(
-				new string[]
-				{
-					"UnrealEd",
-					"GraphEditor"
-				}
-				);
-		}
-
-
+		
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
@@ -52,21 +43,11 @@ public class TextureSets : ModuleRules
 				"Slate",
 				"SlateCore",
 				"MotiveMaterialLibrary",
+				"PropertyEditor",
+				"MaterialEditor",
+				"EditorScriptingUtilities",
 			}
 			);
-
-		if (Target.bBuildEditor)
-		{
-			PrivateDependencyModuleNames.AddRange(
-				new string[]
-				{
-					"PropertyEditor",
-					"MaterialEditor",
-					"EditorScriptingUtilities",
-				}
-				);
-		}
-		
 		
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]

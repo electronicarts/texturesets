@@ -2,16 +2,11 @@
 
 #include "TextureSetDefinition.h"
 
-#include "EditorAssetLibrary.h"
 #include "TextureSet.h"
 #include "TextureSetPackedTextureDef.h"
-#include "TextureSetEditingUtils.h"
-#include <MaterialEditorUtilities.h>
-#include <MaterialEditingLibrary.h>
-#include <Materials/MaterialExpressionFunctionInput.h>
-#include <Materials/MaterialExpressionFunctionOutput.h>
-#include <Materials/MaterialExpressionTextureSampleParameter2D.h>
-#include <MaterialPropertyHelpers.h>
+#include "Materials/MaterialExpressionFunctionInput.h"
+#include "Materials/MaterialExpressionFunctionOutput.h"
+#include "Materials/MaterialExpressionTextureSampleParameter2D.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "ImageUtils.h"
 
@@ -83,6 +78,7 @@ const TMap<FName, EMaterialValueType> TextureSetDefinitionSamplingInfo::GetSampl
 
 const FString UTextureSetDefinition::ChannelSuffixes[4] = {".r", ".g", ".b", ".a"};
 
+#if WITH_EDITOR
 bool UTextureSetDefinition::CanEditChange(const FProperty* InProperty) const
 {
 	// If other logic prevents editing, we want to respect that
@@ -118,16 +114,19 @@ bool UTextureSetDefinition::CanEditChange(const FProperty* InProperty) const
 
 	return SuperValue;
 }
+#endif
+
+#if WITH_EDITOR
+void UTextureSetDefinition::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	UpdateDefaultTextures();
+}
+#endif
 
 void UTextureSetDefinition::PostLoad()
 {
 	Super::PostLoad();
-	UpdateDefaultTextures();
-}
-
-void UTextureSetDefinition::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
-{
-	Super::PostEditChangeProperty(PropertyChangedEvent);
 	UpdateDefaultTextures();
 }
 
@@ -216,12 +215,7 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 
 			FString SourceTexString;
 			FString SourceChannelString;
-			if (false == SourceNames[c].ToString().Split(".", &SourceTexString, &SourceChannelString))
-			{
-				// single-channel texture without channel name
-				SourceTexString = SourceNames[c].ToString();
-				SourceChannelString = "r";
-			}
+			SourceNames[c].ToString().Split(".", &SourceTexString, &SourceChannelString);
 			const FName SourceTexName = FName(SourceTexString);
 
 			static const TMap<FString, int> ChannelStringLookup = {
@@ -338,6 +332,7 @@ int32 UTextureSetDefinition::ComputeSamplingHash(const UMaterialExpressionTextur
 	return Hash;
 }
 
+#if WITH_EDITOR
 void UTextureSetDefinition::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const
 {
@@ -347,20 +342,4 @@ void UTextureSetDefinition::GenerateSamplingGraph(const UMaterialExpressionTextu
 		Module->GenerateSamplingGraph(SampleExpression, Builder);
 	}
 }
-
-UTextureSetDefinitionFactory::UTextureSetDefinitionFactory(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
-{
-	SupportedClass = UTextureSetDefinition::StaticClass();
-
-	bCreateNew    = true;
-	bText         = false;
-	bEditorImport = false;
-	bEditAfterNew = true;
-}
-
-UObject* UTextureSetDefinitionFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name,
-	EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
-{
-	return NewObject<UTextureSetDefinition>(InParent, Class, Name, Flags);
-}
+#endif

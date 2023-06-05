@@ -3,6 +3,8 @@
 #include "Modules/PBRSurfaceModule.h"
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
+
+#if WITH_EDITOR
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionOneMinus.h"
@@ -10,8 +12,8 @@
 #include "Materials/MaterialExpressionMultiply.h"
 #include "Materials/MaterialExpressionDeriveNormalZ.h"
 #include "Materials/MaterialExpressionAppendVector.h"
-
 #include "MaterialEditingLibrary.h"
+#endif
 
 void UPBRSurfaceModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
 {
@@ -132,6 +134,7 @@ int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSet
 	return Hash;
 }
 
+#if WITH_EDITOR
 void UPBRSurfaceModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const
 {
@@ -226,3 +229,4 @@ void UPBRSurfaceModule::GenerateSamplingGraph(const UMaterialExpressionTextureSe
 		}
 	}
 }
+#endif

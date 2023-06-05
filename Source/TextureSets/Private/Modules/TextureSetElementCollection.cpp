@@ -40,6 +40,7 @@ int32 UTextureSetElementCollection::ComputeSamplingHash(const UMaterialExpressio
 	return Hash;
 }
 
+#if WITH_EDITOR
 void UTextureSetElementCollection::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const
 {
@@ -51,3 +52,4 @@ void UTextureSetElementCollection::GenerateSamplingGraph(const UMaterialExpressi
 		TextureExpression->ConnectExpression(OutputExpression->GetInput(0), 0);
 	}
 }
+#endif

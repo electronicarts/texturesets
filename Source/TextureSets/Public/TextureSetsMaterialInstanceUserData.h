@@ -8,6 +8,9 @@
 
 class UTextureSet;
 class UTextureSetDefinition;
+class UMaterialExpressionTextureSetSampleParameter;
+class UMaterial;
+class UMaterialInstance;
 
 #if WITH_EDITOR
 class IDetailCategoryBuilder;
@@ -38,8 +41,11 @@ public:
 	static void RegisterCallbacks();
 	static void UnregisterCallbacks();
 
+#if WITH_EDITOR
 	// Ensures user data is in sync with the material
 	static void UpdateAssetUserData(UMaterialInstance* MaterialInstance);
+	static const UMaterialExpressionTextureSetSampleParameter* FindSampleExpression(const FGuid& NodeID, UMaterial* Material);
+#endif
 
 	// UObject Overrides
 	virtual void PostInitProperties() override;
@@ -48,8 +54,10 @@ public:
 	// UAssetUserData Overrides
 	virtual void PostLoadOwner() override;
 
+#if WITH_EDITOR
 	// Refreshes all texture set related material parameters based on the assigned material instances.
 	void UpdateTextureSetParameters();
+#endif
 
 	// Removes all texture set related material parameters from the material instance
 	void ClearTextureSetParameters();

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_EDITOR
+
 #include "Containers/Array.h"
 #include "Containers/Map.h"
 #include "CoreMinimal.h"
@@ -43,3 +45,4 @@ private:
 	UMaterialInstanceConstant* MaterialInstance;
 	FGuid Parameter;
 };
+#endif

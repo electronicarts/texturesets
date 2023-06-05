@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "MaterialExpressionIO.h"
-#include "MaterialGraph/MaterialGraphNode.h"
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionTextureObjectParameter.h"
 #include "ProceduralMaterialFunction.h"
@@ -54,10 +53,14 @@ public:
 	FName GetTextureParameterName(int TextureIndex) const;
 	static bool IsTextureSetParameterName(FName Name);
 
+#if WITH_EDITOR
 	virtual class UMaterialFunction* CreateMaterialFunction() override;
+#endif
 
 private:
+#if WITH_EDITOR
 	void UpdateSampleParamArray();
+#endif
 
 };
 

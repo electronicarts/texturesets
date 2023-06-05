@@ -2,6 +2,7 @@
 
 #include "TextureSetMaterialGraphBuilder.h"
 
+#if WITH_EDITOR
 #include "TextureSetDefinition.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "MaterialPropertyHelpers.h" // For access to FMaterialPropertyHelpers::TextureSetParamName only
@@ -146,3 +147,4 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 
 	return CustomExp;
 }
+#endif // WITH_EDITOR

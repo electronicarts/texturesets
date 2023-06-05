@@ -4,16 +4,15 @@
 
 #include "Materials/MaterialInstance.h"
 #include "Materials/MaterialInstanceConstant.h"
-#include "TextureSetEditingUtils.h"
 #include "UObject/ObjectSaveContext.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "Materials/MaterialInstance.h"
 #include "Materials/MaterialInstanceConstant.h"
-#include "MaterialPropertyHelpers.h"
 #include "TextureSetDefinition.h"
 #include "TextureSet.h"
 
 #if WITH_EDITOR
+#include "MaterialPropertyHelpers.h"
 #include "MaterialEditingLibrary.h"
 #include "MaterialEditor/Public/MaterialEditorModule.h"
 #include "MaterialEditor/MaterialEditorInstanceConstant.h"
@@ -55,6 +54,24 @@ void UTextureSetsMaterialInstanceUserData::UnregisterCallbacks()
 #endif
 }
 
+#if WITH_EDITOR
+const UMaterialExpressionTextureSetSampleParameter* UTextureSetsMaterialInstanceUserData::FindSampleExpression(const FGuid& NodeID, UMaterial* Material)
+{
+	// FindExpressionByGUID() doesn't work because it ignores subclasses of material function calls. We need to re-implement a search.
+
+	TArray<const UMaterialExpressionTextureSetSampleParameter*> SamplerExpressions;
+	Material->GetAllExpressionsOfType<UMaterialExpressionTextureSetSampleParameter>(SamplerExpressions);
+
+	for (const UMaterialExpressionTextureSetSampleParameter* CurNode : SamplerExpressions)
+	{
+		if (CurNode->MaterialExpressionGuid == NodeID)
+			return CurNode;
+	}
+	return nullptr;
+}
+#endif
+
+#if WITH_EDITOR
 void UTextureSetsMaterialInstanceUserData::UpdateAssetUserData(UMaterialInstance* MaterialInstance)
 {
 	check(MaterialInstance);
@@ -123,6 +140,7 @@ void UTextureSetsMaterialInstanceUserData::UpdateAssetUserData(UMaterialInstance
 	for (FGuid Unused : UnusedOverrides)
 		TextureSetUserData->TexturesSetOverrides.Remove(Unused);
 }
+#endif
 
 void UTextureSetsMaterialInstanceUserData::PostInitProperties()
 {
@@ -146,9 +164,10 @@ void UTextureSetsMaterialInstanceUserData::PreSaveRoot(FObjectPreSaveRootContext
 void UTextureSetsMaterialInstanceUserData::PostLoadOwner()
 {
 	Super::PostLoadOwner();
-
+#if WITH_EDITOR
 	// Update the texture set parameters when the MaterialInstance has finished loading.
 	UpdateTextureSetParameters();
+#endif
 }
 
 void UTextureSetsMaterialInstanceUserData::ClearTextureSetParameters()
@@ -164,6 +183,7 @@ void UTextureSetsMaterialInstanceUserData::ClearTextureSetParameters()
 	}
 }
 
+#if WITH_EDITOR
 void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 {
 	if (!IsValid(MaterialInstance->GetMaterial()))
@@ -177,7 +197,7 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 		if (!TextureSetOverride.IsOverridden || TextureSetOverride.TextureSet == nullptr)
 			continue;
 
-		const UMaterialExpressionTextureSetSampleParameter* SampleExpression = FTextureSetEditingUtils::FindSampleExpression(Guid, MaterialInstance->GetMaterial());
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression = FindSampleExpression(Guid, MaterialInstance->GetMaterial());
 		if (SampleExpression == nullptr)
 			continue;
 
@@ -200,6 +220,7 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 		}
 	}
 }
+#endif
 
 const FSetOverride& UTextureSetsMaterialInstanceUserData::GetOverride(FGuid Guid) const
 {
@@ -209,9 +230,9 @@ const FSetOverride& UTextureSetsMaterialInstanceUserData::GetOverride(FGuid Guid
 void UTextureSetsMaterialInstanceUserData::SetOverride(FGuid Guid, const FSetOverride& Override)
 {
 	TexturesSetOverrides.Add(Guid, Override);
+#if WITH_EDITOR
 	UpdateTextureSetParameters();
 
-#if WITH_EDITOR
 	FPropertyChangedEvent DummyEvent(nullptr);
 	MaterialInstance->PostEditChangeProperty(DummyEvent);
 
@@ -220,11 +241,14 @@ void UTextureSetsMaterialInstanceUserData::SetOverride(FGuid Guid, const FSetOve
 #endif
 }
 
+#if WITH_EDITOR
 void UTextureSetsMaterialInstanceUserData::OnMaterialInstanceOpenedForEdit(UMaterialInstance* MaterialInstance)
 {
 	UpdateAssetUserData(MaterialInstance);
 }
+#endif
 
+#if WITH_EDITOR
 void UTextureSetsMaterialInstanceUserData::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstance, IDetailCategoryBuilder& GroupsCategory)
 {
 	check(MaterialInstance);
@@ -254,5 +278,5 @@ void UTextureSetsMaterialInstanceUserData::OnMICreateGroupsWidget(TObjectPtr<UMa
 				SNew(STextureSetParameterWidget, MaterialInstance, Guid)
 			];
 	}
-
 }
+#endif

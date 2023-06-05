@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_EDITOR
+
 class UTextureSetDefinition;
 class UMaterialExpressionTextureSetSampleParameter;
 class UMaterialExpressionFunctionOutput;
@@ -53,3 +55,4 @@ private:
 
 	UMaterialExpression* MakeTextureSamplerCustomNode(UMaterialExpression* Texcoord, UMaterialExpression* TexObject);
 };
+#endif // WITH_EDITOR

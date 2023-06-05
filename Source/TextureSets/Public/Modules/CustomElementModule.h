@@ -23,9 +23,11 @@ public:
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) override;
 
+#if WITH_EDITOR
 	virtual void GenerateSamplingGraph(
 		const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 		FTextureSetMaterialGraphBuilder& Builder) const override;
+#endif
 
 private:
 	UPROPERTY(EditAnywhere)

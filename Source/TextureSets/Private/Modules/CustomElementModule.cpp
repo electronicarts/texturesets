@@ -30,6 +30,7 @@ int32 UCustomElementModule::ComputeSamplingHash(const UMaterialExpressionTexture
 	return Hash;
 }
 
+#if WITH_EDITOR
 void UCustomElementModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const
 {
@@ -38,3 +39,4 @@ void UCustomElementModule::GenerateSamplingGraph(const UMaterialExpressionTextur
 	TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = Builder.GetOutput(ElementName);
 	TextureExpression->ConnectExpression(OutputExpression->GetInput(0), 0);
 }
+#endif

@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/DataAsset.h"
 #include "TextureSetPackedTextureDef.h"
 #include "TextureSetMaterialGraphBuilder.h"
 #include "TextureSetDefinition.generated.h"
@@ -136,10 +135,12 @@ public:
 	// Compute a hash for the sampling graph. If this hash changes, it triggers the sampling graph to be re-generated.
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) { return 0; }
 
+#if WITH_EDITOR
 	// Logic (material graph) for unpacking data
 	// Transforms processed data into desired output elements
 	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const {}
+#endif
 };
 
 // The texture set definition. Definitions consist primarily of a list of modules, and a packing definition.
@@ -157,9 +158,10 @@ public:
 	// UObject Overrides
 #if WITH_EDITOR
 	virtual bool CanEditChange(const FProperty* InProperty) const override;
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 	virtual void PostLoad() override;
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+
 
 	UFUNCTION(CallInEditor)
 	TArray<FName> GetUnpackedChannelNames() const;
@@ -175,9 +177,9 @@ public:
 	UTexture* GetDefaultPackedTexture(int index) const;
 
 	int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
-
+#if WITH_EDITOR
 	void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression, FTextureSetMaterialGraphBuilder& Builder) const;
-
+#endif
 private:
 
 	UPROPERTY(EditAnywhere)
@@ -190,14 +192,4 @@ private:
 	TArray<UTexture*> DefaultTextures;
 
 	void UpdateDefaultTextures();
-};
-
-UCLASS()
-class UTextureSetDefinitionFactory : public UFactory
-{
-	GENERATED_BODY()
-	UTextureSetDefinitionFactory(const FObjectInitializer& ObjectInitializer);
-
-public:
-	virtual UObject* FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn) override;
 };

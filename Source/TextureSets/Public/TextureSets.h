@@ -13,12 +13,4 @@ class FTextureSetsModule : public IModuleInterface
 public:
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
-
-private:
-
-	void RegisterAssetTools();
-	void RegisterAssetTypeAction(IAssetTools& AssetTools, TSharedRef<IAssetTypeActions> Action);
-	void UnregisterAssetTools();
-
-	TArray<TSharedRef<IAssetTypeActions>> RegisteredAssetTypeActions;
 };

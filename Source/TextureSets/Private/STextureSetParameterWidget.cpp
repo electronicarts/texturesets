@@ -1,5 +1,6 @@
 // (c) Electronic Arts. All Rights Reserved.
 
+#if WITH_EDITOR
 #include "STextureSetParameterWidget.h"
 
 #include "Containers/BitArray.h"
@@ -33,9 +34,9 @@
 #include "TextureSetsMaterialInstanceUserData.h"
 #include "Materials/MaterialInstance.h"
 #include "Materials/MaterialInstanceConstant.h"
-#include "TextureSetEditingUtils.h"
 #include "DetailWidgetRow.h"
 #include "IDetailGroup.h"
+#include "PropertyCustomizationHelpers.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
@@ -112,7 +113,7 @@ bool STextureSetParameterWidget::OnShouldFilterTextureSetAsset(const FAssetData&
 	const UTextureSet* NewTextureSet = CastChecked<UTextureSet>(InAssetData.GetAsset());
 	check(NewTextureSet);
 
-	const UMaterialExpressionTextureSetSampleParameter* SampleExpression = FTextureSetEditingUtils::FindSampleExpression(Parameter, MaterialInstance->GetMaterial());
+	const UMaterialExpressionTextureSetSampleParameter* SampleExpression = UTextureSetsMaterialInstanceUserData::FindSampleExpression(Parameter, MaterialInstance->GetMaterial());
 	check(SampleExpression);
 
 	return NewTextureSet->Definition != SampleExpression->Definition;
@@ -147,3 +148,4 @@ void STextureSetParameterWidget::OnTextureSetAssetChanged(const FAssetData& InAs
 }
 
 #undef LOCTEXT_NAMESPACE
+#endif

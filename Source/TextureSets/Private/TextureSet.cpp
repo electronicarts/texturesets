@@ -2,13 +2,8 @@
 
 #include "TextureSet.h"
 
-#include "MaterialPropertyHelpers.h"
-#include "ReferencedAssetsUtils.h"
 #include "TextureSetDefinition.h"
 #include "AssetRegistry/AssetRegistryModule.h"
-#include "EditorAssetLibrary.h"
-#include "MaterialEditorModule.h"
-#include "TextureSetEditingUtils.h"
 
 UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -20,6 +15,7 @@ void UTextureSet::PostLoad()
 	FixupData();
 }
 
+#if WITH_EDITOR
 void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -31,9 +27,11 @@ void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 		FixupData();
 	}
 }
+#endif
 
 void UTextureSet::FixupData()
 {
+#if WITH_EDITOR
 	// Only fixup the data if we have a valid definition. Otherwise leave it as-is so it's there for when we do.
 	if (IsValid(Definition))
 	{
@@ -52,7 +50,7 @@ void UTextureSet::FixupData()
 		TArray<TSubclassOf<UTextureSetAssetParams>> RequiredAssetParamClasses = Definition->GetRequiredAssetParamClasses();
 		TArray<TSubclassOf<UTextureSetAssetParams>> ExistingAssetParamClasses;
 		
-		// Remove un-needed sample params
+		// Remove un-needed asset params
 		for (int i = 0; i < AssetParams.Num(); i++)
 		{
 			UTextureSetAssetParams* AssetParam = AssetParams[i];
@@ -67,7 +65,7 @@ void UTextureSet::FixupData()
 			}
 		}
 		
-		// Add missing sample params
+		// Add missing asset params
 		for (TSubclassOf<UTextureSetAssetParams> SampleParamClass : RequiredAssetParamClasses)
 		{
 			if (!ExistingAssetParamClasses.Contains(SampleParamClass))
@@ -76,4 +74,5 @@ void UTextureSet::FixupData()
 			}
 		}
 	}
+#endif
 }

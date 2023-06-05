@@ -40,6 +40,7 @@ int32 UHeightModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSamp
 	return Hash;
 }
 
+#if WITH_EDITOR
 void UHeightModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const
 {
@@ -47,3 +48,4 @@ void UHeightModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSam
 	TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = Builder.GetOutput("Height");
 	TextureExpression->ConnectExpression(OutputExpression->GetInput(0), 0);
 }
+#endif
