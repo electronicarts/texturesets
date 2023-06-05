@@ -216,7 +216,12 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 
 			FString SourceTexString;
 			FString SourceChannelString;
-			SourceNames[c].ToString().Split(".", &SourceTexString, &SourceChannelString);
+			if (false == SourceNames[c].ToString().Split(".", &SourceTexString, &SourceChannelString))
+			{
+				// single-channel texture without channel name
+				SourceTexString = SourceNames[c].ToString();
+				SourceChannelString = "r";
+			}
 			const FName SourceTexName = FName(SourceTexString);
 
 			static const TMap<FString, int> ChannelStringLookup = {
