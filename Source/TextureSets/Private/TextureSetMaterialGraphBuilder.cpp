@@ -14,6 +14,7 @@
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionCustom.h"
 #include "MaterialEditingLibrary.h"
+#include "MaterialExpressionTextureStreamingDef.h"
 
 FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(TObjectPtr<UTextureSetDefinition> Def, UMaterialExpressionTextureSetSampleParameter* Node)
 	: Definition(Def)
@@ -38,11 +39,14 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(TObjectPtr<UTex
 		const FName PackedTextureName = Node->GetTextureParameterName(i);
 
 		TObjectPtr<UMaterialExpressionTextureObjectParameter> TextureObject = CreateExpression<UMaterialExpressionTextureObjectParameter>();
+		UTexture* DefaultTexture = Definition->GetDefaultPackedTexture(i);
+		TextureObject->SamplerType = UMaterialExpressionTextureBase::GetSamplerTypeForTexture(DefaultTexture);
+		TextureObject->SamplerSource = ESamplerSourceMode::SSM_Wrap_WorldGroupSettings; // So we don't allocate a sampler
 
 		TextureObject->SetParameterName(PackedTextureName);
 		FMaterialParameterMetadata meta;
 		meta.Value.Type = EMaterialParameterType::Texture;
-		meta.Value.Texture = Definition->GetDefaultPackedTexture(i);
+		meta.Value.Texture = DefaultTexture;
 		meta.Group = FMaterialPropertyHelpers::TextureSetParamName;
 		meta.SortPriority = 0;
 		TextureObject->SetParameterValue(PackedTextureName, meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
@@ -117,8 +121,14 @@ void FTextureSetMaterialGraphBuilder::Finalize()
 	UMaterialEditingLibrary::LayoutMaterialFunctionExpressions(MaterialFunction);
 }
 
-UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode(UMaterialExpression* Texcoord, UMaterialExpression* TexObject)
+UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode(UMaterialExpression* Texcoord, UMaterialExpressionTextureBase* TexObject)
 {
+	UMaterialExpressionTextureStreamingDef* TextureStreamingDef = CreateExpression<UMaterialExpressionTextureStreamingDef>();
+	TextureStreamingDef->SamplerType = TexObject->SamplerType;
+	TextureStreamingDef->SamplerSource = ESamplerSourceMode::SSM_Wrap_WorldGroupSettings;// So we don't allocate a sampler
+	Texcoord->ConnectExpression(TextureStreamingDef->GetInput(0), 0);
+	TexObject->ConnectExpression(TextureStreamingDef->GetInput(1), 0);
+
 	UMaterialExpressionCustom* CustomExp = CreateExpression<UMaterialExpressionCustom>();
 
 	CustomExp->Inputs.Empty(); // required: class initializes with one input by default
@@ -142,7 +152,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 
 	CustomExp->RebuildOutputs();
 
-	Texcoord->ConnectExpression(CustomExp->GetInput(0), 0);
+	TextureStreamingDef->ConnectExpression(CustomExp->GetInput(0), 0);
 	TexObject->ConnectExpression(CustomExp->GetInput(1), 0);
 
 	return CustomExp;

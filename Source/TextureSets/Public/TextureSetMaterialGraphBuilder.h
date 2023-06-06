@@ -53,6 +53,6 @@ private:
 
 	TMap<FName, TObjectPtr<UMaterialExpressionFunctionOutput>> SampleOutputs;
 
-	UMaterialExpression* MakeTextureSamplerCustomNode(UMaterialExpression* Texcoord, UMaterialExpression* TexObject);
+	UMaterialExpression* MakeTextureSamplerCustomNode(UMaterialExpression* Texcoord, UMaterialExpressionTextureBase* TexObject);
 };
 #endif // WITH_EDITOR

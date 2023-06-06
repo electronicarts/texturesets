@@ -63,10 +63,3 @@ private:
 #endif
 
 };
-
-UCLASS()
-class TEXTURESETS_API UMaterialExpressionTextureReferenceInternal : public UMaterialExpressionTextureObjectParameter
-{
-	GENERATED_BODY()
-};
-
