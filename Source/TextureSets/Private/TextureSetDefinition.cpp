@@ -127,7 +127,9 @@ void UTextureSetDefinition::PostEditChangeProperty(FPropertyChangedEvent& Proper
 void UTextureSetDefinition::PostLoad()
 {
 	Super::PostLoad();
+#if WITH_EDITOR
 	UpdateDefaultTextures();
+#endif
 }
 
 TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames() const
@@ -276,6 +278,7 @@ TArray<TSubclassOf<UTextureSetSampleParams>> UTextureSetDefinition::GetRequiredS
 	return RequiredTypes;
 }
 
+#if WITH_EDITOR
 void UTextureSetDefinition::UpdateDefaultTextures()
 {
 	DefaultTextures.Empty(PackedTextures.Num());
@@ -313,6 +316,7 @@ void UTextureSetDefinition::UpdateDefaultTextures()
 		DefaultTextures.Add(DefaultTexture);
 	}
 }
+#endif
 
 UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int index) const
 {

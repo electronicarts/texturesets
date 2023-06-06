@@ -191,5 +191,7 @@ private:
 	UPROPERTY(VisibleAnywhere, DuplicateTransient)
 	TArray<UTexture*> DefaultTextures;
 
+#if WITH_EDITOR
 	void UpdateDefaultTextures();
+#endif
 };
