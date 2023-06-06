@@ -25,12 +25,6 @@
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
-TAutoConsoleVariable<bool> CVarVisualizeMaterialGraph(
-	TEXT("TextureSet.VisualizeInMaterialGraph"),
-	false,
-	TEXT("Draw debug widgets in material graphs. Requires graphs to be re-opened\n"),
-	ECVF_Default);
-
 void FTextureSetsEditorModule::StartupModule()
 {
 	RegisterAssetTools();
