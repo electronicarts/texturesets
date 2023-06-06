@@ -12,47 +12,8 @@
 #include "TextureSet.h"
 
 #if WITH_EDITOR
-#include "MaterialPropertyHelpers.h"
 #include "MaterialEditingLibrary.h"
-#include "MaterialEditor/Public/MaterialEditorModule.h"
-#include "MaterialEditor/MaterialEditorInstanceConstant.h"
-#include "DetailWidgetRow.h"
-#include "IDetailGroup.h"
-#include "STextureSetParameterWidget.h"
-
-FDelegateHandle UTextureSetsMaterialInstanceUserData::OnMaterialInstanceOpenedForEditHandle;
-FDelegateHandle UTextureSetsMaterialInstanceUserData::OnMICreateGroupsWidgetHandle;
 #endif
-
-void UTextureSetsMaterialInstanceUserData::RegisterCallbacks()
-{
-	UnregisterCallbacks();
-
-#if WITH_EDITOR
-	IMaterialEditorModule* MaterialEditorModule = &FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
-	OnMaterialInstanceOpenedForEditHandle = MaterialEditorModule->OnMaterialInstanceOpenedForEdit().AddStatic(&UTextureSetsMaterialInstanceUserData::OnMaterialInstanceOpenedForEdit);
-	
-	OnMICreateGroupsWidgetHandle = UMaterialEditorInstanceConstant::OnCreateGroupsWidget.AddStatic(&UTextureSetsMaterialInstanceUserData::OnMICreateGroupsWidget);
-#endif
-}
-
-void UTextureSetsMaterialInstanceUserData::UnregisterCallbacks()
-{
-#if WITH_EDITOR
-	if (OnMaterialInstanceOpenedForEditHandle.IsValid())
-	{
-		IMaterialEditorModule* MaterialEditorModule = &FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
-		MaterialEditorModule->OnMaterialInstanceOpenedForEdit().Remove(OnMaterialInstanceOpenedForEditHandle);
-		OnMaterialInstanceOpenedForEditHandle.Reset();
-	}
-
-	if (OnMICreateGroupsWidgetHandle.IsValid())
-	{
-		UMaterialEditorInstanceConstant::OnCreateGroupsWidget.Remove(OnMICreateGroupsWidgetHandle);
-		OnMICreateGroupsWidgetHandle.Reset();
-	}
-#endif
-}
 
 #if WITH_EDITOR
 const UMaterialExpressionTextureSetSampleParameter* UTextureSetsMaterialInstanceUserData::FindSampleExpression(const FGuid& NodeID, UMaterial* Material)
@@ -222,6 +183,13 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 }
 #endif
 
+const TArray<FGuid> UTextureSetsMaterialInstanceUserData::GetOverrides() const
+{
+	TArray<FGuid> Guids;
+	TexturesSetOverrides.GetKeys(Guids);
+	return Guids;
+}
+
 const FSetOverride& UTextureSetsMaterialInstanceUserData::GetOverride(FGuid Guid) const
 {
 	return TexturesSetOverrides.FindChecked(Guid);
@@ -240,43 +208,3 @@ void UTextureSetsMaterialInstanceUserData::SetOverride(FGuid Guid, const FSetOve
 	UMaterialEditingLibrary::RefreshMaterialEditor(MaterialInstance);
 #endif
 }
-
-#if WITH_EDITOR
-void UTextureSetsMaterialInstanceUserData::OnMaterialInstanceOpenedForEdit(UMaterialInstance* MaterialInstance)
-{
-	UpdateAssetUserData(MaterialInstance);
-}
-#endif
-
-#if WITH_EDITOR
-void UTextureSetsMaterialInstanceUserData::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstance, IDetailCategoryBuilder& GroupsCategory)
-{
-	check(MaterialInstance);
-
-	UTextureSetsMaterialInstanceUserData* TextureSetOverrides = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
-	// Not an error if user data doesn't exist, just means this material doesn't contain a texture set.
-	if (!TextureSetOverrides)
-		return;
-
-	const FName& GroupName = FMaterialPropertyHelpers::TextureSetParamName;
-	IDetailGroup& DetailGroup = GroupsCategory.AddGroup(GroupName, FText::FromName(GroupName), false, true);
-
-	DetailGroup.HeaderRow()
-		.NameContent()
-		[
-			SNew(STextBlock)
-			.Text(FText::FromName(DetailGroup.GetGroupName()))
-		];
-
-	TArray<FGuid> Guids;
-	TextureSetOverrides->TexturesSetOverrides.GetKeys(Guids);
-
-	for (const FGuid& Guid : Guids)
-	{
-		DetailGroup.AddWidgetRow()
-			[
-				SNew(STextureSetParameterWidget, MaterialInstance, Guid)
-			];
-	}
-}
-#endif

@@ -12,11 +12,6 @@ class UMaterialExpressionTextureSetSampleParameter;
 class UMaterial;
 class UMaterialInstance;
 
-#if WITH_EDITOR
-class IDetailCategoryBuilder;
-class UMaterialInstanceConstant;
-#endif
-
 USTRUCT(BlueprintType)
 struct FSetOverride
 {
@@ -38,8 +33,6 @@ class TEXTURESETS_API UTextureSetsMaterialInstanceUserData : public UAssetUserDa
 	GENERATED_BODY()
 
 public:
-	static void RegisterCallbacks();
-	static void UnregisterCallbacks();
 
 #if WITH_EDITOR
 	// Ensures user data is in sync with the material
@@ -62,19 +55,11 @@ public:
 	// Removes all texture set related material parameters from the material instance
 	void ClearTextureSetParameters();
 
+	const TArray<FGuid> GetOverrides() const;
 	const FSetOverride& GetOverride(FGuid Guid) const;
 	void SetOverride(FGuid Guid, const FSetOverride& Override);
 
 private:
-#if WITH_EDITOR
-	// Callbacks
-	static void OnMaterialInstanceOpenedForEdit(UMaterialInstance* MaterialInstance);
-	static void OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstance, IDetailCategoryBuilder& GroupsCategory);
-
-	static FDelegateHandle OnMaterialInstanceOpenedForEditHandle;
-	static FDelegateHandle OnMICreateGroupsWidgetHandle;
-#endif
-
 	UPROPERTY(VisibleAnywhere)
 	TMap<FGuid, FSetOverride> TexturesSetOverrides;
 

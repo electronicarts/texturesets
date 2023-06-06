@@ -14,12 +14,12 @@ TAutoConsoleVariable<bool> CVarVisualizeMaterialGraph(
 
 void FTextureSetsModule::StartupModule()
 {
-	UTextureSetsMaterialInstanceUserData::RegisterCallbacks();
+
 }
 
 void FTextureSetsModule::ShutdownModule()
 {
-	UTextureSetsMaterialInstanceUserData::UnregisterCallbacks();
+
 }
 
 #undef LOCTEXT_NAMESPACE
