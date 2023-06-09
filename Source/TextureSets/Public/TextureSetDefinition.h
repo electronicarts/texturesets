@@ -38,6 +38,8 @@ struct TextureSetDefinitionSharedInfo
 {
 	friend class UTextureSetDefinition;
 public:
+	virtual ~TextureSetDefinitionSharedInfo() {}
+
 	void AddSourceTexture(const TextureSetTextureDef& Texture);
 	void AddProcessedTexture(const TextureSetTextureDef& Texture);
 
@@ -98,6 +100,101 @@ private:
 	TMap<FName, EMaterialValueType> SampleOutputs;
 };
 
+class ITextureSetTexture
+{
+public:
+	virtual ~ITextureSetTexture() {}
+
+	virtual int GetWidth() const = 0;
+	virtual int GetHeight() const = 0;
+	virtual int GetChannels() const = 0;
+	virtual void Prepare() {}; // Optional for any sub-classes that want to pre-process data before sampling
+	virtual float GetPixel(int X, int Y, int Channel) const = 0;
+};
+
+class FImageWrapper : public ITextureSetTexture
+{
+public:
+	FImageWrapper(TSharedRef<FImage> I) : Image(I)
+	{}
+
+	TSharedRef<FImage> Image;
+
+	virtual int GetWidth() const override { return Image->GetWidth(); }
+	virtual int GetHeight() const override { return Image->GetHeight(); }
+	virtual int GetChannels() const override{ return 3; } // TODO
+	
+	virtual float GetPixel(int X, int Y, int Channel) const override
+	{
+		// TODO: Support more than just RGBA32F textures
+		return Image->AsRGBA32F()[X * GetWidth() + Y].Component(Channel);
+	}
+};
+
+class IDefaultValue : public ITextureSetTexture
+{
+public:
+	IDefaultValue(FLinearColor Col, int Chan)
+		: Color(Col)
+		, Channels(Chan)
+	{}
+
+	virtual int GetWidth() const override { return 4; }
+	virtual int GetHeight() const override { return 4; }
+	virtual int GetChannels() const override{ return 3; } // TODO
+
+	virtual float GetPixel(int X, int Y, int Channel) const override
+	{
+		check(Channel < Channels);
+		return Color.Component(Channel);
+	}
+
+private:
+	FLinearColor Color;
+	int Channels;
+};
+
+class FImageOperator : public ITextureSetTexture
+{
+public:
+	FImageOperator(const TSharedRef<ITextureSetTexture> I)
+		: SourceImage(I)
+	{}
+
+	virtual int GetWidth() const override { return SourceImage->GetWidth(); }
+	virtual int GetHeight() const override { return SourceImage->GetHeight(); }
+	virtual int GetChannels() const override { return SourceImage->GetChannels(); }
+
+	const TSharedRef<ITextureSetTexture> SourceImage;
+};
+
+class FImageOperatorInvert : public FImageOperator
+{
+public:
+	FImageOperatorInvert(TSharedRef<ITextureSetTexture> I) : FImageOperator(I)
+	{}
+
+	virtual float GetPixel(int X, int Y, int Channel) const override
+	{
+		return 1.0f - SourceImage->GetPixel(X, Y, Channel);
+	}
+};
+
+class FTextureSetProcessingContext
+{
+	friend class UTextureSetDefinition;
+
+public:
+	void AddProcessedTexture(FName Name, TSharedRef<ITextureSetTexture> Texture) { ProcessedTextures.Add(Name, Texture); }
+	bool HasSourceTexure(FName Name) { return SourceTextures.Contains(Name); }
+	const TSharedRef<ITextureSetTexture> GetSourceTexture(FName Name) const { return SourceTextures.FindChecked(Name); }
+
+private:
+	TMap<FName, TSharedRef<ITextureSetTexture>> SourceTextures;
+	TMap<FName, TSharedRef<ITextureSetTexture>> ProcessedTextures;
+	TMap<FName, FVector4> MaterialParams;
+};
+
 // Abstract class for texture set modules. Modules provide a mechanism for extending textures sets with additional functionality.
 UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
 class UTextureSetDefinitionModule : public UObject
@@ -105,7 +202,7 @@ class UTextureSetDefinitionModule : public UObject
 	GENERATED_BODY()
 public:
 	// Can there be more than one of these modules on a definition?
-	virtual bool AllowMultiple() { return false; }
+	virtual bool AllowMultiple() { return false; } // TODO: Not validated/enforced
 
 	// Allow children to override name of an instance of this module.
 	// Useful for modules which allow multiple instances on the same definition.
@@ -126,11 +223,12 @@ public:
 	// Compute a hash for the module processing. If this hash changes, it triggers a texture-sets to be re-processed.
 	virtual int32 ComputeProcessingHash() { return 0; }
 
+#if WITH_EDITOR
 	// Process the source data into the intermediate results
 	// Transforms source elements into processed data
 	// Sets values of shader constants
-	// TODO: Define arguments and return values
-	virtual void Process(const UTextureSetAssetParams* AssetParams) {}
+	virtual void Process(FTextureSetProcessingContext& Context) {}
+#endif
 
 	// Compute a hash for the sampling graph. If this hash changes, it triggers the sampling graph to be re-generated.
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) { return 0; }

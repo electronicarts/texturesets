@@ -29,6 +29,15 @@ void UTextureSetElementCollection::BuildSamplingInfo(TextureSetDefinitionSamplin
 	}
 }
 
+void UTextureSetElementCollection::Process(FTextureSetProcessingContext& Context)
+{
+	// Just pass through source texture as processed texture
+	for (const FElementDefinition& Element: Elements)
+	{
+		Context.AddProcessedTexture(Element.ElementName, Context.GetSourceTexture(Element.ElementName));
+	}
+}
+
 int32 UTextureSetElementCollection::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
 {
 	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);

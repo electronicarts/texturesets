@@ -118,6 +118,32 @@ void UPBRSurfaceModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& Samp
 	}
 }
 
+void UPBRSurfaceModule::Process(FTextureSetProcessingContext& Context)
+{
+	if (Microsurface == EPBRMicrosurface::Roughness)
+	{
+		if (Context.HasSourceTexure(RoughnessName))
+		{
+			Context.AddProcessedTexture(RoughnessName, Context.GetSourceTexture(RoughnessName));
+		}
+		else if (Context.HasSourceTexure(SmoothnessName))
+		{
+			Context.AddProcessedTexture(RoughnessName, MakeShared<FImageOperatorInvert>(Context.GetSourceTexture(SmoothnessName)));
+		}
+	}
+	else if (Microsurface == EPBRMicrosurface::Smoothness)
+	{
+		if (Context.HasSourceTexure(SmoothnessName))
+		{
+			Context.AddProcessedTexture(SmoothnessName, Context.GetSourceTexture(SmoothnessName));
+		}
+		else if (Context.HasSourceTexure(RoughnessName))
+		{
+			Context.AddProcessedTexture(SmoothnessName, MakeShared<FImageOperatorInvert>(Context.GetSourceTexture(RoughnessName)));
+		}
+	}
+}
+
 int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
 {
 	const UPBRSampleParams* SampleParams = SampleExpression->GetSampleParams<UPBRSampleParams>();

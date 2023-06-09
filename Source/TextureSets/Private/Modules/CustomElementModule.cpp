@@ -18,6 +18,12 @@ void UCustomElementModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& S
 	SamplingInfo.AddSampleOutput(ElementName, ValueTypeLookup[ChannelCount]);
 }
 
+void UCustomElementModule::Process(FTextureSetProcessingContext& Context)
+{
+	// Just pass through source texture as processed texture
+	Context.AddProcessedTexture(ElementName, Context.GetSourceTexture(ElementName));
+}
+
 int32 UCustomElementModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
 {
 	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);

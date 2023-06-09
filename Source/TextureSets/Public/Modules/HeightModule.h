@@ -31,14 +31,14 @@ class UHeightModule : public UTextureSetDefinitionModule
 	GENERATED_BODY()
 public:
 	virtual bool AllowMultiple() override { return false; }
-	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const { return UHeightAssetParams::StaticClass(); }
+	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const override { return UHeightAssetParams::StaticClass(); }
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UHeightSampleParams::StaticClass(); }
 	
-	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info);
+	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) override;
 
 	virtual void BuildSamplingInfo(
 		TextureSetDefinitionSamplingInfo& SamplingInfo,
-		const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression) override;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) override;
 

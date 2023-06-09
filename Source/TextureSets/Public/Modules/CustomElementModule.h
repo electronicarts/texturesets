@@ -12,14 +12,16 @@ class UCustomElementModule : public UTextureSetDefinitionModule
 	GENERATED_BODY()
 public:
 
-	virtual bool AllowMultiple() { return true; }
+	virtual bool AllowMultiple() override { return true; }
 	virtual FString GetInstanceName() const  override { return ElementName.ToString(); }
 
-	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info);
+	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) override;
 
 	virtual void BuildSamplingInfo(
 		TextureSetDefinitionSamplingInfo& SamplingInfo,
-		const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression) override;
+
+	virtual void Process(FTextureSetProcessingContext& Context) override;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) override;
 
