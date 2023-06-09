@@ -2,12 +2,12 @@
 
 #pragma once
 
-#include "TextureSetDefinition.h"
+#include "TextureSetModule.h"
 #include "CustomElementModule.generated.h"
 
 // Allows users to define a custom input texture map that can be packed, and unpacked with no extra processing.
 UCLASS()
-class UCustomElementModule : public UTextureSetDefinitionModule
+class UCustomElementModule : public UTextureSetModule
 {
 	GENERATED_BODY()
 public:

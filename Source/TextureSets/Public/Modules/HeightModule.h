@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "TextureSetDefinition.h"
+#include "TextureSetModule.h"
 #include "HeightModule.generated.h"
 
 UCLASS()
@@ -26,7 +26,7 @@ public:
 };
 
 UCLASS()
-class UHeightModule : public UTextureSetDefinitionModule
+class UHeightModule : public UTextureSetModule
 {
 	GENERATED_BODY()
 public:

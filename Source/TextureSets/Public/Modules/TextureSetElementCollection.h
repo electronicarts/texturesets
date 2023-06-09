@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "TextureSetDefinition.h"
+#include "TextureSetModule.h"
 #include "TextureSetElementCollection.generated.h"
 
 USTRUCT(BlueprintType)
@@ -38,7 +38,7 @@ FORCEINLINE uint32 GetTypeHash(const FElementDefinition& Def)
 
 // Allows users to define a custom set of elements that can be packed, and unpacked with no extra processing.
 UCLASS(Abstract, Blueprintable)
-class UTextureSetElementCollection : public UTextureSetDefinitionModule
+class UTextureSetElementCollection : public UTextureSetModule
 {
 	GENERATED_BODY()
 public:

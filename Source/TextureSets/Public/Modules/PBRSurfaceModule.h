@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "TextureSetDefinition.h"
+#include "TextureSetModule.h"
 #include "PBRSurfaceModule.generated.h"
 
 UENUM()
@@ -51,7 +51,7 @@ public:
 };
 
 UCLASS()
-class UPBRSurfaceModule : public UTextureSetDefinitionModule
+class UPBRSurfaceModule : public UTextureSetModule
 {
 	GENERATED_BODY()
 public:

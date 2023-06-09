@@ -13,6 +13,7 @@
 #include "Materials/MaterialExpressionDeriveNormalZ.h"
 #include "Materials/MaterialExpressionAppendVector.h"
 #include "MaterialEditingLibrary.h"
+#include "Textures/TextureOperatorInvert.h"
 #endif
 
 void UPBRSurfaceModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
@@ -128,7 +129,7 @@ void UPBRSurfaceModule::Process(FTextureSetProcessingContext& Context)
 		}
 		else if (Context.HasSourceTexure(SmoothnessName))
 		{
-			Context.AddProcessedTexture(RoughnessName, MakeShared<FImageOperatorInvert>(Context.GetSourceTexture(SmoothnessName)));
+			Context.AddProcessedTexture(RoughnessName, MakeShared<FTextureOperatorInvert>(Context.GetSourceTexture(SmoothnessName)));
 		}
 	}
 	else if (Microsurface == EPBRMicrosurface::Smoothness)
@@ -139,7 +140,7 @@ void UPBRSurfaceModule::Process(FTextureSetProcessingContext& Context)
 		}
 		else if (Context.HasSourceTexure(RoughnessName))
 		{
-			Context.AddProcessedTexture(SmoothnessName, MakeShared<FImageOperatorInvert>(Context.GetSourceTexture(RoughnessName)));
+			Context.AddProcessedTexture(SmoothnessName, MakeShared<FTextureOperatorInvert>(Context.GetSourceTexture(RoughnessName)));
 		}
 	}
 }
