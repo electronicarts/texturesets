@@ -39,6 +39,7 @@ public:
 	const TextureSetDefinitionSharedInfo GetSharedInfo() const;
 	const TextureSetDefinitionSamplingInfo GetSamplingInfo(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
 	const TextureSetPackingInfo GetPackingInfo() const;
+	const TArray<const UTextureSetModule*> GetModules() const;
 
 	TArray<TSubclassOf<UTextureSetAssetParams>> GetRequiredAssetParamClasses() const;
 	TArray<TSubclassOf<UTextureSetSampleParams>> GetRequiredSampleParamClasses() const;

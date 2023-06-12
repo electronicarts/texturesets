@@ -66,18 +66,18 @@ public:
 	const FName WorldNormalName = "WorldNormal";
 	const FName SurfaceGradientName = "SurfaceGradient";
 
-	virtual bool AllowMultiple() override { return false; }
+	virtual bool AllowMultiple() const override { return false; }
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UPBRSampleParams::StaticClass(); }
 
-	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) override;
+	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const override;
 
 	virtual void BuildSamplingInfo(
 		TextureSetDefinitionSamplingInfo& SamplingInfo,
-		const UMaterialExpressionTextureSetSampleParameter* SampleExpression) override;
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 
-	virtual void Process(FTextureSetProcessingContext& Context) override;
+	virtual void Process(FTextureSetProcessingContext& Context) const override;
 
-	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) override;
+	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 
 #if WITH_EDITOR
 	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,

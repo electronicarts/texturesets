@@ -16,7 +16,7 @@
 #include "Textures/TextureOperatorInvert.h"
 #endif
 
-void UPBRSurfaceModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
+void UPBRSurfaceModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const
 {
 	static const TextureSetTextureDef MetalDef {MetalName, false, 1, FVector4(0, 0, 0, 0)};
 	static const TextureSetTextureDef BaseColorDef {BaseColorName, true, 3, FVector4(0.5, 0.5, 0.5, 0)};
@@ -71,7 +71,7 @@ void UPBRSurfaceModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
 	}
 }
 
-void UPBRSurfaceModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+void UPBRSurfaceModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const UPBRSampleParams* PBRSampleParams = SampleExpression->GetSampleParams<UPBRSampleParams>();
 
@@ -119,7 +119,7 @@ void UPBRSurfaceModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& Samp
 	}
 }
 
-void UPBRSurfaceModule::Process(FTextureSetProcessingContext& Context)
+void UPBRSurfaceModule::Process(FTextureSetProcessingContext& Context) const
 {
 	if (Microsurface == EPBRMicrosurface::Roughness)
 	{
@@ -145,7 +145,7 @@ void UPBRSurfaceModule::Process(FTextureSetProcessingContext& Context)
 	}
 }
 
-int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const UPBRSampleParams* SampleParams = SampleExpression->GetSampleParams<UPBRSampleParams>();
 

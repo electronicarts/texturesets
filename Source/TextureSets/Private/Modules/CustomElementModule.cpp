@@ -5,26 +5,26 @@
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
-void UCustomElementModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
+void UCustomElementModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const
 {
 	TextureSetTextureDef TextureDef = TextureSetTextureDef{ ElementName, SRGB, ChannelCount, DefaultValue };
 	Info.AddSourceTexture(TextureDef);
 	Info.AddProcessedTexture(TextureDef);
 }
 
-void UCustomElementModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+void UCustomElementModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const EMaterialValueType ValueTypeLookup[4] = { MCT_Float1, MCT_Float2, MCT_Float3, MCT_Float4 };
 	SamplingInfo.AddSampleOutput(ElementName, ValueTypeLookup[ChannelCount]);
 }
 
-void UCustomElementModule::Process(FTextureSetProcessingContext& Context)
+void UCustomElementModule::Process(FTextureSetProcessingContext& Context) const
 {
 	// Just pass through source texture as processed texture
 	Context.AddProcessedTexture(ElementName, Context.GetSourceTexture(ElementName));
 }
 
-int32 UCustomElementModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+int32 UCustomElementModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
 

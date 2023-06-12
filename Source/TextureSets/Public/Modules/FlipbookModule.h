@@ -34,15 +34,15 @@ public:
 	UPROPERTY(EditAnywhere);
 	bool bUseMotionVectors = false;
 
-	virtual bool AllowMultiple() override { return false; }
+	virtual bool AllowMultiple() const override { return false; }
 	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const { return UFlipbookAssetParams::StaticClass(); }
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UFlipbookSampleParams::StaticClass(); }
 	
-	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info);
+	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const;
 
 	virtual void BuildSamplingInfo(
 		TextureSetDefinitionSamplingInfo& SamplingInfo,
-		const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
 
-	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) override;
+	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 };

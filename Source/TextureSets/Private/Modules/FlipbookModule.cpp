@@ -4,7 +4,7 @@
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
 
-void UFlipbookModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
+void UFlipbookModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const
 {
 	if (bUseMotionVectors)
 	{
@@ -12,7 +12,7 @@ void UFlipbookModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
 	}
 }
 
-int32 UFlipbookModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+int32 UFlipbookModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const UFlipbookSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UFlipbookSampleParams>();
 
@@ -24,7 +24,7 @@ int32 UFlipbookModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSa
 	return Hash;
 }
 
-void UFlipbookModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+void UFlipbookModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const UFlipbookSampleParams* FlipbookSampleParams = SampleExpression->GetSampleParams<UFlipbookSampleParams>();
 

@@ -42,17 +42,17 @@ class UTextureSetElementCollection : public UTextureSetModule
 {
 	GENERATED_BODY()
 public:
-	virtual bool AllowMultiple() override { return bAllowMultiple; }
+	virtual bool AllowMultiple() const override { return bAllowMultiple; }
 
-	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) override;
+	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const override;
 
 	virtual void BuildSamplingInfo(
 		TextureSetDefinitionSamplingInfo& SamplingInfo,
-		const UMaterialExpressionTextureSetSampleParameter* SampleExpression) override;
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 	
-	virtual void Process(FTextureSetProcessingContext& Context) override;
+	virtual void Process(FTextureSetProcessingContext& Context) const override;
 
-	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) override;
+	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 #if WITH_EDITOR
 	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 		FTextureSetMaterialGraphBuilder& Builder) const override;

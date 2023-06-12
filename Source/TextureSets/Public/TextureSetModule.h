@@ -25,7 +25,7 @@ class UTextureSetSampleParams : public UObject
 
 class FTextureSetProcessingContext
 {
-	friend class UTextureSetDefinition;
+	friend class TextureSetCooker;
 
 public:
 	void AddProcessedTexture(FName Name, TSharedRef<ITextureSetTexture> Texture) { ProcessedTextures.Add(Name, Texture); }
@@ -49,7 +49,7 @@ class UTextureSetModule : public UObject
 	GENERATED_BODY()
 public:
 	// Can there be more than one of these modules on a definition?
-	virtual bool AllowMultiple() { return false; } // TODO: Not validated/enforced
+	virtual bool AllowMultiple() const { return false; } // TODO: Not validated/enforced
 
 	// Allow children to override name of an instance of this module.
 	// Useful for modules which allow multiple instances on the same definition.
@@ -62,23 +62,23 @@ public:
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const { return nullptr; }
 
 	// Use in subclasses to add to the shared info
-	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) {};
+	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const {};
 
 	// Use in subclasses to add to the sampling info
-	virtual void BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) {};
+	virtual void BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const {};
 
 	// Compute a hash for the module processing. If this hash changes, it triggers a texture-sets to be re-processed.
-	virtual int32 ComputeProcessingHash() { return 0; }
+	virtual int32 ComputeProcessingHash() const { return 0; }
 
 #if WITH_EDITOR
 	// Process the source data into the intermediate results
 	// Transforms source elements into processed data
 	// Sets values of shader constants
-	virtual void Process(FTextureSetProcessingContext& Context) {}
+	virtual void Process(FTextureSetProcessingContext& Context) const {}
 #endif
 
 	// Compute a hash for the sampling graph. If this hash changes, it triggers the sampling graph to be re-generated.
-	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) { return 0; }
+	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const { return 0; }
 
 #if WITH_EDITOR
 	// Logic (material graph) for unpacking data
