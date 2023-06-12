@@ -5,7 +5,7 @@
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
-void UTextureSetElementCollection::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info)
+void UTextureSetElementCollection::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const
 {
 	for (const FElementDefinition& Element: Elements)
 	{
@@ -19,7 +19,7 @@ void UTextureSetElementCollection::BuildSharedInfo(TextureSetDefinitionSharedInf
 	}
 }
 
-void UTextureSetElementCollection::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+void UTextureSetElementCollection::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const EMaterialValueType ValueTypeLookup[4] = { MCT_Float1, MCT_Float2, MCT_Float3, MCT_Float4 };
 
@@ -29,7 +29,7 @@ void UTextureSetElementCollection::BuildSamplingInfo(TextureSetDefinitionSamplin
 	}
 }
 
-void UTextureSetElementCollection::Process(FTextureSetProcessingContext& Context)
+void UTextureSetElementCollection::Process(FTextureSetProcessingContext& Context) const
 {
 	// Just pass through source texture as processed texture
 	for (const FElementDefinition& Element: Elements)
@@ -38,7 +38,7 @@ void UTextureSetElementCollection::Process(FTextureSetProcessingContext& Context
 	}
 }
 
-int32 UTextureSetElementCollection::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+int32 UTextureSetElementCollection::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
 	for (const FElementDefinition& Element: Elements)
