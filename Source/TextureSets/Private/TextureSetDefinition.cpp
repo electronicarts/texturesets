@@ -177,6 +177,10 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 			TextureInfo.DefaultValue[c] = Processed.DefaultValue[SourceChannel];
 		}
 
+		TextureInfo.RangeCompressMulName = FName("RangeCompress_Mul_" + FString::FromInt(i));
+		TextureInfo.RangeCompressAddName = FName("RangeCompress_Add_" + FString::FromInt(i));
+
+
 		PackingInfo.PackedTextureDefs.Add(TextureDef);
 		PackingInfo.PackedTextureInfos.Add(TextureInfo);
 	}

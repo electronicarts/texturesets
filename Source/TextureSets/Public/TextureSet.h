@@ -26,6 +26,8 @@ UCLASS(BlueprintType, hidecategories = (Object))
 class TEXTURESETS_API UTextureSet : public UObject
 {
 	GENERATED_UCLASS_BODY()
+
+	friend class TextureSetCooker;
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TObjectPtr<UTextureSetDefinition> Definition;
@@ -52,12 +54,6 @@ public:
 		return GetDefault<T>(); // Not found, return the default class
 	}
 #endif
-
-	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
-	TArray<TSoftObjectPtr<UTexture>> CookedTextures;
-
-	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
-	TMap<FName, FVector4> ShaderParameters;
 
 	virtual void PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext) override;
 	virtual void PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext) override;
@@ -91,4 +87,14 @@ public:
 	TMap<FName, TRefCountPtr<FSharedImage>> SourceRawImages;
 
 	mutable FCriticalSection TextureSetCS;
+
+	int GetNumCookedTextures() const { return CookedTextures.Num(); }
+	UTexture* GetCookedTexture(int Index) const { return CookedTextures[Index].IsValid() ? CookedTextures[Index].Get() : CookedTextures[Index].LoadSynchronous(); }
+
+private:
+	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
+	TArray<TSoftObjectPtr<UTexture>> CookedTextures;
+
+	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
+	TMap<FName, FVector4> ShaderParameters;
 };

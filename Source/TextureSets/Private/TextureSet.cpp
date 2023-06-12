@@ -3,6 +3,7 @@
 #include "TextureSet.h"
 
 #include "TextureSetDefinition.h"
+#include "TextureSetCooker.h"
 #include "TextureSetModule.h"
 #include "TextureSetModifiersAssetUserData.h"
 #include "AssetRegistry/AssetRegistryModule.h"
@@ -68,6 +69,9 @@ void UTextureSet::UpdateCookedTextures()
 		}
 	}
 
+#if 0
+	TextureSetCooker::CookTextureSet(this);
+#else
 	if (CookedTextures.Num() > PackingInfo.NumPackedTextures())
 	{
 		CookedTextures.SetNum(PackingInfo.NumPackedTextures());
@@ -140,8 +144,9 @@ void UTextureSet::UpdateCookedTextures()
 		//CookedTexture->Modify();
 		//CookedTexture->UpdateResource();
 	}
-
 #endif
+
+#endif //WITH_EDITOR
 }
 
 void UTextureSet::PostLoad()

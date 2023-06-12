@@ -15,7 +15,7 @@ public:
 
 	virtual int GetWidth() const override { return 4; }
 	virtual int GetHeight() const override { return 4; }
-	virtual int GetChannels() const override{ return 3; } // TODO
+	virtual int GetChannels() const override{ return Channels; }
 
 	virtual float GetPixel(int X, int Y, int Channel) const override
 	{

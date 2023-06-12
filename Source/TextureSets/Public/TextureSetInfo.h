@@ -57,6 +57,8 @@ public:
 		int ChannelCount;
 		bool AllowHardwareSRGB;
 		FVector4 DefaultValue;
+		FName RangeCompressMulName;
+		FName RangeCompressAddName;
 	};
 
 	const int NumPackedTextures() const { return PackedTextureDefs.Num(); }
