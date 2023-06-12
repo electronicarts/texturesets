@@ -53,5 +53,7 @@ public:
 
 	TArray<FName> GetSources() const;
 
+	TArray<FString> GetSourcesWithoutChannel(bool RemoveDuplicate = true) const;
+
 	bool GetHardwareSRGBEnabled() const;
 };

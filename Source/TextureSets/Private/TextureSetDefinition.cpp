@@ -5,6 +5,7 @@
 #include "TextureSet.h"
 #include "TextureSetModule.h"
 #include "TextureSetPackedTextureDef.h"
+#include "UObject/ObjectSaveContext.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionTextureSampleParameter2D.h"
@@ -282,3 +283,48 @@ void UTextureSetDefinition::GenerateSamplingGraph(const UMaterialExpressionTextu
 	}
 }
 #endif
+
+void UTextureSetDefinition::PreSave(FObjectPreSaveContext SaveContext)
+{
+	UpdatePackedTextureDefKeys();
+}
+void UTextureSetDefinition::UpdatePackedTextureDefKeys()
+{
+	int PackedTextureCount = PackedTextures.Num();
+	PackedTextureDefKeys.Empty(PackedTextureCount);
+
+	// Compute the data hash key of cooked textures
+	for (int idx = 0; idx < PackedTextureCount; idx++)
+	{
+		// all data hash keys start with a global version tracking format changes
+		FString PackedTextureDataKey("TEXTURE_SET_PACKING_VER1_");
+
+		const FTextureSetPackedTextureDef& PackedTextureDef = PackedTextures[idx];
+
+		// Add texture set module version string here
+		PackedTextureDataKey += (UEnum::GetValueAsName(PackedTextureDef.CompressionSettings)).GetPlainNameString();
+		PackedTextureDataKey += "_";
+
+		const TArray<FName>& PackedSources = PackedTextureDef.GetSources();
+		for (const FName& SourceName : PackedSources)
+		{
+			FString SourceChannelString = SourceName.GetPlainNameString();
+			PackedTextureDataKey += SourceChannelString;
+			PackedTextureDataKey += "_";
+		}
+		PackedTextureDataKey += (PackedTextureDef.bDoRangeCompression ? "_Compressed" : "_UnCompressed");
+		PackedTextureDataKey += (PackedTextureDef.bHardwareSRGB? "_SRGB" : "_Linear");
+		//PackedTextureDataKey.ToLowerInline();
+
+		PackedTextureDefKeys.Add(PackedTextureDataKey);
+	}
+}
+FString UTextureSetDefinition::GetPackedTextureDefKey(int DefIndex)
+{
+	if (DefIndex < PackedTextureDefKeys.Num())
+		return PackedTextureDefKeys[DefIndex];
+
+	checkf(false, TEXT("Invalid index of packed texture definition"));
+
+	return TEXT("INVALID_INDEX_OF_PACKED_TEXTURE_DEFINITION");
+}

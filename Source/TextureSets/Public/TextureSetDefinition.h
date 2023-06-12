@@ -50,6 +50,10 @@ public:
 #if WITH_EDITOR
 	void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression, FTextureSetMaterialGraphBuilder& Builder) const;
 #endif
+
+	virtual void PreSave(FObjectPreSaveContext SaveContext) override;
+	FString GetPackedTextureDefKey(int DefIndex);
+
 private:
 
 	UPROPERTY(EditAnywhere)
@@ -64,4 +68,9 @@ private:
 #if WITH_EDITOR
 	void UpdateDefaultTextures();
 #endif
+
+	UPROPERTY()
+	TArray<FString> PackedTextureDefKeys;
+
+	void UpdatePackedTextureDefKeys();
 };

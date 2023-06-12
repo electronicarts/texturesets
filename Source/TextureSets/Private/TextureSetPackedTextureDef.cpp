@@ -63,6 +63,30 @@ TArray<FName> FTextureSetPackedTextureDef::GetSources() const
 	return ReturnValue;
 }
 
+TArray<FString> FTextureSetPackedTextureDef::GetSourcesWithoutChannel(bool RemoveDuplicate) const
+{
+	TArray<FString> SourcesWithoutChannel;
+
+	const TArray<FName>& PackedSources = GetSources();
+	for (const FName& SourceName : PackedSources)
+	{
+		FString SourceChannelString = SourceName.GetPlainNameString();
+		int ChannelNameStartPos = -1;
+		if (SourceChannelString.FindLastChar('.', ChannelNameStartPos))
+		{
+			SourceChannelString.LeftInline(ChannelNameStartPos);
+		}
+		//SourceChannelString.ToLowerInline();
+
+		if (RemoveDuplicate)
+			SourcesWithoutChannel.AddUnique(SourceChannelString);
+		else
+			SourcesWithoutChannel.Add(SourceChannelString);
+	}
+
+	return SourcesWithoutChannel;
+}
+
 bool FTextureSetPackedTextureDef::GetHardwareSRGBEnabled() const
 {
 	TArray<TextureCompressionSettings> SRGBSupportedFormats =
