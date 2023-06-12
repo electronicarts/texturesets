@@ -3,6 +3,7 @@
 #include "TextureSet.h"
 
 #include "TextureSetDefinition.h"
+#include "TextureSetModule.h"
 #include "TextureSetModifiersAssetUserData.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "UObject/ObjectSaveContext.h"
@@ -37,9 +38,8 @@ void UTextureSet::PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext)
 		return;
 
 	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
-	const auto& PackedTextures = PackingInfo.GetPackedTextures();
 
-	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackedTextures.Num(); PackedTextureIndex++)
+	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackingInfo.NumPackedTextures(); PackedTextureIndex++)
 	{
 		UTexture* CookedTexture = CookedTextures[PackedTextureIndex].IsValid() ? CookedTextures[PackedTextureIndex].Get() : CookedTextures[PackedTextureIndex].LoadSynchronous();
 		CookedTexture->UpdateResource();
@@ -56,7 +56,6 @@ void UTextureSet::UpdateCookedTextures()
 		return;
 
 	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
-	const auto& PackedTextures = PackingInfo.GetPackedTextures();
 
 	{
 		FScopeLock Lock(&TextureSetCS);
@@ -77,14 +76,15 @@ void UTextureSet::UpdateCookedTextures()
 	}
 	else
 	{
-		while (CookedTextures.Num() < PackedTextures.Num())
+		while (CookedTextures.Num() < PackingInfo.NumPackedTextures())
 		{
-			const FTextureSetPackedTextureDef& Def = PackedTextures[CookedTextures.Num()];
+			const FTextureSetPackedTextureDef& Def = PackingInfo.GetPackedTextureDef(CookedTextures.Num());
+			const auto& Info = PackingInfo.GetPackedTextureInfo(CookedTextures.Num());
 
 			FString TextureName = GetName() + "_CookedTexture_" + FString::FromInt(CookedTextures.Num());
 			const int CookedTexturesize = 4;
 
-			FLinearColor SourceColor = FLinearColor(PackingInfo.GetDefaultColor(CookedTextures.Num()));
+			FLinearColor SourceColor = FLinearColor(Info.DefaultValue);
 
 			// TODO linearcolor
 			TArray<FColor> DefaultData;
@@ -126,11 +126,11 @@ void UTextureSet::UpdateCookedTextures()
 		}
 	}
 
-	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackedTextures.Num(); PackedTextureIndex++)
+	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackingInfo.NumPackedTextures(); PackedTextureIndex++)
 	{
 		UTexture* CookedTexture = CookedTextures[PackedTextureIndex].IsValid() ? CookedTextures[PackedTextureIndex].Get() : CookedTextures[PackedTextureIndex].LoadSynchronous();
 
-		const FTextureSetPackedTextureDef& Def = PackedTextures[PackedTextureIndex];
+		const FTextureSetPackedTextureDef& Def = PackingInfo.GetPackedTextureDef(PackedTextureIndex);
 
 		if (CookedTexture->CompressionSettings != Def.CompressionSettings)
 		{
@@ -229,8 +229,7 @@ FString UTextureSet::GetPackedTextureDefKey(int PackedTextureDefIndex)
 		PackedTextureDataKey += "_";
 
 		// track the source data
-		const TArray<FTextureSetPackedTextureDef> PackedTextures = PackingInfo.GetPackedTextures();
-		const FTextureSetPackedTextureDef& PackedTextureDef = PackedTextures[PackedTextureDefIndex];
+		const FTextureSetPackedTextureDef& PackedTextureDef = PackingInfo.GetPackedTextureDef(PackedTextureDefIndex);
 		const TArray<FString>& SourcesWithoutChannel = PackedTextureDef.GetSourcesWithoutChannel();
 		for (const FString& Source : SourcesWithoutChannel)
 		{
@@ -322,8 +321,7 @@ void UTextureSet::ModifyTextureSource(int PackedTextureDefIndex, UTexture* Textu
 		return;
 	}
 	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
-	const TArray<FTextureSetPackedTextureDef> PackedTextures = PackingInfo.GetPackedTextures();
-	const FTextureSetPackedTextureDef& TextureSetPackedTextureDef = PackedTextures[PackedTextureDefIndex];
+	const FTextureSetPackedTextureDef& TextureSetPackedTextureDef = PackingInfo.GetPackedTextureDef(PackedTextureDefIndex);
 	if (TextureSetPackedTextureDef.UsedChannels() == 0)
 	{
 		checkf(false, TEXT("Invalid Packing within TextureSetDefinition."));
@@ -472,22 +470,22 @@ void UTextureSet::ModifyTextureSource(int PackedTextureDefIndex, UTexture* Textu
 		}
 
 		uint8 DefaultValue[16] = { 0 };
-		FVector4 DefaultColor = PackingInfo.GetDefaultColor(PackedTextureDefIndex);
+		FVector4 DefaultColor = PackingInfo.GetPackedTextureInfo(PackedTextureDefIndex).DefaultValue;
 		if (IsHDRTexture)
 		{		
 			float* DefaultColorValue = (float*)DefaultValue;
-			DefaultColorValue[0] = DefaultColor.Component(0);
-			DefaultColorValue[1] = DefaultColor.Component(1);
-			DefaultColorValue[2] = DefaultColor.Component(2);
-			DefaultColorValue[3] = DefaultColor.Component(3);
+			DefaultColorValue[0] = DefaultColor[0];
+			DefaultColorValue[1] = DefaultColor[1];
+			DefaultColorValue[2] = DefaultColor[2];
+			DefaultColorValue[3] = DefaultColor[3];
 		}
 		else
 		{
 			uint8* DefaultColorValue = DefaultValue;
-			DefaultColorValue[0] = DefaultColor.Component(0) * 255.0f;
-			DefaultColorValue[1] = DefaultColor.Component(1) * 255.0f;
-			DefaultColorValue[2] = DefaultColor.Component(2) * 255.0f;
-			DefaultColorValue[3] = DefaultColor.Component(3) * 255.0f;
+			DefaultColorValue[0] = DefaultColor[0] * 255.0f;
+			DefaultColorValue[1] = DefaultColor[1] * 255.0f;
+			DefaultColorValue[2] = DefaultColor[2] * 255.0f;
+			DefaultColorValue[3] = DefaultColor[3] * 255.0f;
 		}
 
 		int32 SizeX = AnySourceImage ? AnySourceImage->SizeX : 4;

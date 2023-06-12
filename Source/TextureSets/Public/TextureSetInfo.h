@@ -42,20 +42,29 @@ struct TextureSetPackingInfo
 {
 	friend class UTextureSetDefinition;
 public:
-	FVector4 GetDefaultColor(int index) const;
-	const TArray<FTextureSetPackedTextureDef> GetPackedTextures() const { return PackedTextureDefs; }
-	const int NumPackedTextures() const { return PackedTextureDefs.Num(); }
 
-private:
+	struct TextureSetPackedChannelInfo
+	{
+	public:
+		FName ProcessedTexture;
+		int ProessedTextureChannel;
+	};
+
 	struct TextureSetPackedTextureInfo
 	{
 	public:
-		FName ProcessedTextures[4];
-		int ProessedTextureChannels[4];
-		bool SRGB[4];
-		FVector4 DefaultColor;
+		TextureSetPackedChannelInfo ChannelInfo[4];
+		int ChannelCount;
+		bool AllowHardwareSRGB;
+		FVector4 DefaultValue;
 	};
 
+	const int NumPackedTextures() const { return PackedTextureDefs.Num(); }
+
+	const FTextureSetPackedTextureDef GetPackedTextureDef(int Index) const { return PackedTextureDefs[Index]; }
+	const TextureSetPackedTextureInfo& GetPackedTextureInfo(int Index) const { return PackedTextureInfos[Index]; }
+
+private:
 	TArray<FTextureSetPackedTextureDef> PackedTextureDefs;
 	TArray<TextureSetPackedTextureInfo> PackedTextureInfos;
 };

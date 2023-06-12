@@ -29,11 +29,6 @@ const TextureSetTextureDef TextureSetDefinitionSharedInfo::GetProcessedTextureBy
 	return ProcessedTextures[ProcessedTextureIndicies.FindChecked(Name)];
 }
 
-FVector4 TextureSetPackingInfo::GetDefaultColor(int index) const
-{
-	return PackedTextureInfos[index].DefaultColor;
-}
-
 void TextureSetDefinitionSamplingInfo::AddMaterialParameter(FName Name, EMaterialValueType Type)
 {
 	checkf(!MaterialParameters.Contains(Name), TEXT("Attempting to add shader constant %s twice"), Name);

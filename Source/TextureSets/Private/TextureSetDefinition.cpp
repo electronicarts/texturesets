@@ -145,6 +145,8 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 		const FTextureSetPackedTextureDef& TextureDef = PackedTextures[i];
 		TextureSetPackingInfo::TextureSetPackedTextureInfo TextureInfo;
 
+		TextureInfo.AllowHardwareSRGB = true;
+
 		TArray<FName> SourceNames = TextureDef.GetSources();
 		for (int c = 0; c < SourceNames.Num(); c++)
 		{
@@ -167,10 +169,12 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 
 			TextureSetTextureDef Processed = SharedInfo.GetProcessedTextureByName(FName(SourceTexName));
 
-			TextureInfo.ProcessedTextures[c] = SourceTexName;
-			TextureInfo.ProessedTextureChannels[c] = SourceChannel;
-			TextureInfo.SRGB[c] = Processed.SRGB;
-			TextureInfo.DefaultColor[c] = Processed.DefaultValue[SourceChannel];
+			TextureInfo.ChannelInfo[c].ProcessedTexture = SourceTexName;
+			TextureInfo.ChannelInfo[c].ProessedTextureChannel = SourceChannel;
+			if (Processed.SRGB && c < 3)
+				TextureInfo.AllowHardwareSRGB = false; // If we have any non-sRGB textures in R, G, or B, then we can't use hardware SRGB.
+
+			TextureInfo.DefaultValue[c] = Processed.DefaultValue[SourceChannel];
 		}
 
 		PackingInfo.PackedTextureDefs.Add(TextureDef);
@@ -178,6 +182,11 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 	}
 
 	return PackingInfo;
+}
+
+const TArray<const UTextureSetModule*> UTextureSetDefinition::GetModules() const
+{
+	return TArray<const UTextureSetModule*>(Modules);
 }
 
 TArray<TSubclassOf<UTextureSetAssetParams>> UTextureSetDefinition::GetRequiredAssetParamClasses() const
@@ -228,7 +237,7 @@ void UTextureSetDefinition::UpdateDefaultTextures()
 		FString TextureName = "DefaultTexture_" + FString::FromInt(DefaultTextures.Num());
 		const int DefaultTextureSize = 4;
 
-		FLinearColor SourceColor = FLinearColor(PackingInfo.GetDefaultColor(DefaultTextures.Num()));
+		FLinearColor SourceColor = FLinearColor(PackingInfo.GetPackedTextureInfo(DefaultTextures.Num()).DefaultValue);
 
 		// TODO linearcolor
 		TArray<FColor> DefaultData;
