@@ -38,15 +38,7 @@ void UTextureSet::PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext)
 	if (ObjectSaveContext.IsCooking())
 		return;
 
-	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
-
-	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackingInfo.NumPackedTextures(); PackedTextureIndex++)
-	{
-		UTexture* CookedTexture = CookedTextures[PackedTextureIndex].IsValid() ? CookedTextures[PackedTextureIndex].Get() : CookedTextures[PackedTextureIndex].LoadSynchronous();
-		CookedTexture->UpdateResource();
-		//CookedTexture->PostEditChange();
-		//CookedTexture->Modify();
-	}
+	UpdateResource();
 #endif
 }
 
@@ -100,7 +92,7 @@ void UTextureSet::UpdateCookedTextures()
 
 			FCreateTexture2DParameters Params;
 			Params.bUseAlpha = Def.UsedChannels() >= 4;
-			Params.CompressionSettings = TextureCompressionSettings::TC_MAX; // to make sure later this asset is marked as modified
+			Params.CompressionSettings = TextureCompressionSettings::TC_Default;
 			Params.bDeferCompression = false;
 			Params.bSRGB = Def.GetHardwareSRGBEnabled();
 			Params.bVirtualTexture = false;
@@ -147,6 +139,17 @@ void UTextureSet::UpdateCookedTextures()
 #endif
 
 #endif //WITH_EDITOR
+}
+
+void UTextureSet::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+	if (IsValid(Definition))
+	{
+		const FString& DefinitionName = Definition->GetName();
+		OutTags.Add(FAssetRegistryTag("TextureSetDefinition", DefinitionName, FAssetRegistryTag::TT_Alphabetical));
+	}
+
+	Super::GetAssetRegistryTags(OutTags);
 }
 
 void UTextureSet::PostLoad()
@@ -623,5 +626,16 @@ void UTextureSet::ModifyTextureSource(int PackedTextureDefIndex, UTexture* Textu
 			SourceRawImages.Empty();
 			IsTextureSetProcessed = false;
 		}
+	}
+}
+
+void UTextureSet::UpdateResource()
+{
+	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
+
+	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackingInfo.NumPackedTextures(); PackedTextureIndex++)
+	{
+		UTexture* CookedTexture = CookedTextures[PackedTextureIndex].IsValid() ? CookedTextures[PackedTextureIndex].Get() : CookedTextures[PackedTextureIndex].LoadSynchronous();
+		CookedTexture->UpdateResource();
 	}
 }

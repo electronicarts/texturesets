@@ -6,9 +6,12 @@
 #include "TextureSetModule.h"
 #include "TextureSetPackedTextureDef.h"
 #include "UObject/ObjectSaveContext.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionTextureSampleParameter2D.h"
+#include "Materials/MaterialInstance.h"
+#include "Materials/MaterialInstanceConstant.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "ImageUtils.h"
 
@@ -301,6 +304,10 @@ void UTextureSetDefinition::PreSave(FObjectPreSaveContext SaveContext)
 {
 	UpdatePackedTextureDefKeys();
 }
+void UTextureSetDefinition::PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext)
+{
+	UpdateDependentAssets(false);
+}
 void UTextureSetDefinition::UpdatePackedTextureDefKeys()
 {
 	int PackedTextureCount = PackedTextures.Num();
@@ -340,4 +347,49 @@ FString UTextureSetDefinition::GetPackedTextureDefKey(int DefIndex)
 	checkf(false, TEXT("Invalid index of packed texture definition"));
 
 	return TEXT("INVALID_INDEX_OF_PACKED_TEXTURE_DEFINITION");
+}
+
+void UTextureSetDefinition::UpdateDependentAssets(bool AutoLoad)
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+	TArray<FAssetIdentifier> Referencers;
+	AssetRegistry.GetReferencers(GetOuter()->GetFName(), Referencers);
+
+	TArray<FAssetData> TextureSetAssetDatas;
+	//TArray<FAssetData> MaterialAssetDatas;	
+
+	for (auto AssetIdentifier : Referencers)
+	{
+		TArray<FAssetData> Assets;
+		AssetRegistry.GetAssetsByPackageName(AssetIdentifier.PackageName, Assets);
+
+		for (auto AssetData : Assets)
+		{
+			if (AssetData.IsInstanceOf(UTextureSet::StaticClass()))
+			{
+				TextureSetAssetDatas.AddUnique(AssetData);
+			}
+			//if (AssetData.IsInstanceOf(UMaterial::StaticClass()))
+			//{
+			//	MaterialAssetDatas.AddUnique(AssetData);
+			//}
+		}
+	}
+
+	for (auto AssetData : TextureSetAssetDatas)
+	{
+		UTextureSet* TextureSet = Cast<UTextureSet>(AssetData.FastGetAsset(AutoLoad));
+		if (TextureSet != nullptr)
+		{
+			// update texture set and create/destroy cooked textures
+			TextureSet->UpdateCookedTextures();
+			// mark texture set as mordified
+			TextureSet->Modify();
+			// broadcast the changes to other editor tabs
+			TextureSet->PostEditChange();
+			TextureSet->UpdateResource();
+		}
+	}
 }

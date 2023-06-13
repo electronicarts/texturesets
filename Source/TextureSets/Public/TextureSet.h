@@ -57,7 +57,7 @@ public:
 
 	virtual void PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext) override;
 	virtual void PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext) override;
-
+	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -90,6 +90,7 @@ public:
 
 	int GetNumCookedTextures() const { return CookedTextures.Num(); }
 	UTexture* GetCookedTexture(int Index) const { return CookedTextures[Index].IsValid() ? CookedTextures[Index].Get() : CookedTextures[Index].LoadSynchronous(); }
+	void UpdateResource();
 
 private:
 	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing

@@ -53,6 +53,7 @@ public:
 #endif
 
 	virtual void PreSave(FObjectPreSaveContext SaveContext) override;
+	virtual void PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext) override;
 	FString GetPackedTextureDefKey(int DefIndex);
 
 private:
@@ -74,4 +75,6 @@ private:
 	TArray<FString> PackedTextureDefKeys;
 
 	void UpdatePackedTextureDefKeys();
+
+	void UpdateDependentAssets(bool AutoLoad = false);
 };
