@@ -330,6 +330,11 @@ void UTextureSet::CookImmediate(bool Force)
 	check(!Cooker.IsValid()); // Don't want to mess up another cook in progress
 	check(IsValid(Definition));
 
+	FScopedSlowTask CookTask(1.0f, LOCTEXT("CookingTextureSet", "Cooking Texture Set..."));
+	CookTask.MakeDialog();
+
+	FOnTextureSetCookerReportProgress CookProgress = FOnTextureSetCookerReportProgress::CreateLambda([&CookTask](float f) { CookTask.EnterProgressFrame(f); });
+
 	UpdateCookedTextures();
 	TArray<FString> NewPackedTextureKeys = ComputePackedTextureKeys();
 	if ((NewPackedTextureKeys != PackedTextureKeys) || Force)
@@ -337,10 +342,13 @@ void UTextureSet::CookImmediate(bool Force)
 		PackedTextureKeys = NewPackedTextureKeys;
 		MaterialParameters.Empty();
 
-		Cooker = MakeUnique<TextureSetCooker>(this);
+		Cooker = MakeUnique<TextureSetCooker>(this, CookProgress);
 		Cooker->Prepare();
 		Cooker->PackAllTextures(MaterialParameters);
 		Cooker.Reset();
+
+		for (int32 i = 0; i < CookedTextures.Num(); i++)
+			CookedTextures[i]->Modify(true);
 
 		UpdateResource();
 	}

@@ -10,14 +10,13 @@
 
 class UTextureSet;
 
+DECLARE_DELEGATE_OneParam(FOnTextureSetCookerReportProgress, float)
+
 class TextureSetCooker
 {
 public:
 
-	TextureSetCooker(UTextureSet* TS)
-		: IsPrepared (false)
-		, TextureSet(TS)
-	{}
+	TextureSetCooker(UTextureSet* TS, FOnTextureSetCookerReportProgress Report = nullptr);
 
 	// Called once on a texture-set before packing
 	void Prepare();
@@ -31,10 +30,19 @@ private:
 	bool IsPrepared;
 
 	const UTextureSet* TextureSet;
+	const UTextureSetDefinition* Definition;
+
+	const FOnTextureSetCookerReportProgress ReportProgressDelegate;
+	float ProgressStepSize;
 
 	FTextureSetProcessingContext Context;
+	
+	const TextureSetDefinitionSharedInfo SharedInfo;
+	const TextureSetPackingInfo PackingInfo;
 
-	TextureSetDefinitionSharedInfo SharedInfo;
-	TextureSetPackingInfo PackingInfo;
+	void ReportProgress() const
+	{
+		ReportProgressDelegate.ExecuteIfBound(ProgressStepSize);
+	}
 };
 

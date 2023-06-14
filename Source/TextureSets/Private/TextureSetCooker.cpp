@@ -15,13 +15,25 @@ int GetPixelIndex(int X, int Y, int Channel, int Width, int Height)
 		+ Channel;
 }
 
+TextureSetCooker::TextureSetCooker(UTextureSet* TS, FOnTextureSetCookerReportProgress Report)
+	: IsPrepared (false)
+	, ReportProgressDelegate(Report)
+	, SharedInfo(TS->Definition->GetSharedInfo())
+	, PackingInfo(TS->Definition->GetPackingInfo())
+
+{
+	TextureSet = TS;
+	Definition = TS->Definition;
+
+	ProgressStepSize = 1.0f / (
+		SharedInfo.GetSourceTextures().Num() +
+		PackingInfo.NumPackedTextures() * (2 + 4)
+		);
+}
+
 void TextureSetCooker::Prepare()
 {
 	check(!IsPrepared);
-
-	const UTextureSetDefinition* Definition = TextureSet->Definition;
-	SharedInfo = Definition->GetSharedInfo();
-	PackingInfo = Definition->GetPackingInfo();
 
 	// Fill in source textures so the modules can define processing
 	// TODO: Execute in parallel for
@@ -44,6 +56,8 @@ void TextureSetCooker::Prepare()
 				SourceTextureDef.Name,
 				MakeShared<FDefaultTexture>(SourceTextureDef.DefaultValue, SourceTextureDef.ChannelCount));
 		}
+
+		ReportProgress();
 	}
 
 	// Modules fill in the processed textures
@@ -86,50 +100,55 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 
 	FFloat16* PixelsValues = (FFloat16*)PackedTexture->Source.LockMip(0);
 
+	ReportProgress();
+
 	float MaxPixelValues[4] {};
 	float MinPixelValues[4] {};
 
-	// Copy processed textures into packed textures
 	// TODO: Execute each channel in ParallelFor?
-	for (int c = 0; c < TextureInfo.ChannelCount; c++)
+	for (int c = 0; c < 4; c++)
 	{
-		const auto& ChanelInfo = TextureInfo.ChannelInfo[c];
-		TSharedRef<ITextureSetTexture> ProcessedTexture = Context.ProcessedTextures.FindChecked(ChanelInfo.ProcessedTexture);
-
-		// TODO: Resample textures if sizes dont match
-		//check(ProcessedTexture->GetWidth() == Width);
-		//check(ProcessedTexture->GetHeight() == Height);
-
-		// Initialize the max and min pixel values so they will be overridden by the first pixel
-		MaxPixelValues[c] = TNumericLimits<float>::Lowest();
-		MinPixelValues[c] = TNumericLimits<float>::Max();
-
-		for (int x = 0; x < Width; x++)
+		if (c < TextureInfo.ChannelCount)
 		{
-			for (int y = 0; y < Height; y++)
-			{
-				int PixelIndex = GetPixelIndex(x, y, c, Width, Height);
+			// Copy processed textures into packed textures
+			const auto& ChanelInfo = TextureInfo.ChannelInfo[c];
+			TSharedRef<ITextureSetTexture> ProcessedTexture = Context.ProcessedTextures.FindChecked(ChanelInfo.ProcessedTexture);
 
-				float PixelValue = ProcessedTexture->GetPixel(x, y, ChanelInfo.ProessedTextureChannel);
-				MaxPixelValues[c] = FMath::Max(MaxPixelValues[c], PixelValue);
-				MinPixelValues[c] = FMath::Min(MinPixelValues[c], PixelValue);
-				PixelsValues[PixelIndex] = PixelValue;
+			// TODO: Resample textures if sizes dont match
+			//check(ProcessedTexture->GetWidth() == Width);
+			//check(ProcessedTexture->GetHeight() == Height);
+
+			// Initialize the max and min pixel values so they will be overridden by the first pixel
+			MaxPixelValues[c] = TNumericLimits<float>::Lowest();
+			MinPixelValues[c] = TNumericLimits<float>::Max();
+
+			for (int x = 0; x < Width; x++)
+			{
+				for (int y = 0; y < Height; y++)
+				{
+					int PixelIndex = GetPixelIndex(x, y, c, Width, Height);
+
+					float PixelValue = ProcessedTexture->GetPixel(x, y, ChanelInfo.ProessedTextureChannel);
+					MaxPixelValues[c] = FMath::Max(MaxPixelValues[c], PixelValue);
+					MinPixelValues[c] = FMath::Min(MinPixelValues[c], PixelValue);
+					PixelsValues[PixelIndex] = PixelValue;
+				}
 			}
 		}
-	}
-
-	// Fill unused channels with black
-	for (int x = 0; x < Width; x++)
-	{
-		for (int y = 0; y < Height; y++)
+		else
 		{
-			for (int c = TextureInfo.ChannelCount; c < 4; c++)
+			// Fill unused channels with black
+			for (int x = 0; x < Width; x++)
 			{
-				int PixelIndex = GetPixelIndex(x, y, c, Width, Height);
+				for (int y = 0; y < Height; y++)
+				{
+					int PixelIndex = GetPixelIndex(x, y, c, Width, Height);
 
-				PixelsValues[PixelIndex] = 0.0f;
+					PixelsValues[PixelIndex] = 0.0f;
+				}
 			}
 		}
+		ReportProgress();
 	}
 
 	// sRGB if possible
@@ -142,7 +161,7 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 		FVector4 RestoreMul = FVector4::One();
 		FVector4 RestoreAdd = FVector4::Zero();
 
-		for (int c = TextureInfo.ChannelCount; c < 4; c++)
+		for (int c = 0; c < TextureInfo.ChannelCount; c++)
 		{
 			const float Min = MinPixelValues[c];
 			const float Max = MaxPixelValues[c];
@@ -167,9 +186,8 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 		MaterialParams.Add(TextureInfo.RangeCompressMulName, RestoreMul);
 		MaterialParams.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
 	}
-
 	PackedTexture->Source.UnlockMip(0);
-	PackedTexture->Modify(true);
+	ReportProgress();
 }
 
 void TextureSetCooker::PackAllTextures(TMap<FName, FVector4>& MaterialParams) const

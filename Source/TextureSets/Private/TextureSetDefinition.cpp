@@ -175,14 +175,14 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 
 			TextureInfo.ChannelInfo[c].ProcessedTexture = SourceTexName;
 			TextureInfo.ChannelInfo[c].ProessedTextureChannel = SourceChannel;
-			if (Processed.SRGB && c < 3)
+			if (!Processed.SRGB && c < 3)
 				TextureInfo.AllowHardwareSRGB = false; // If we have any non-sRGB textures in R, G, or B, then we can't use hardware SRGB.
 
 			TextureInfo.DefaultValue[c] = Processed.DefaultValue[SourceChannel];
 		}
 
-		TextureInfo.RangeCompressMulName = FName("RangeCompress_Mul_" + FString::FromInt(i));
-		TextureInfo.RangeCompressAddName = FName("RangeCompress_Add_" + FString::FromInt(i));
+		TextureInfo.RangeCompressMulName = FName("RangeCompress_" + FString::FromInt(i) + "_Mul");
+		TextureInfo.RangeCompressAddName = FName("RangeCompress_" + FString::FromInt(i) + "_Add");
 
 		PackingInfo.PackedTextureDefs.Add(TextureDef);
 		PackingInfo.PackedTextureInfos.Add(TextureInfo);
