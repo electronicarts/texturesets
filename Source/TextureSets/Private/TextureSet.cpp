@@ -259,7 +259,7 @@ void UTextureSet::ModifyTextureSource(int PackedTextureDefIndex, UTexture* Textu
 	if (!IsValid(Definition))
 		return;
 
-	if ((PackedTextureDefIndex >= CookedTextures.Num()) || (CookedTextures[PackedTextureDefIndex]))
+	if ((PackedTextureDefIndex >= CookedTextures.Num()) || (!CookedTextures[PackedTextureDefIndex]))
 	{
 		checkf(false, TEXT("Invalid Index of Packed Texture within TextureSet."));
 		return;
