@@ -19,6 +19,7 @@ public:
 	virtual bool    HasActions(const TArray<UObject*>& InObjects) const override;
 	void ExecuteFindMaterials(TWeakObjectPtr<UTextureSet> Object);
 	void ExecuteFixUsages(TWeakObjectPtr<UTextureSet> Object);
+	void ExecuteForceReCook(TWeakObjectPtr<UTextureSet> Object);
 	virtual void    GetActions(const TArray<UObject*>& InObjects, FMenuBuilder& MenuBuilder) override;
 
 	static TArray<TObjectPtr<UPackage>> FixMaterialUsage(TObjectPtr<UTextureSet> TextureSet);

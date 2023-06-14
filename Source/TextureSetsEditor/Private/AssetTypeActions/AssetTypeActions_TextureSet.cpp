@@ -15,6 +15,7 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Engine/Classes/Materials/MaterialInstance.h"
+#include "TextureSetCooker.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -100,6 +101,16 @@ void FAssetTypeActions_TextureSet::GetActions(const TArray<UObject*>& InObjects,
 				FCanExecuteAction()
 			)
 		);
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("TextureSet_ForceReCook", "Force Re-Cook"),
+			LOCTEXT("TextureSet_ForceReCookTooltip", "Force a re-cook of this texture set in-editor."),
+			FSlateIcon(FAppStyle::GetAppStyleSetName(), "ClassIcon.Texture2D"),
+			FUIAction(
+				FExecuteAction::CreateSP(this, &FAssetTypeActions_TextureSet::ExecuteForceReCook, TextureSets[0]),
+				FCanExecuteAction()
+			)
+		);
 	}
 
 }
@@ -133,6 +144,18 @@ void FAssetTypeActions_TextureSet::ExecuteFixUsages(TWeakObjectPtr<UTextureSet> 
 		{
 			FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, false, true);
 		}
+
+		FEditorDelegates::RefreshEditor.Broadcast();
+		FEditorSupportDelegates::RedrawAllViewports.Broadcast();
+	}
+}
+
+void FAssetTypeActions_TextureSet::ExecuteForceReCook(TWeakObjectPtr<UTextureSet> Object)
+{
+	TObjectPtr<UTextureSet> TextureSet = Object.Get();
+	if (TextureSet != nullptr)
+	{
+		TextureSet->CookImmediate(true);
 
 		FEditorDelegates::RefreshEditor.Broadcast();
 		FEditorSupportDelegates::RedrawAllViewports.Broadcast();

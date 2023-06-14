@@ -29,6 +29,11 @@ void UHeightModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& Sampling
 	SamplingInfo.AddSampleOutput("Height", EMaterialValueType::MCT_Float1);
 }
 
+void UHeightModule::Process(FTextureSetProcessingContext& Context) const
+{
+	Context.AddProcessedTexture("Height", Context.GetSourceTexture("Height"));
+}
+
 int32 UHeightModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const UHeightSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UHeightSampleParams>();

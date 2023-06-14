@@ -39,6 +39,8 @@ public:
 	virtual void BuildSamplingInfo(
 		TextureSetDefinitionSamplingInfo& SamplingInfo,
 		const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
+	
+	virtual void Process(FTextureSetProcessingContext& Context) const override;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 

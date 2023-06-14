@@ -10,6 +10,9 @@
 #include "UObject/ObjectSaveContext.h"
 #include "Engine/TextureDefines.h"
 #include "ImageUtils.h"
+#include "Misc/ScopedSlowTask.h"
+
+#define LOCTEXT_NAMESPACE "TextureSet"
 
 static TAutoConsoleVariable<int32> CVarTextureSetFreeImmediateImages(
 	TEXT("r.TextureSet.FreeImmediateImages"),
@@ -50,76 +53,35 @@ void UTextureSet::UpdateCookedTextures()
 
 	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
 
-	{
-		FScopeLock Lock(&TextureSetCS);
+	// Garbage collection will destroy the unused cooked textures when all references from material instance are removed
+	CookedTextures.SetNum(PackingInfo.NumPackedTextures());
 
-		TArray<FString> NewPackedTextureKeys = ComputePackedTextureKeys();
-		if (NewPackedTextureKeys != PackedTextureKeys)
+	for (int t = 0; t < PackingInfo.NumPackedTextures(); t++)
+	{
+		UTexture* PackedTexture = CookedTextures[t].Get();
+
+		FName TextureName = FName(GetName() + "_CookedTexture_" + FString::FromInt(t));
+
+		if (!IsValid(PackedTexture) || !PackedTexture->IsInOuter(this) || PackedTexture->GetFName() != TextureName)
 		{
-			IsTextureSetProcessed = false;
-			PackedTextureKeys = NewPackedTextureKeys;
+			// Reset to default
+			PackedTexture = DuplicateObject<UTexture>(Definition->GetDefaultPackedTexture(t), this, TextureName);
+			PackedTexture->ClearFlags(RF_NoFlags);
+			CookedTextures[t] = PackedTexture;
 		}
-	}
 
-#if 0
-	TextureSetCooker::CookTextureSet(this);
-#else
-	if (CookedTextures.Num() > PackingInfo.NumPackedTextures())
-	{
-		CookedTextures.SetNum(PackingInfo.NumPackedTextures());
-
-		// Garbage collection will destroy the unused cooked textures when all references from material instance are removed 
-	}
-	else
-	{
-		while (CookedTextures.Num() < PackingInfo.NumPackedTextures())
+		// Check for existing user data
+		UTextureSetModifiersAssetUserData* TextureModifier = PackedTexture->GetAssetUserData<UTextureSetModifiersAssetUserData>();
+		if (!TextureModifier)
 		{
-			const FTextureSetPackedTextureDef& Def = PackingInfo.GetPackedTextureDef(CookedTextures.Num());
-			const auto& Info = PackingInfo.GetPackedTextureInfo(CookedTextures.Num());
-
-			FString TextureName = GetName() + "_CookedTexture_" + FString::FromInt(CookedTextures.Num());
-			const int CookedTexturesize = 4;
-
-			FLinearColor SourceColor = FLinearColor(Info.DefaultValue);
-
-			// TODO linearcolor
-			TArray<FColor> DefaultData;
-
-			for (int i = 0; i < (CookedTexturesize * CookedTexturesize); i++)
-				DefaultData.Add(SourceColor.ToFColor(false));
-
-			EObjectFlags Flags = RF_Public | RF_Standalone;
-
-			FCreateTexture2DParameters Params;
-			Params.bUseAlpha = Def.UsedChannels() >= 4;
-			Params.CompressionSettings = TextureCompressionSettings::TC_Default;
-			Params.bDeferCompression = false;
-			Params.bSRGB = Def.GetHardwareSRGBEnabled();
-			Params.bVirtualTexture = false;
-
-			UTexture2D* CookedTexture = FindObject<UTexture2D>(this, *TextureName);
-			UTextureSetModifiersAssetUserData* TextureModifier = nullptr;
-			if (CookedTexture != nullptr)
-			{
-				check(CookedTexture->Source.IsValid());
-				TextureModifier = CookedTexture->GetAssetUserData< UTextureSetModifiersAssetUserData >();
-			}
-			else
-			{
-				CookedTexture = FImageUtils::CreateTexture2D(4, 4, DefaultData, this, TextureName, Flags, Params);
-			}
-
-			if (TextureModifier == nullptr)
-			{
-				FString AssetUserDataName = GetName() + "_CookedTexture_" + FString::FromInt(CookedTextures.Num()) + "_AssetUserData";
-				TextureModifier = NewObject<UTextureSetModifiersAssetUserData>(CookedTexture, FName(*AssetUserDataName), Flags);
-				CookedTexture->AddAssetUserData(TextureModifier);
-			}
-			TextureModifier->TextureSet = this;
-			TextureModifier->PackedTextureDefIndex = CookedTextures.Num();
-
-			CookedTextures.Add(CookedTexture);
+			// Create new user data if needed
+			FName AssetUserDataName = FName(TextureName.ToString() + "_AssetUserData");
+			TextureModifier = NewObject<UTextureSetModifiersAssetUserData>(PackedTexture, AssetUserDataName, RF_NoFlags);
+			PackedTexture->AddAssetUserData(TextureModifier);
 		}
+		// Configure user data to reference this texture set, so it can invalidate the texture when the hash changes
+		TextureModifier->TextureSet = this;
+		TextureModifier->PackedTextureDefIndex = t;
 	}
 
 	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackingInfo.NumPackedTextures(); PackedTextureIndex++)
@@ -136,7 +98,6 @@ void UTextureSet::UpdateCookedTextures()
 		//CookedTexture->Modify();
 		//CookedTexture->UpdateResource();
 	}
-#endif
 
 #endif //WITH_EDITOR
 }
@@ -280,37 +241,6 @@ TArray<FString> UTextureSet::ComputePackedTextureKeys()
 	return NewPackedTextureKeys;
 }
 
-int32 GetBytesPerChannel(ERawImageFormat::Type Format)
-{
-	int32 BytesPerChannel = 0;
-	switch (Format)
-	{
-	case ERawImageFormat::G8:
-	case ERawImageFormat::BGRA8:
-	case ERawImageFormat::BGRE8:
-		BytesPerChannel = 1;
-		break;
-
-	case ERawImageFormat::G16:
-	case ERawImageFormat::R16F:
-	case ERawImageFormat::RGBA16:
-	case ERawImageFormat::RGBA16F:
-		BytesPerChannel = 2;
-		break;
-
-	case ERawImageFormat::R32F:
-	case ERawImageFormat::RGBA32F:
-		BytesPerChannel = 4;
-		break;
-
-	default:
-		check(0);
-		break;
-	}
-	return BytesPerChannel;
-}
-
-
 void UTextureSet::ModifyTextureSource(int PackedTextureDefIndex, UTexture* TextureAsset)
 {
 	if (!IsValid(Definition))
@@ -338,293 +268,48 @@ void UTextureSet::ModifyTextureSource(int PackedTextureDefIndex, UTexture* Textu
 
 	// Preprocessing
 	{
-		FScopeLock Lock(&TextureSetCS);
+		FScopeLock Lock(&TextureSetCookCS);
 
-		TArray<FString> NewPackedTextureKeys = ComputePackedTextureKeys();
-		if (NewPackedTextureKeys != PackedTextureKeys)
+		if (!Cooker.IsValid())
 		{
-			IsTextureSetProcessed = false;
-			PackedTextureKeys = NewPackedTextureKeys;
-		}
-
-		if (!IsTextureSetProcessed)
-		{
-			SourceRawImages.Empty();
-
-			int32 SizeX = -1;
-			int32 SizeY = -1;
-			int32 NumSlices = -1;
-
-			// Decompress source textures
+			// First texture that cooks will check if the packed textures need to be updated, and if so create a cooker.
+			// Others threads will wait due to above CS for the cooker to be prepared, and then execute the pack in parallel.
+			TArray<FString> NewPackedTextureKeys = ComputePackedTextureKeys();
+			if (NewPackedTextureKeys != PackedTextureKeys)
 			{
-				struct TextureSetDecompressionTaskData
-				{
-					FTextureSource* Source;
-					FSharedImage* RawImage;
-					FString AssetPath;
+				PackedTextureKeys = NewPackedTextureKeys;
+				MaterialParameters.Empty();
 
-					int32 BlockIndex = 0;
-					int32 LayerIndex = 0;
-					int32 MipIndex = 0;
-				};
-				TArray<TextureSetDecompressionTaskData> DecompressionTasks;
-				TMap<UTexture*, TRefCountPtr<FSharedImage>> ProcessedSourceTextures;
-
-				for (TMap<FName, TObjectPtr<class UTexture>>::TConstIterator It(SourceTextures); It; ++It)
-				{
-					if (It.Value())
-					{
-						UTexture* SrcTexture = It.Value().Get();
-
-						// Handle the duplication of source texture, for example, same source texture is used for multiple modules
-						TRefCountPtr<FSharedImage>* ProcessedSourceeTexture = ProcessedSourceTextures.Find(SrcTexture);
-						if (ProcessedSourceeTexture == nullptr)
-						{
-							if (NumSlices == -1)
-							{
-								SizeX = SrcTexture->Source.GetSizeX();
-								SizeY = SrcTexture->Source.GetSizeY();
-								NumSlices = SrcTexture->Source.GetNumSlices();
-							}
-							else if ((SizeX != SrcTexture->Source.GetSizeX()) || (SizeY != SrcTexture->Source.GetSizeY()) || (NumSlices != SrcTexture->Source.GetNumSlices()))
-							{
-								UE_LOG(LogTemp, Error, TEXT("Invalid Source Texture Resolution (%s)(%s) within TextureSet."), *(It.Key().ToString()), *(It.Value().GetPathName()));
-								continue;
-							}
-
-
-							TRefCountPtr<FSharedImage> ImagePtr = new FSharedImage(0, 0, 0, ERawImageFormat::BGRA8, EGammaSpace::Linear);
-
-							SourceRawImages.Add(It.Key(), ImagePtr);
-							ProcessedSourceTextures.Add(SrcTexture, ImagePtr);
-
-							TextureSetDecompressionTaskData Task;
-							Task.Source = &SrcTexture->Source;
-							Task.RawImage = ImagePtr;
-							Task.AssetPath = It.Value().GetPathName();
-							DecompressionTasks.Add(Task);
-
-						}
-						else
-						{
-							SourceRawImages.Add(It.Key(), *ProcessedSourceeTexture);
-						}
-					}
-				}
-
-				// Parallel decompression
-				{
-					int32 NumJobs = DecompressionTasks.Num();
-
-					ParallelFor(TEXT("TextureSet.DecompressSourceImage.PF"), NumJobs, 1, [&](int32 Index)
-						{
-							TextureSetDecompressionTaskData& Task = DecompressionTasks[Index];
-							if (!Task.Source->GetMipImage(*Task.RawImage, Task.BlockIndex, Task.LayerIndex, Task.MipIndex))
-							{
-								checkf(false, TEXT("Fail to decompress source texture (%s) within TextureSet."), *Task.AssetPath);
-							}
-						});
-				}
+				Cooker = MakeUnique<TextureSetCooker>(this);
+				CookedTexturesProcessedBitmask = 0;
+				
+				Cooker->Prepare();
 			}
-
-			// Texture Set Module should process the source images and generate the processed images here
-			{
-				// Add the procedurally-generated image data into SourceRawImages
-			}
-
-			IsTextureSetProcessed = true;
-			CookedTexturesProcessedBitmask = 0;
 		}
 	}
 
-	// Packing
+	if (Cooker.IsValid())
 	{
-		// this section is running in parallel, should only read the images data from SourceRawImages
+		TMap<FName, FVector4> NewMaterialParams;
 
-		bool IsHDRTexture = UE::TextureDefines::IsHDR(TextureSetPackedTextureDef.CompressionSettings);
-		bool IsSRGB = TextureSetPackedTextureDef.GetHardwareSRGBEnabled();
-		int32 ChannelCount = TextureSetPackedTextureDef.UsedChannels();
+		Cooker->PackTexture(PackedTextureDefIndex, NewMaterialParams);
 
-		ERawImageFormat::Type ImageFormat = ERawImageFormat::Invalid;
-		if (IsHDRTexture)
+		if (!NewMaterialParams.IsEmpty())
 		{
-			if (ChannelCount == 1)
-				ImageFormat = ERawImageFormat::R32F;
-			else
-				ImageFormat = ERawImageFormat::RGBA32F;
-		}
-		else
-		{
-			if (ChannelCount == 1)
-				ImageFormat = ERawImageFormat::G8;
-			else
-				ImageFormat = ERawImageFormat::BGRA8;
-		}
-		check(ImageFormat != ERawImageFormat::Invalid);
-		EGammaSpace GammaSpace = IsSRGB ? EGammaSpace::sRGB : EGammaSpace::Linear;
-
-		const TArray<FString>& SourcesWithoutChannel = TextureSetPackedTextureDef.GetSourcesWithoutChannel(false);
-		TRefCountPtr<FSharedImage> SourceImages[4] = {nullptr, nullptr, nullptr, nullptr};
-		FSharedImage* AnySourceImage = nullptr;
-		for (int32 ChannelIdx = 0; ChannelIdx < ChannelCount; ChannelIdx++)
-		{
-			const FString& Source = SourcesWithoutChannel[ChannelIdx];
-			TRefCountPtr<FSharedImage>* SourceChannelImage = SourceRawImages.Find(FName(*Source));
-			if ((SourceChannelImage != nullptr) && (*SourceChannelImage))
-			{
-				SourceImages[ChannelIdx] = *SourceChannelImage;
-				AnySourceImage = *SourceChannelImage;
-			}
-		}
-
-		uint8 DefaultValue[16] = { 0 };
-		FVector4 DefaultColor = PackingInfo.GetPackedTextureInfo(PackedTextureDefIndex).DefaultValue;
-		if (IsHDRTexture)
-		{		
-			float* DefaultColorValue = (float*)DefaultValue;
-			DefaultColorValue[0] = DefaultColor[0];
-			DefaultColorValue[1] = DefaultColor[1];
-			DefaultColorValue[2] = DefaultColor[2];
-			DefaultColorValue[3] = DefaultColor[3];
-		}
-		else
-		{
-			uint8* DefaultColorValue = DefaultValue;
-			DefaultColorValue[0] = DefaultColor[0] * 255.0f;
-			DefaultColorValue[1] = DefaultColor[1] * 255.0f;
-			DefaultColorValue[2] = DefaultColor[2] * 255.0f;
-			DefaultColorValue[3] = DefaultColor[3] * 255.0f;
-		}
-
-		int32 SizeX = AnySourceImage ? AnySourceImage->SizeX : 4;
-		int32 SizeY = AnySourceImage ? AnySourceImage->SizeY : 4;
-		int32 NumSlices = AnySourceImage ? AnySourceImage->NumSlices : 1;
-
-		TRefCountPtr<FSharedImage> PackedImagePtr = new FSharedImage(SizeX, SizeY, NumSlices, ImageFormat, GammaSpace);
-
-		TRefCountPtr<FSharedImage> ConvertedSourceImages[4] = { nullptr, nullptr, nullptr, nullptr };
-		for (int32 ChannelIdx = 0; ChannelIdx < ChannelCount; ChannelIdx++)
-		{
-			if (SourceImages[ChannelIdx] != nullptr)
-			{
-				FSharedImage* ConvertedImage = nullptr;
-				for (int32 PrevChannelIdx = 0; PrevChannelIdx < ChannelIdx; PrevChannelIdx++)
-				{
-					if (SourceImages[PrevChannelIdx].GetReference() == SourceImages[ChannelIdx].GetReference())
-						ConvertedImage = ConvertedSourceImages[PrevChannelIdx];
-				}
-
-				// source image has been NOT converted to target format and gamma space, so convert the image
-				if (ConvertedImage == nullptr)
-				{
-					// if input and output are in same format and gamma space, just pass the shared image through; otherwise, copy and convert the image
-					if ((SourceImages[ChannelIdx]->Format == ImageFormat) && (SourceImages[ChannelIdx]->GammaSpace == GammaSpace))
-					{
-						ConvertedImage = SourceImages[ChannelIdx];
-					}
-					else
-					{
-						ConvertedImage = new FSharedImage(SizeX, SizeY, NumSlices, ImageFormat, GammaSpace);
-						SourceImages[ChannelIdx]->CopyTo(*ConvertedImage, ImageFormat, GammaSpace);
-					}
-				}
-
-				ConvertedSourceImages[ChannelIdx] = ConvertedImage;
-			}
-		}
-
-		{
-			int32 NumRowsEachJob;
-			int32 NumJobs = ImageParallelForComputeNumJobsForRows(NumRowsEachJob, PackedImagePtr->SizeX, PackedImagePtr->SizeY);
-
-			for (int32 Slice = 0; Slice < NumSlices; Slice++)
-			{
-				uint8* DstSlice = (uint8*)PackedImagePtr->GetSlice(Slice).RawData;
-				uint8* SrcSlice[4] = { nullptr };
-				for (int32 ChannelIdx = 0; ChannelIdx < ChannelCount; ChannelIdx++)
-				{
-					if (ConvertedSourceImages[ChannelIdx] != nullptr)
-						SrcSlice[ChannelIdx] = (uint8*)ConvertedSourceImages[ChannelIdx]->GetSlice(Slice).RawData;
-				}
-
-				int32 BytesPerChannel = GetBytesPerChannel(ImageFormat);
-				int32 BytesPerPixel = PackedImagePtr->GetBytesPerPixel();
-				int32 BytesPerRow = BytesPerPixel * PackedImagePtr->SizeX;
-				int32 SliceSizeBytes = PackedImagePtr->GetSliceSizeBytes();
-
-				// fill the default color
-				int32 NumPixels = PackedImagePtr->SizeX * PackedImagePtr->SizeY;
-				uint8* DstSliceStartAddr = DstSlice;
-				for (int32 p = 0; p < NumPixels; p++)
-				{
-					FMemory::Memcpy(DstSliceStartAddr, DefaultValue, BytesPerPixel);
-					DstSliceStartAddr += BytesPerPixel;
-				}
-
-				// If there is actual source image data, then fill into the packed texture, otherwise use the default color filled above
-				if (AnySourceImage)
-				{
-
-					ParallelFor(TEXT("TextureSet.PackingTexture.PF"), NumJobs, 1, [&](int32 Index)
-						{
-							int32 StartIndex = Index * NumRowsEachJob;
-							int32 EndIndex = FMath::Min(StartIndex + NumRowsEachJob, PackedImagePtr->SizeY);
-							for (int32 DestY = StartIndex; DestY < EndIndex; ++DestY)
-							{
-								uint8* DstRowBaseAddress = DstSlice + BytesPerRow * DestY;
-								uint8* SrcRowBaseAddress[4];
-								for (int32 ChannelIdx = 0; ChannelIdx < ChannelCount; ChannelIdx++)
-								{
-									SrcRowBaseAddress[ChannelIdx] = SrcSlice[ChannelIdx] + BytesPerRow * DestY;
-								}
-
-								for (int32 DestX = 0; DestX < PackedImagePtr->SizeX; DestX++)
-								{
-									uint8* DstBaseAddress = DstRowBaseAddress + BytesPerPixel * DestX;
-									for (int32 ChannelIdx = 0; ChannelIdx < ChannelCount; ChannelIdx++)
-									{
-										if (SrcSlice[ChannelIdx] != nullptr)
-										{
-											uint8* SrcBaseAddress = SrcRowBaseAddress[ChannelIdx] + BytesPerPixel * DestX;
-											FMemory::Memcpy(DstBaseAddress + ChannelIdx * BytesPerChannel, SrcBaseAddress + ChannelIdx * BytesPerChannel, BytesPerChannel);
-										}
-									}
-								}
-							}
-						});
-
-				}
-
-			}
-		}
-
-		// Copy packed image data back to the cooked texture
-		{
-			CookedTexture->Source.Init((FImageView)*PackedImagePtr);
-
-			// update Source Guid
-			//const FString& DDCKey = PackedTextureKeys[PackedTextureDefIndex];
-			//const uint32 KeyLength = DDCKey.Len() * sizeof(DDCKey[0]);
-			//uint32 Hash[5];
-			//FSHA1::HashBuffer(*DDCKey, KeyLength, reinterpret_cast<uint8*>(Hash));
-			//FGuid SourceGuid = FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]);
-			const FGuid SourceGuid(0xA7820CFB, 0x20A74359, 0x8C542C14, 0x9623CF50);
-			CookedTexture->Source.SetId(SourceGuid, false);
+			FScopeLock Lock(&TextureSetCookCS);
+			MaterialParameters.Append(NewMaterialParams);
 		}
 	}
 
 	// Free temporary image raw data if all cooked textures have been cached
 	if (CVarTextureSetFreeImmediateImages.GetValueOnAnyThread())
 	{
-		FScopeLock Lock(&TextureSetCS);
-
-		CookedTexturesProcessedBitmask |= 1 << PackedTextureDefIndex;
+		FScopeLock Lock(&TextureSetCookCS);
 
 		int32 CookedTexturesMask = (1 << CookedTextures.Num()) - 1;
 		if (CookedTexturesProcessedBitmask == CookedTexturesMask)
 		{
-			SourceRawImages.Empty();
-			IsTextureSetProcessed = false;
+			Cooker.Reset();
 		}
 	}
 }
@@ -639,3 +324,26 @@ void UTextureSet::UpdateResource()
 		CookedTexture->UpdateResource();
 	}
 }
+
+void UTextureSet::CookImmediate(bool Force)
+{
+	check(!Cooker.IsValid()); // Don't want to mess up another cook in progress
+	check(IsValid(Definition));
+
+	UpdateCookedTextures();
+	TArray<FString> NewPackedTextureKeys = ComputePackedTextureKeys();
+	if ((NewPackedTextureKeys != PackedTextureKeys) || Force)
+	{
+		PackedTextureKeys = NewPackedTextureKeys;
+		MaterialParameters.Empty();
+
+		Cooker = MakeUnique<TextureSetCooker>(this);
+		Cooker->Prepare();
+		Cooker->PackAllTextures(MaterialParameters);
+		Cooker.Reset();
+
+		UpdateResource();
+	}
+}
+
+#undef LOCTEXT_NAMESPACE

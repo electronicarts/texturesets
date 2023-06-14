@@ -7,6 +7,7 @@
 #include "UObject/Object.h"
 #include "Templates/SharedPointer.h"
 #include "ImageCore.h"
+#include "TextureSetCooker.h"
 
 #include "TextureSet.generated.h"
 
@@ -71,9 +72,8 @@ public:
 	TArray<FString> ComputePackedTextureKeys();
 
 	void ModifyTextureSource(int PackedTextureDefIndex, UTexture* TextureAsset);
+	void CookImmediate(bool Force);
 
-	UPROPERTY(Transient, DuplicateTransient)
-	bool IsTextureSetProcessed;
 	UPROPERTY(Transient, DuplicateTransient)
 	int32 CookedTexturesProcessedBitmask;
 
@@ -82,11 +82,11 @@ public:
 
 	// Replace FString by FGuid later for better performance, for now, keep FString for easy debugging as key is just plain text
 	UPROPERTY()
-	TArray<FString> PackedTextureKeys; 
+	TArray<FString> PackedTextureKeys;
 
-	TMap<FName, TRefCountPtr<FSharedImage>> SourceRawImages;
-
-	mutable FCriticalSection TextureSetCS;
+	TUniquePtr<TextureSetCooker> Cooker;
+	
+	mutable FCriticalSection TextureSetCookCS;
 
 	int GetNumCookedTextures() const { return CookedTextures.Num(); }
 	UTexture* GetCookedTexture(int Index) const { return CookedTextures[Index].IsValid() ? CookedTextures[Index].Get() : CookedTextures[Index].LoadSynchronous(); }
@@ -97,5 +97,5 @@ private:
 	TArray<TSoftObjectPtr<UTexture>> CookedTextures;
 
 	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
-	TMap<FName, FVector4> ShaderParameters;
+	TMap<FName, FVector4> MaterialParameters;
 };

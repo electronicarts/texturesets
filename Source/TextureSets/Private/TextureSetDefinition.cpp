@@ -147,11 +147,12 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 	{
 		const FTextureSetPackedTextureDef& TextureDef = PackedTextures[i];
 		TextureSetPackingInfo::TextureSetPackedTextureInfo TextureInfo;
-
 		TextureInfo.AllowHardwareSRGB = true;
 
 		TArray<FName> SourceNames = TextureDef.GetSources();
-		for (int c = 0; c < SourceNames.Num(); c++)
+		TextureInfo.ChannelCount = SourceNames.Num();
+
+		for (int c = 0; c < TextureInfo.ChannelCount; c++)
 		{
 			if (SourceNames[c].IsNone())
 				continue;
@@ -182,7 +183,6 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 
 		TextureInfo.RangeCompressMulName = FName("RangeCompress_Mul_" + FString::FromInt(i));
 		TextureInfo.RangeCompressAddName = FName("RangeCompress_Add_" + FString::FromInt(i));
-
 
 		PackingInfo.PackedTextureDefs.Add(TextureDef);
 		PackingInfo.PackedTextureInfos.Add(TextureInfo);
@@ -341,6 +341,9 @@ void UTextureSetDefinition::UpdatePackedTextureDefKeys()
 }
 FString UTextureSetDefinition::GetPackedTextureDefKey(int DefIndex)
 {
+	if (PackedTextureDefKeys.IsEmpty())
+		UpdatePackedTextureDefKeys();
+
 	if (DefIndex < PackedTextureDefKeys.Num())
 		return PackedTextureDefKeys[DefIndex];
 

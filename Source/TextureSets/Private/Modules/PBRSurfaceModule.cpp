@@ -121,6 +121,66 @@ void UPBRSurfaceModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& Samp
 
 void UPBRSurfaceModule::Process(FTextureSetProcessingContext& Context) const
 {
+	const bool HasBaseColor = Context.HasSourceTexure(BaseColorName);
+	const bool HasMetal = Context.HasSourceTexure(MetalName);
+	const bool HasAlbedo = Context.HasSourceTexure(AlbedoName);
+	const bool HasSpec = Context.HasSourceTexure(SpecularName);
+
+	if (Paramaterization == EPBRParamaterization::Basecolor_Metal || Paramaterization == EPBRParamaterization::Dielectric)
+	{
+		if (HasBaseColor)
+		{
+			Context.AddProcessedTexture(BaseColorName, Context.GetSourceTexture(BaseColorName));
+
+			if (HasMetal && Paramaterization == EPBRParamaterization::Basecolor_Metal)
+			{
+				Context.AddProcessedTexture(MetalName, Context.GetSourceTexture(MetalName));
+			}
+		}
+		else if (HasAlbedo)
+		{
+			if (Paramaterization == EPBRParamaterization::Dielectric)
+			{
+				// Albedo can be used as basecolor for dielectircs
+				Context.AddProcessedTexture(BaseColorName, Context.GetSourceTexture(AlbedoName));
+			}
+			else
+			{
+				// TODO: conversion from albedo-spec to basecolor-metal
+				unimplemented();
+			}
+		}
+	}
+	else if (Paramaterization == EPBRParamaterization::Albedo_Spec)
+	{
+		if (HasAlbedo)
+		{
+			Context.AddProcessedTexture(AlbedoName, Context.GetSourceTexture(AlbedoName));
+
+			if (HasSpec)
+			{
+				Context.AddProcessedTexture(SpecularName, Context.GetSourceTexture(SpecularName));
+			}
+		}
+		else if (HasBaseColor)
+		{
+			if (HasMetal)
+			{
+				// TODO: conversion from basecolor-metal to albedo-spec
+				unimplemented();
+			}
+			else
+			{
+				// Basecolor can be used as Albedo if there's no metal
+				Context.AddProcessedTexture(AlbedoName, Context.GetSourceTexture(BaseColorName));
+			}
+		}
+	}
+	else
+	{
+		unimplemented();
+	}
+
 	if (Microsurface == EPBRMicrosurface::Roughness)
 	{
 		if (Context.HasSourceTexure(RoughnessName))
@@ -142,6 +202,15 @@ void UPBRSurfaceModule::Process(FTextureSetProcessingContext& Context) const
 		{
 			Context.AddProcessedTexture(SmoothnessName, MakeShared<FTextureOperatorInvert>(Context.GetSourceTexture(RoughnessName)));
 		}
+	}
+	else
+	{
+		unimplemented();
+	}
+
+	if (Normal == EPBRNormal::Tangent)
+	{
+		Context.AddProcessedTexture(TangentNormalName, Context.GetSourceTexture(TangentNormalName));
 	}
 }
 
