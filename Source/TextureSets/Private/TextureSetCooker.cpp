@@ -187,6 +187,7 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 		MaterialParams.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
 	}
 	PackedTexture->Source.UnlockMip(0);
+	PackedTexture->Source.SetId(TextureSet->GetPackedTextureSourceGuid(), false);
 	ReportProgress();
 }
 

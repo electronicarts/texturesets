@@ -20,6 +20,8 @@ static TAutoConsoleVariable<int32> CVarTextureSetFreeImmediateImages(
 	TEXT("If enabled, Texture Set will free the memory of immediate images after resource caching"),
 	ECVF_Default);
 
+FGuid UTextureSet::PackedTextureSourceGuid(0xA7820CFB, 0x20A74359, 0x8C542C14, 0x9623CF50);
+
 UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {}
@@ -66,7 +68,7 @@ void UTextureSet::UpdateCookedTextures()
 		{
 			// Reset to default
 			PackedTexture = DuplicateObject<UTexture>(Definition->GetDefaultPackedTexture(t), this, TextureName);
-			PackedTexture->ClearFlags(RF_NoFlags);
+			PackedTexture->ClearFlags(RF_Transient);
 			CookedTextures[t] = PackedTexture;
 		}
 
@@ -86,13 +88,24 @@ void UTextureSet::UpdateCookedTextures()
 
 	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackingInfo.NumPackedTextures(); PackedTextureIndex++)
 	{
-		UTexture* CookedTexture = CookedTextures[PackedTextureIndex].IsValid() ? CookedTextures[PackedTextureIndex].Get() : CookedTextures[PackedTextureIndex].LoadSynchronous();
+		UTexture* CookedTexture = CookedTextures[PackedTextureIndex].Get();
 
 		const FTextureSetPackedTextureDef& Def = PackingInfo.GetPackedTextureDef(PackedTextureIndex);
 
+		bool AnyChanges = false;
+		if (CookedTexture->Source.GetId() != PackedTextureSourceGuid)
+		{
+			CookedTexture->Source.SetId(PackedTextureSourceGuid, false);
+			AnyChanges = true;
+		}
 		if (CookedTexture->CompressionSettings != Def.CompressionSettings)
 		{
 			CookedTexture->CompressionSettings = Def.CompressionSettings;
+			AnyChanges = true;
+		}
+
+		if (AnyChanges)
+		{
 			CookedTexture->Modify();
 		}
 		//CookedTexture->Modify();
@@ -246,7 +259,7 @@ void UTextureSet::ModifyTextureSource(int PackedTextureDefIndex, UTexture* Textu
 	if (!IsValid(Definition))
 		return;
 
-	if ((PackedTextureDefIndex >= CookedTextures.Num()) || (CookedTextures[PackedTextureDefIndex].IsNull()))
+	if ((PackedTextureDefIndex >= CookedTextures.Num()) || (CookedTextures[PackedTextureDefIndex]))
 	{
 		checkf(false, TEXT("Invalid Index of Packed Texture within TextureSet."));
 		return;
@@ -320,7 +333,7 @@ void UTextureSet::UpdateResource()
 
 	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackingInfo.NumPackedTextures(); PackedTextureIndex++)
 	{
-		UTexture* CookedTexture = CookedTextures[PackedTextureIndex].IsValid() ? CookedTextures[PackedTextureIndex].Get() : CookedTextures[PackedTextureIndex].LoadSynchronous();
+		UTexture* CookedTexture = CookedTextures[PackedTextureIndex].Get();
 		CookedTexture->UpdateResource();
 	}
 }
