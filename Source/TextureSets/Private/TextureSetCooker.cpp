@@ -7,6 +7,7 @@
 #include "TextureSetModifiersAssetUserData.h"
 #include "Textures/ImageWrapper.h"
 #include "Textures/DefaultTexture.h"
+#include "Textures/TextureOperatorEnlarge.h"
 
 int GetPixelIndex(int X, int Y, int Channel, int Width, int Height)
 {
@@ -56,7 +57,6 @@ void TextureSetCooker::Prepare()
 				SourceTextureDef.Name,
 				MakeShared<FDefaultTexture>(SourceTextureDef.DefaultValue, SourceTextureDef.ChannelCount));
 		}
-
 		ReportProgress();
 	}
 
@@ -65,6 +65,7 @@ void TextureSetCooker::Prepare()
 	{
 		Module->Process(Context);
 	}
+	
 
 	IsPrepared = true;
 }
@@ -114,9 +115,13 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 			const auto& ChanelInfo = TextureInfo.ChannelInfo[c];
 			TSharedRef<ITextureSetTexture> ProcessedTexture = Context.ProcessedTextures.FindChecked(ChanelInfo.ProcessedTexture);
 
-			// TODO: Resample textures if sizes dont match
-			//check(ProcessedTexture->GetWidth() == Width);
-			//check(ProcessedTexture->GetHeight() == Height);
+			check(ProcessedTexture->GetWidth() <= Width);
+			check(ProcessedTexture->GetHeight() <= Height);
+
+			if (ProcessedTexture->GetWidth() < Width || ProcessedTexture->GetHeight() < Height)
+			{
+				ProcessedTexture = MakeShared<FTextureOperatorEnlarge>(ProcessedTexture, Width, Height);
+			}
 
 			// Initialize the max and min pixel values so they will be overridden by the first pixel
 			MaxPixelValues[c] = TNumericLimits<float>::Lowest();

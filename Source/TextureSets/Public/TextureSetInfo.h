@@ -63,7 +63,7 @@ public:
 
 	const int NumPackedTextures() const { return PackedTextureDefs.Num(); }
 
-	const FTextureSetPackedTextureDef GetPackedTextureDef(int Index) const { return PackedTextureDefs[Index]; }
+	const FTextureSetPackedTextureDef& GetPackedTextureDef(int Index) const { return PackedTextureDefs[Index]; }
 	const TextureSetPackedTextureInfo& GetPackedTextureInfo(int Index) const { return PackedTextureInfos[Index]; }
 
 private:

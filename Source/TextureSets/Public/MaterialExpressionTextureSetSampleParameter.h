@@ -51,6 +51,7 @@ public:
 	}
 
 	FName GetTextureParameterName(int TextureIndex) const;
+	FName GetConstantParameterName(FName Parameter) const;
 	static bool IsTextureSetParameterName(FName Name);
 
 #if WITH_EDITOR

@@ -22,6 +22,11 @@ FName UMaterialExpressionTextureSetSampleParameter::GetTextureParameterName(int 
 	return FName("TEXSET_" + ParameterName.ToString() + "_PACKED_" + FString::FromInt(TextureIndex));
 }
 
+FName UMaterialExpressionTextureSetSampleParameter::GetConstantParameterName(FName Parameter) const
+{
+	return FName("TEXSET_" + ParameterName.ToString() + "_" + Parameter.ToString());
+}
+
 bool UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(FName Name)
 {
 	return Name.ToString().StartsWith("TEXSET_", ESearchCase::IgnoreCase);
@@ -33,7 +38,7 @@ UMaterialFunction* UMaterialExpressionTextureSetSampleParameter::CreateMaterialF
 	if (!IsValid(Definition))
 		return nullptr;
 
-	FTextureSetMaterialGraphBuilder GraphBuilder = FTextureSetMaterialGraphBuilder(Definition, this);
+	FTextureSetMaterialGraphBuilder GraphBuilder = FTextureSetMaterialGraphBuilder(this);
 
 	// Call out to modules to do the work of connecting processed texture samples to outputs
 	Definition->GenerateSamplingGraph(this, GraphBuilder);

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "TextureSetInfo.h"
+
 #if WITH_EDITOR
 
 class UTextureSetDefinition;
@@ -14,7 +16,7 @@ class UMaterialExpressionTextureObjectParameter;
 class FTextureSetMaterialGraphBuilder
 {
 public:
-	FTextureSetMaterialGraphBuilder(TObjectPtr<UTextureSetDefinition> Def, UMaterialExpressionTextureSetSampleParameter* Node);
+	FTextureSetMaterialGraphBuilder(UMaterialExpressionTextureSetSampleParameter* Node);
 
 	UMaterialFunction* GetMaterialFunction() { return MaterialFunction; }
 
@@ -37,9 +39,16 @@ public:
 		return SampleOutputs.FindChecked(Name);
 	}
 
+	UMaterialExpression* MakeConstantParameter(FName Name, FVector4 Default);
+
 private:
+	TObjectPtr<UMaterialExpressionTextureSetSampleParameter> Node;
 	TObjectPtr<UTextureSetDefinition> Definition;
 	TObjectPtr<UMaterialFunction> MaterialFunction;
+
+	const TextureSetDefinitionSharedInfo SharedInfo;
+	const TextureSetDefinitionSamplingInfo SamplingInfo;
+	const TextureSetPackingInfo PackingInfo;
 
 	TArray<TObjectPtr<UMaterialExpressionTextureObjectParameter>> PackedTextureObjects;
 	TArray<TObjectPtr<UMaterialExpression>> PackedTextureSamples;
@@ -47,12 +56,14 @@ private:
 	// Valid for both texture names "BaseColor" and with channel suffix "BaseColor.g"
 	TMap<FName, TObjectPtr<UMaterialExpression>> ProcessedTextureSamples;
 
+	TMap<FName, TObjectPtr<UMaterialExpression>> ConstantParameters;
+
 	// Key is the channel you want to find (e.g. "Normal.r" or "Roughness")
 	// Value is a tuple of the packed texture and channel where you'll find it
 	TMap<FName, TTuple<int, int>> PackingSource;
 
 	TMap<FName, TObjectPtr<UMaterialExpressionFunctionOutput>> SampleOutputs;
 
-	UMaterialExpression* MakeTextureSamplerCustomNode(UMaterialExpression* Texcoord, UMaterialExpressionTextureBase* TexObject);
+	UMaterialExpression* MakeTextureSamplerCustomNode(UMaterialExpression* Texcoord, int Index);
 };
 #endif // WITH_EDITOR
