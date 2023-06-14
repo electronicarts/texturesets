@@ -60,7 +60,7 @@ void UTextureSet::UpdateCookedTextures()
 
 	for (int t = 0; t < PackingInfo.NumPackedTextures(); t++)
 	{
-		UTexture* PackedTexture = CookedTextures[t].Get();
+		UTexture* PackedTexture = GetCookedTexture(t);
 
 		FName TextureName = FName(GetName() + "_CookedTexture_" + FString::FromInt(t));
 
@@ -88,7 +88,7 @@ void UTextureSet::UpdateCookedTextures()
 
 	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackingInfo.NumPackedTextures(); PackedTextureIndex++)
 	{
-		UTexture* CookedTexture = CookedTextures[PackedTextureIndex].Get();
+		UTexture* CookedTexture = GetCookedTexture(PackedTextureIndex);
 
 		const FTextureSetPackedTextureDef& Def = PackingInfo.GetPackedTextureDef(PackedTextureIndex);
 
@@ -259,13 +259,13 @@ void UTextureSet::ModifyTextureSource(int PackedTextureDefIndex, UTexture* Textu
 	if (!IsValid(Definition))
 		return;
 
-	if ((PackedTextureDefIndex >= CookedTextures.Num()) || (!CookedTextures[PackedTextureDefIndex]))
+	if ((PackedTextureDefIndex >= CookedTextures.Num()) || GetCookedTexture(PackedTextureDefIndex))
 	{
 		checkf(false, TEXT("Invalid Index of Packed Texture within TextureSet."));
 		return;
 	}
 
-	UTexture* CookedTexture = CookedTextures[PackedTextureDefIndex].Get();
+	UTexture* CookedTexture = GetCookedTexture(PackedTextureDefIndex);
 	if (CookedTexture != TextureAsset)
 	{
 		checkf(false, TEXT("Invalid Cooked Texture within TextureSet."));
@@ -333,7 +333,7 @@ void UTextureSet::UpdateResource()
 
 	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackingInfo.NumPackedTextures(); PackedTextureIndex++)
 	{
-		UTexture* CookedTexture = CookedTextures[PackedTextureIndex].Get();
+		UTexture* CookedTexture = GetCookedTexture(PackedTextureIndex);
 		CookedTexture->UpdateResource();
 	}
 }
