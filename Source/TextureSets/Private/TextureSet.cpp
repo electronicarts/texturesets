@@ -93,11 +93,6 @@ void UTextureSet::UpdateCookedTextures()
 		const FTextureSetPackedTextureDef& Def = PackingInfo.GetPackedTextureDef(PackedTextureIndex);
 
 		bool AnyChanges = false;
-		if (CookedTexture->Source.GetId() != PackedTextureSourceGuid)
-		{
-			CookedTexture->Source.SetId(PackedTextureSourceGuid, false);
-			AnyChanges = true;
-		}
 		if (CookedTexture->CompressionSettings != Def.CompressionSettings)
 		{
 			CookedTexture->CompressionSettings = Def.CompressionSettings;
