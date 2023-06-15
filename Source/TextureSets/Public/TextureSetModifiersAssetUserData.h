@@ -16,14 +16,9 @@ class TEXTURESETS_API UTextureSetModifiersAssetUserData : public UTextureModifie
 	GENERATED_BODY()
 
 public:
-	/** Begin UAssetUserData overrides */
+
+	virtual void PreSave(FObjectPreSaveContext SaveContext) override;
 	virtual void PostLoad() override;
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;	
-	virtual void Serialize(FArchive& Ar) override;
-#if WITH_EDITOR
-	virtual void PostEditChangeOwner() override;
-#endif // WITH_EDITOR
-	/** End UAssetUserData overrides */
 
 	/** Returns the unique ID string for this source art. */
 	virtual FString GetIdString() const override;
