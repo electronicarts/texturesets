@@ -67,7 +67,11 @@ void UTextureSet::UpdateCookedTextures()
 		if (!IsValid(PackedTexture) || !PackedTexture->IsInOuter(this) || PackedTexture->GetFName() != TextureName)
 		{
 			// Reset to default
-			PackedTexture = DuplicateObject<UTexture>(Definition->GetDefaultPackedTexture(t), this, TextureName);
+			FObjectDuplicationParameters DuplicateParams = InitStaticDuplicateObjectParams(Definition->GetDefaultPackedTexture(t), this, TextureName);
+			DuplicateParams.bSkipPostLoad = true;
+			// UTexture::PostLoad will create the D3D resource. 
+			// This newly created texture will immediately recreate the D3D resource by CookedTexture->UpdateResource() below
+			PackedTexture = Cast<UTexture>(StaticDuplicateObjectEx(DuplicateParams));
 			PackedTexture->ClearFlags(RF_Transient);
 			CookedTextures[t] = PackedTexture;
 		}
@@ -81,9 +85,6 @@ void UTextureSet::UpdateCookedTextures()
 			TextureModifier = NewObject<UTextureSetModifiersAssetUserData>(PackedTexture, AssetUserDataName, RF_NoFlags);
 			PackedTexture->AddAssetUserData(TextureModifier);
 		}
-		// Configure user data to reference this texture set, so it can invalidate the texture when the hash changes
-		TextureModifier->TextureSet = this;
-		TextureModifier->PackedTextureDefIndex = t;
 	}
 
 	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackingInfo.NumPackedTextures(); PackedTextureIndex++)
@@ -98,13 +99,24 @@ void UTextureSet::UpdateCookedTextures()
 			CookedTexture->CompressionSettings = Def.CompressionSettings;
 			AnyChanges = true;
 		}
+		UTextureSetModifiersAssetUserData* TextureModifier = CookedTexture->GetAssetUserData<UTextureSetModifiersAssetUserData>();
+		if (TextureModifier->TextureSet != this)
+		{
+			TextureModifier->TextureSet = this;
+			AnyChanges = true;
+		}
+		if (TextureModifier->PackedTextureDefIndex != PackedTextureIndex)
+		{
+			TextureModifier->PackedTextureDefIndex = PackedTextureIndex;
+			AnyChanges = true;
+		}
 
 		if (AnyChanges)
 		{
+			CookedTexture->Source.SetId(GetPackedTextureSourceGuid(), false);
 			CookedTexture->Modify();
-		}
-		//CookedTexture->Modify();
-		//CookedTexture->UpdateResource();
+			CookedTexture->UpdateResource();
+		}		
 	}
 
 #endif //WITH_EDITOR
