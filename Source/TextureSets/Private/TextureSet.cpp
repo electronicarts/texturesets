@@ -100,6 +100,9 @@ void UTextureSet::UpdateCookedTextures()
 			AnyChanges = true;
 		}
 		UTextureSetModifiersAssetUserData* TextureModifier = CookedTexture->GetAssetUserData<UTextureSetModifiersAssetUserData>();
+		// Only after TextureModifier is properly initialized, CookedTexture can be processed correctly.
+		// If any data changes on TextureModifier occur, then call Modify and UpdateResource again.
+		// For now, this should only happen on the new CookedTexture created above.
 		if (TextureModifier->TextureSet != this)
 		{
 			TextureModifier->TextureSet = this;
