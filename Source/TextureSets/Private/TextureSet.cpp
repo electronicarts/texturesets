@@ -205,47 +205,42 @@ void UTextureSet::FixupData()
 #endif
 }
 
-FString UTextureSet::GetPackedTextureDefKey(int PackedTextureDefIndex)
+FString UTextureSet::ComputePackedTextureKey(int PackedTextureIndex)
 {
 	if (!IsValid(Definition))
 		return TEXT("INVALID_TEXTURE_SET_DEFINITION");
 
 	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
-	if (PackedTextureDefIndex < PackingInfo.NumPackedTextures())
-	{
-		// all data hash keys start with a global version tracking format changes
-		FString PackedTextureDataKey("TEXTURE_SET_PACKING_VER1_");
-
-		// track the packing rule and setting
-		PackedTextureDataKey += Definition->GetPackedTextureDefKey(PackedTextureDefIndex);
-		PackedTextureDataKey += "_";
-
-		// track the source data
-		const FTextureSetPackedTextureDef& PackedTextureDef = PackingInfo.GetPackedTextureDef(PackedTextureDefIndex);
-		const TArray<FString>& SourcesWithoutChannel = PackedTextureDef.GetSourcesWithoutChannel();
-		for (const FString& Source : SourcesWithoutChannel)
-		{
-			TObjectPtr<UTexture>* SourceTexture = SourceTextures.Find(FName(*Source));
-			if ((SourceTexture != nullptr) && (SourceTexture->Get() != nullptr))
-			{
-				PackedTextureDataKey += Source;
-				PackedTextureDataKey += "<";
-				PackedTextureDataKey += SourceTexture->Get()->Source.GetId().ToString();
-				PackedTextureDataKey += ">_";
-			}
-		}
-
-		// Tag for debugging, easily force rebuild
-		if (!AssetTag.IsEmpty())
-			PackedTextureDataKey += AssetTag;
-
-		//PackedTextureDataKey.ToLowerInline();
-		return PackedTextureDataKey;
-	}
-	else
-	{
+	if (PackedTextureIndex >= PackingInfo.NumPackedTextures())
 		return TEXT("INVALID_PACKED_TEXTURE_ASSET_INDEX");
+
+	// All data hash keys start with a global version tracking format changes
+	FString PackedTextureDataKey("TEXTURE_SET_PACKING_VER1_");
+
+	// Hash all the source data.
+	// We currently don't have a mechanism to know which specific source textures we depend on
+	// TODO: Only hash on source textures that contribute to this packed texture
+	for (const auto& [Name, SourceTexture] : SourceTextures)
+	{
+		if (IsValid(SourceTexture))
+			PackedTextureDataKey += Name.ToString() + "<" + SourceTexture->Source.GetId().ToString() + ">_";
 	}
+	
+	// Hash the packing def
+	const FTextureSetPackedTextureDef& PackedTextureDef = PackingInfo.GetPackedTextureDef(PackedTextureIndex);
+	PackedTextureDataKey += PackedTextureDef.ComputeHashKey() + "_";
+
+	// Hash the modules
+	for (const UTextureSetModule* Module : Definition->GetModules())
+	{
+		PackedTextureDataKey += Module->GetName() + "<" + FString::FromInt(Module->ComputeProcessingHash()) + ">_";
+	}
+
+	// Tag for debugging, easily force rebuild
+	if (!AssetTag.IsEmpty())
+		PackedTextureDataKey += AssetTag;
+
+	return PackedTextureDataKey;
 }
 
 TArray<FString> UTextureSet::ComputePackedTextureKeys()
@@ -258,7 +253,7 @@ TArray<FString> UTextureSet::ComputePackedTextureKeys()
 	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
 	for (int32 i = 0; i < PackingInfo.NumPackedTextures(); i++)
 	{
-		NewPackedTextureKeys.Add(GetPackedTextureDefKey(i));
+		NewPackedTextureKeys.Add(ComputePackedTextureKey(i));
 	}
 
 	return NewPackedTextureKeys;

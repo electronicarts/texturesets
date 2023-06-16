@@ -56,4 +56,6 @@ public:
 	TArray<FString> GetSourcesWithoutChannel(bool RemoveDuplicate = true) const;
 
 	bool GetHardwareSRGBEnabled() const;
+
+	FString ComputeHashKey() const;
 };

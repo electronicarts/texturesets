@@ -68,7 +68,7 @@ public:
 
 	void UpdateCookedTextures();
 
-	FString GetPackedTextureDefKey(int PackedTextureDefIndex);
+	FString ComputePackedTextureKey(int PackedTextureDefIndex);
 	TArray<FString> ComputePackedTextureKeys();
 
 	void ModifyTextureSource(int PackedTextureDefIndex, UTexture* TextureAsset);
@@ -92,6 +92,8 @@ public:
 	UTexture* GetCookedTexture(int Index) const { return CookedTextures[Index].Get(); }
 	void UpdateResource();
 	FGuid GetPackedTextureSourceGuid() const { return PackedTextureSourceGuid; }
+
+	const TMap<FName, FVector4>& GetMaterialParameters() { return MaterialParameters; }
 
 private:
 	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing

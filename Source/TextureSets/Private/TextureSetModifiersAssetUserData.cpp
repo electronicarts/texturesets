@@ -59,12 +59,10 @@ void UTextureSetModifiersAssetUserData::PostLoad()
 
 FString UTextureSetModifiersAssetUserData::GetIdString() const
 {
-	if (TextureSet != nullptr)
-	{
-		return TextureSet->GetPackedTextureDefKey(PackedTextureDefIndex);
-	}
+	if (!IsValid(TextureSet))
+		return TEXT("INVALID_TEXTURE_SET");
 
-	return TEXT("INVALID_TEXTURE_SET");
+	return TextureSet->ComputePackedTextureKey(PackedTextureDefIndex);
 }
 
 void UTextureSetModifiersAssetUserData::ModifyTextureSource(UTexture* TextureAsset)

@@ -52,9 +52,7 @@ public:
 	void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression, FTextureSetMaterialGraphBuilder& Builder) const;
 #endif
 
-	virtual void PreSave(FObjectPreSaveContext SaveContext) override;
 	virtual void PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext) override;
-	FString GetPackedTextureDefKey(int DefIndex);
 
 private:
 
@@ -70,11 +68,6 @@ private:
 #if WITH_EDITOR
 	void UpdateDefaultTextures();
 #endif
-
-	UPROPERTY()
-	TArray<FString> PackedTextureDefKeys;
-
-	void UpdatePackedTextureDefKeys();
 
 	void UpdateDependentAssets(bool AutoLoad = false);
 };
