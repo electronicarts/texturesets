@@ -96,7 +96,7 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 		Ratio = NewRatio;
 	}
 
-	UTexture2D* PackedTexture = CastChecked<UTexture2D>(TextureSet->GetCookedTexture(Index));
+	UTexture2D* PackedTexture = CastChecked<UTexture2D>(TextureSet->GetPackedTexture(Index));
 	PackedTexture->Source.Init(Width, Height, 1, 1, TSF_RGBA16F);
 
 	FFloat16* PixelsValues = (FFloat16*)PackedTexture->Source.LockMip(0);
@@ -192,9 +192,6 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 		MaterialParams.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
 	}
 	PackedTexture->Source.UnlockMip(0);
-	// TODO: Does this make sense?
-	// All packed textures use the same source ID, so that only the composite ID filled by the user data is considered
-	//PackedTexture->Source.SetId(TextureSet->GetPackedTextureSourceGuid(), false);
 	ReportProgress();
 }
 

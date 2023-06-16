@@ -171,10 +171,10 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 		// Set the texture parameter for each cooked texture
 		for (int i = 0; i < NumPackedTextures; i++)
 		{
-			if (TextureSetOverride.TextureSet->GetNumCookedTextures() > i)
+			if (TextureSetOverride.TextureSet->GetNumPackedTextures() > i)
 			{
 				FTextureParameterValue TextureParameter;
-				TextureParameter.ParameterValue = TextureSetOverride.IsOverridden ? TextureSetOverride.TextureSet->GetCookedTexture(i) : nullptr;
+				TextureParameter.ParameterValue = TextureSetOverride.IsOverridden ? TextureSetOverride.TextureSet->GetPackedTexture(i) : nullptr;
 				TextureParameter.ParameterInfo.Name = SampleExpression->GetTextureParameterName(i);
 				MaterialInstance->TextureParameterValues.Add(TextureParameter);
 			}

@@ -88,8 +88,8 @@ public:
 	
 	mutable FCriticalSection TextureSetCookCS;
 
-	int GetNumCookedTextures() const { return CookedTextures.Num(); }
-	UTexture* GetCookedTexture(int Index) const { return CookedTextures[Index].Get(); }
+	int GetNumPackedTextures() const { return PackedTextures.Num(); }
+	UTexture* GetPackedTexture(int Index) const { return PackedTextures[Index].Get(); }
 	void UpdateResource();
 	FGuid GetPackedTextureSourceGuid() const { return PackedTextureSourceGuid; }
 
@@ -97,7 +97,7 @@ public:
 
 private:
 	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
-	TArray<TObjectPtr<UTexture>> CookedTextures;
+	TArray<TObjectPtr<UTexture>> PackedTextures;
 
 	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
 	TMap<FName, FVector4> MaterialParameters;
