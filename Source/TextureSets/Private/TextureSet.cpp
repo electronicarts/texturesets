@@ -91,7 +91,7 @@ void UTextureSet::UpdateCookedTextures()
 		{
 			CookedTexture->Modify();
 			CookedTexture->UpdateResource();
-		}		
+		}
 	}
 
 #endif //WITH_EDITOR
@@ -230,30 +230,10 @@ FString UTextureSet::ComputeTextureSetDataKey()
 	return NewTextureSetDataKey;
 }
 
-void UTextureSet::ProcessCookedTexture()
-{
-	MaterialParameters.Empty();
-
-	Cooker = MakeUnique<TextureSetCooker>(this);
-
-	Cooker->Prepare();
-
-	Cooker->PackAllTextures(MaterialParameters);
-
-	Cooker.Reset();
-}
-
 void UTextureSet::UpdateTextureData()
 {
-	FString NewTextureSetDataKey = ComputeTextureSetDataKey();
-	if (NewTextureSetDataKey != TextureSetDataKey)
-	{
-		UpdateCookedTextures();
-
-		ProcessCookedTexture();
-
-		TextureSetDataKey = NewTextureSetDataKey;
-	}
+	// TODO: Async cooking
+	CookImmediate(false);
 }
 
 void UTextureSet::UpdateResource()
