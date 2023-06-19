@@ -66,12 +66,8 @@ public:
 
 	void FixupData();
 
-	void UpdateCookedTextures();
+	FString ComputeTextureSetDataKey();
 
-	FString ComputePackedTextureKey(int PackedTextureDefIndex);
-	TArray<FString> ComputePackedTextureKeys();
-
-	void ModifyTextureSource(int PackedTextureDefIndex, UTexture* TextureAsset);
 	void CookImmediate(bool Force);
 
 	UPROPERTY(Transient, DuplicateTransient)
@@ -82,25 +78,27 @@ public:
 
 	// Replace FString by FGuid later for better performance, for now, keep FString for easy debugging as key is just plain text
 	UPROPERTY()
-	TArray<FString> PackedTextureKeys;
+	FString TextureSetDataKey;
 
 	TUniquePtr<TextureSetCooker> Cooker;
-	
-	mutable FCriticalSection TextureSetCookCS;
 
 	int GetNumPackedTextures() const { return PackedTextures.Num(); }
 	UTexture* GetPackedTexture(int Index) const { return PackedTextures[Index].Get(); }
+	void UpdateTextureData();
 	void UpdateResource();
-	FGuid GetPackedTextureSourceGuid() const { return PackedTextureSourceGuid; }
 
 	const TMap<FName, FVector4>& GetMaterialParameters() { return MaterialParameters; }
 
 private:
+
+	void UpdateCookedTextures();
+	void ProcessCookedTexture();
+	FString ComputePackedTextureKey(int PackedTextureDefIndex);
+
 	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
 	TArray<TObjectPtr<UTexture>> PackedTextures;
 
 	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
 	TMap<FName, FVector4> MaterialParameters;
 
-	static FGuid PackedTextureSourceGuid;
 };

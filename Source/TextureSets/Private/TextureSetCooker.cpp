@@ -4,7 +4,6 @@
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetModule.h"
-#include "TextureSetModifiersAssetUserData.h"
 #include "Textures/ImageWrapper.h"
 #include "Textures/DefaultTexture.h"
 #include "Textures/TextureOperatorEnlarge.h"

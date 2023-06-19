@@ -314,7 +314,6 @@ void UTextureSetDefinition::UpdateDependentAssets(bool AutoLoad)
 	AssetRegistry.GetReferencers(GetOuter()->GetFName(), Referencers);
 
 	TArray<FAssetData> TextureSetAssetDatas;
-	//TArray<FAssetData> MaterialAssetDatas;	
 
 	for (auto AssetIdentifier : Referencers)
 	{
@@ -327,10 +326,6 @@ void UTextureSetDefinition::UpdateDependentAssets(bool AutoLoad)
 			{
 				TextureSetAssetDatas.AddUnique(AssetData);
 			}
-			//if (AssetData.IsInstanceOf(UMaterial::StaticClass()))
-			//{
-			//	MaterialAssetDatas.AddUnique(AssetData);
-			//}
 		}
 	}
 
@@ -340,7 +335,7 @@ void UTextureSetDefinition::UpdateDependentAssets(bool AutoLoad)
 		if (TextureSet != nullptr)
 		{
 			// update texture set and create/destroy cooked textures
-			TextureSet->UpdateCookedTextures();
+			TextureSet->UpdateTextureData();
 			// mark texture set as mordified
 			TextureSet->Modify();
 			// broadcast the changes to other editor tabs

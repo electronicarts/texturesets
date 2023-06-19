@@ -5,7 +5,6 @@
 #include "TextureSetDefinition.h"
 #include "TextureSetCooker.h"
 #include "TextureSetModule.h"
-#include "TextureSetModifiersAssetUserData.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "UObject/ObjectSaveContext.h"
 #include "Engine/TextureDefines.h"
@@ -16,14 +15,6 @@
 
 #define LOCTEXT_NAMESPACE "TextureSet"
 
-static TAutoConsoleVariable<int32> CVarTextureSetFreeImmediateImages(
-	TEXT("r.TextureSet.FreeImmediateImages"),
-	1,
-	TEXT("If enabled, Texture Set will free the memory of immediate images after resource caching"),
-	ECVF_Default);
-
-FGuid UTextureSet::PackedTextureSourceGuid(0xC7820CFB, 0x20A74359, 0x8C542C14, 0x9623CF50);
-
 UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {}
@@ -33,7 +24,7 @@ void UTextureSet::PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext)
 	if (ObjectSaveContext.IsCooking())
 		return;
 
-	UpdateCookedTextures();
+	UpdateTextureData();
 }
 
 void UTextureSet::PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext)
@@ -66,30 +57,20 @@ void UTextureSet::UpdateCookedTextures()
 
 		FName TextureName = FName(GetName() + "_CookedTexture_" + FString::FromInt(t));
 
+		if (PackedTexture == nullptr)
+		{
+			PackedTexture = static_cast<UTexture*>(FindObjectWithOuter(this, nullptr, TextureName));
+			PackedTextures[t] = PackedTexture;
+		}
+
 		if (!IsValid(PackedTexture) || !PackedTexture->IsInOuter(this) || PackedTexture->GetFName() != TextureName)
 		{
 			// Reset to default
 			FObjectDuplicationParameters DuplicateParams = InitStaticDuplicateObjectParams(Definition->GetDefaultPackedTexture(t), this, TextureName);
 			DuplicateParams.bSkipPostLoad = true;
-			// UTexture::PostLoad will create the D3D resource. 
-			// This newly created texture will immediately recreate the D3D resource by CookedTexture->UpdateResource() below
 			PackedTexture = Cast<UTexture>(StaticDuplicateObjectEx(DuplicateParams));
 			PackedTexture->SetFlags(RF_NoFlags);
 			PackedTextures[t] = PackedTexture;
-		}
-
-		// Check for existing user data
-		UTextureSetModifiersAssetUserData* TextureModifier = PackedTexture->GetAssetUserData<UTextureSetModifiersAssetUserData>();
-		if (!TextureModifier)
-		{
-			// Create new user data if needed
-			FString AssetUserDataName = TextureName.ToString() + "_AssetUserData";
-			TextureModifier = FindObject<UTextureSetModifiersAssetUserData>(PackedTexture, *AssetUserDataName, true);
-		
-			if (!TextureModifier)
-				TextureModifier = NewObject<UTextureSetModifiersAssetUserData>(PackedTexture, FName(AssetUserDataName), RF_NoFlags);
-		
-			PackedTexture->AddAssetUserData(TextureModifier);
 		}
 	}
 
@@ -105,24 +86,9 @@ void UTextureSet::UpdateCookedTextures()
 			CookedTexture->CompressionSettings = Def.CompressionSettings;
 			AnyChanges = true;
 		}
-		UTextureSetModifiersAssetUserData* TextureModifier = CookedTexture->GetAssetUserData<UTextureSetModifiersAssetUserData>();
-		// Only after TextureModifier is properly initialized, CookedTexture can be processed correctly.
-		// If any data changes on TextureModifier occur, then call Modify and UpdateResource again.
-		// For now, this should only happen on the new CookedTexture created above.
-		if (TextureModifier->TextureSet != this)
-		{
-			TextureModifier->TextureSet = this;
-			AnyChanges = true;
-		}
-		if (TextureModifier->PackedTextureDefIndex != PackedTextureIndex)
-		{
-			TextureModifier->PackedTextureDefIndex = PackedTextureIndex;
-			AnyChanges = true;
-		}
 
 		if (AnyChanges)
 		{
-			CookedTexture->Source.SetId(GetPackedTextureSourceGuid(), false);
 			CookedTexture->Modify();
 			CookedTexture->UpdateResource();
 		}		
@@ -146,7 +112,7 @@ void UTextureSet::PostLoad()
 {
 	Super::PostLoad();
 	FixupData();
-	UpdateCookedTextures();
+	UpdateTextureData();
 }
 
 #if WITH_EDITOR
@@ -213,15 +179,13 @@ void UTextureSet::FixupData()
 
 FString UTextureSet::ComputePackedTextureKey(int PackedTextureIndex)
 {
-	if (!IsValid(Definition))
-		return TEXT("INVALID_TEXTURE_SET_DEFINITION");
+	check(IsValid(Definition));
 
 	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
-	if (PackedTextureIndex >= PackingInfo.NumPackedTextures())
-		return TEXT("INVALID_PACKED_TEXTURE_ASSET_INDEX");
+	check(PackedTextureIndex < PackingInfo.NumPackedTextures());
 
 	// All data hash keys start with a global version tracking format changes
-	FString PackedTextureDataKey("TEXTURE_SET_PACKING_VER1_");
+	FString PackedTextureDataKey("PACKING_VER1_");
 
 	// Hash all the source data.
 	// We currently don't have a mechanism to know which specific source textures we depend on
@@ -249,101 +213,47 @@ FString UTextureSet::ComputePackedTextureKey(int PackedTextureIndex)
 	return PackedTextureDataKey;
 }
 
-TArray<FString> UTextureSet::ComputePackedTextureKeys()
+FString UTextureSet::ComputeTextureSetDataKey()
 {
-	TArray<FString> NewPackedTextureKeys;
-
 	if (!IsValid(Definition))
-		return NewPackedTextureKeys;
+		return "TEXTURE_SET_INVALID_DEFINITION";
+
+	// All data hash keys start with a global version tracking format changes
+	FString NewTextureSetDataKey("TEXTURE_SET_V1_");
 
 	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
 	for (int32 i = 0; i < PackingInfo.NumPackedTextures(); i++)
 	{
-		NewPackedTextureKeys.Add(ComputePackedTextureKey(i));
+		NewTextureSetDataKey += ComputePackedTextureKey(i);
 	}
 
-	return NewPackedTextureKeys;
+	return NewTextureSetDataKey;
 }
 
-void UTextureSet::ModifyTextureSource(int PackedTextureDefIndex, UTexture* TextureAsset)
+void UTextureSet::ProcessCookedTexture()
 {
-#ifdef REQUIRE_MANUAL_COOK
-	return;
-#else
+	MaterialParameters.Empty();
 
-	if (!IsValid(Definition))
-		return;
+	Cooker = MakeUnique<TextureSetCooker>(this);
 
-	if (PackedTextureDefIndex >= PackedTextures.Num())
+	Cooker->Prepare();
+
+	Cooker->PackAllTextures(MaterialParameters);
+
+	Cooker.Reset();
+}
+
+void UTextureSet::UpdateTextureData()
+{
+	FString NewTextureSetDataKey = ComputeTextureSetDataKey();
+	if (NewTextureSetDataKey != TextureSetDataKey)
 	{
-		checkf(false, TEXT("Invalid Index of Packed Texture within TextureSet."));
-		return;
+		UpdateCookedTextures();
+
+		ProcessCookedTexture();
+
+		TextureSetDataKey = NewTextureSetDataKey;
 	}
-
-	UTexture* CookedTexture = GetPackedTexture(PackedTextureDefIndex);
-	if (CookedTexture != TextureAsset)
-	{
-		checkf(false, TEXT("Invalid Cooked Texture within TextureSet."));
-		return;
-	}
-	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
-	const FTextureSetPackedTextureDef& TextureSetPackedTextureDef = PackingInfo.GetPackedTextureDef(PackedTextureDefIndex);
-	if (TextureSetPackedTextureDef.UsedChannels() == 0)
-	{
-		checkf(false, TEXT("Invalid Packing within TextureSetDefinition."));
-		return;
-	}
-
-	// Preprocessing
-	{
-		FScopeLock Lock(&TextureSetCookCS);
-
-		if (!Cooker.IsValid())
-		{
-			// First texture that cooks will check if the packed textures need to be updated, and if so create a cooker.
-			// Others threads will wait due to above CS for the cooker to be prepared, and then execute the pack in parallel.
-			TArray<FString> NewPackedTextureKeys = ComputePackedTextureKeys();
-			if (NewPackedTextureKeys != PackedTextureKeys)
-			{
-				PackedTextureKeys = NewPackedTextureKeys;
-				MaterialParameters.Empty();
-
-				Cooker = MakeUnique<TextureSetCooker>(this);
-				CookedTexturesProcessedBitmask = 0;
-				
-				Cooker->Prepare();
-			}
-		}
-	}
-
-	if (Cooker.IsValid())
-	{
-		TMap<FName, FVector4> NewMaterialParams;
-
-		Cooker->PackTexture(PackedTextureDefIndex, NewMaterialParams);
-
-		// All packed textures use the same source ID, so that only the composite ID filled by the user data is considered
-		PackedTextures[PackedTextureDefIndex]->Source.SetId(GetPackedTextureSourceGuid(), false);
-
-		if (!NewMaterialParams.IsEmpty())
-		{
-			FScopeLock Lock(&TextureSetCookCS);
-			MaterialParameters.Append(NewMaterialParams);
-		}
-	}
-
-	// Free temporary image raw data if all cooked textures have been cached
-	if (CVarTextureSetFreeImmediateImages.GetValueOnAnyThread())
-	{
-		FScopeLock Lock(&TextureSetCookCS);
-
-		int32 CookedTexturesMask = (1 << PackedTextures.Num()) - 1;
-		if (CookedTexturesProcessedBitmask == CookedTexturesMask)
-		{
-			Cooker.Reset();
-		}
-	}
-#endif
 }
 
 void UTextureSet::UpdateResource()
@@ -368,10 +278,10 @@ void UTextureSet::CookImmediate(bool Force)
 	FOnTextureSetCookerReportProgress CookProgress = FOnTextureSetCookerReportProgress::CreateLambda([&CookTask](float f) { CookTask.EnterProgressFrame(f); });
 
 	UpdateCookedTextures();
-	TArray<FString> NewPackedTextureKeys = ComputePackedTextureKeys();
-	if ((NewPackedTextureKeys != PackedTextureKeys) || Force)
+	FString NewTextureSetDataKey = ComputeTextureSetDataKey();
+	if ((NewTextureSetDataKey != TextureSetDataKey) || Force)
 	{
-		PackedTextureKeys = NewPackedTextureKeys;
+		TextureSetDataKey = NewTextureSetDataKey;
 		MaterialParameters.Empty();
 
 		Cooker = MakeUnique<TextureSetCooker>(this, CookProgress);
