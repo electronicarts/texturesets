@@ -23,6 +23,24 @@ public:
 	}
 };
 
+USTRUCT()
+struct TEXTURESETS_API FPackedTextureData
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UTexture> Texture;
+
+	// Material parameters that were generated along with this packed texture
+	UPROPERTY(VisibleAnywhere)
+	TMap<FName, FVector4> MaterialParameters;
+
+	// Hashed value computed when this texture was built
+	UPROPERTY(VisibleAnywhere)
+	FString Key;
+};
+
 UCLASS(BlueprintType, hidecategories = (Object))
 class TEXTURESETS_API UTextureSet : public UObject
 {
@@ -81,27 +99,24 @@ public:
 	FString AssetTag;
 
 	// Replace FString by FGuid later for better performance, for now, keep FString for easy debugging as key is just plain text
-	UPROPERTY()
+	UPROPERTY(AdvancedDisplay, VisibleAnywhere)
 	FString TextureSetDataKey;
 
 	TUniquePtr<TextureSetCooker> Cooker;
 
-	int GetNumPackedTextures() const { return PackedTextures.Num(); }
-	UTexture* GetPackedTexture(int Index) const { return PackedTextures[Index].Get(); }
+	int GetNumPackedTextures() const { return PackedTextureData.Num(); }
+	UTexture* GetPackedTexture(int Index) const { return PackedTextureData[Index].Texture; }
+
 	void UpdateTextureData();
 	void UpdateResource();
 
-	const TMap<FName, FVector4>& GetMaterialParameters() { return MaterialParameters; }
+	const TMap<FName, FVector4> GetMaterialParameters();
 
 private:
 
 	void UpdateCookedTextures();
-	void ProcessCookedTexture();
 
-	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
-	TArray<TObjectPtr<UTexture>> PackedTextures;
-
-	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
-	TMap<FName, FVector4> MaterialParameters;
+	UPROPERTY(AdvancedDisplay, VisibleAnywhere)
+	TArray<FPackedTextureData> PackedTextureData;
 
 };

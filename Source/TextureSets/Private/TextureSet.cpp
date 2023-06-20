@@ -49,7 +49,7 @@ void UTextureSet::UpdateCookedTextures()
 	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
 
 	// Garbage collection will destroy the unused cooked textures when all references from material instance are removed
-	PackedTextures.SetNum(PackingInfo.NumPackedTextures());
+	PackedTextureData.SetNum(PackingInfo.NumPackedTextures());
 
 	for (int t = 0; t < PackingInfo.NumPackedTextures(); t++)
 	{
@@ -60,7 +60,7 @@ void UTextureSet::UpdateCookedTextures()
 		if (PackedTexture == nullptr)
 		{
 			PackedTexture = static_cast<UTexture*>(FindObjectWithOuter(this, nullptr, TextureName));
-			PackedTextures[t] = PackedTexture;
+			PackedTextureData[t].Texture = PackedTexture;
 		}
 
 		if (!IsValid(PackedTexture) || !PackedTexture->IsInOuter(this) || PackedTexture->GetFName() != TextureName)
@@ -70,7 +70,7 @@ void UTextureSet::UpdateCookedTextures()
 			DuplicateParams.bSkipPostLoad = true;
 			PackedTexture = Cast<UTexture>(StaticDuplicateObjectEx(DuplicateParams));
 			PackedTexture->SetFlags(RF_NoFlags);
-			PackedTextures[t] = PackedTexture;
+			PackedTextureData[t].Texture = PackedTexture;
 		}
 	}
 
@@ -247,6 +247,18 @@ void UTextureSet::UpdateResource()
 	}
 }
 
+const TMap<FName, FVector4> UTextureSet::GetMaterialParameters()
+{
+	TMap<FName, FVector4> CombinedParams;
+
+	for (FPackedTextureData PackedData : PackedTextureData)
+	{
+		CombinedParams.Append(PackedData.MaterialParameters);
+	}
+
+	return CombinedParams;
+}
+
 void UTextureSet::CookImmediate(bool Force)
 {
 	check(!Cooker.IsValid()); // Don't want to mess up another cook in progress
@@ -262,16 +274,18 @@ void UTextureSet::CookImmediate(bool Force)
 	if ((NewTextureSetDataKey != TextureSetDataKey) || Force)
 	{
 		TextureSetDataKey = NewTextureSetDataKey;
-		MaterialParameters.Empty();
 
-		Cooker = MakeUnique<TextureSetCooker>(this, CookProgress);
-		Cooker->Prepare();
-		Cooker->PackAllTextures(MaterialParameters);
-		Cooker.Reset();
+		TextureSetCooker LocalCooker(this, CookProgress);
 
-		for (int32 i = 0; i < PackedTextures.Num(); i++)
+		LocalCooker.Prepare();
+
+		for (int i = 0; i < PackedTextureData.Num(); i++)
 		{
-			PackedTextures[i]->Modify(true);
+			PackedTextureData[i].MaterialParameters.Empty();
+			LocalCooker.PackTexture(i, PackedTextureData[i].MaterialParameters);
+			PackedTextureData[i].Texture->Modify(true);
+
+			PackedTextureData[i].Key = ComputePackedTextureKey(i);
 		}
 
 		UpdateResource();
