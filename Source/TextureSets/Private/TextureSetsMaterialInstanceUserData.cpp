@@ -179,6 +179,15 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 				MaterialInstance->TextureParameterValues.Add(TextureParameter);
 			}
 		}
+
+		// Set any constant parameters what we have
+		for (auto& [Name, Value] : TextureSetOverride.TextureSet->GetMaterialParameters())
+		{
+			FVectorParameterValue Parameter;
+			Parameter.ParameterValue = FLinearColor(Value);
+			Parameter.ParameterInfo.Name = SampleExpression->GetConstantParameterName(Name);
+			MaterialInstance->VectorParameterValues.Add(Parameter);
+		}
 	}
 }
 #endif
