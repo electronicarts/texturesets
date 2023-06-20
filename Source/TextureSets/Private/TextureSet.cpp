@@ -69,12 +69,14 @@ void UTextureSet::UpdateCookedTextures()
 
 		if (!IsValid(PackedTexture) || !PackedTexture->IsInOuter(this) || PackedTexture->GetFName() != TextureName)
 		{
-			// Reset to default
-			FObjectDuplicationParameters DuplicateParams = InitStaticDuplicateObjectParams(Definition->GetDefaultPackedTexture(t), this, TextureName);
-			DuplicateParams.bSkipPostLoad = true;
-			PackedTexture = Cast<UTexture>(StaticDuplicateObjectEx(DuplicateParams));
-			PackedTexture->SetFlags(RF_NoFlags);
+			PackedTexture = NewObject<UTexture2D>(this, TextureName, RF_NoFlags);
 			PackedTextureData[t].Texture = PackedTexture;
+			PackedTextureData[t].MaterialParameters.Empty();
+			PackedTextureData[t].Key = "";
+
+			// Perform a quick cook, filling in default values
+			TextureSetCooker DefaultCooker(this, true);
+			DefaultCooker.PackTexture(t, PackedTextureData[t].MaterialParameters);
 		}
 	}
 

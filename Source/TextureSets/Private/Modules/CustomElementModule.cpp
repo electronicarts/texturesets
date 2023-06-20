@@ -7,7 +7,7 @@
 
 void UCustomElementModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const
 {
-	TextureSetTextureDef TextureDef = TextureSetTextureDef{ ElementName, SRGB, ChannelCount, DefaultValue };
+	TextureSetSourceTextureDef TextureDef = TextureSetSourceTextureDef{ ElementName, SRGB, ChannelCount, DefaultValue };
 	Info.AddSourceTexture(TextureDef);
 	Info.AddProcessedTexture(TextureDef);
 }

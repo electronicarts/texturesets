@@ -2,29 +2,29 @@
 
 #include "TextureSetInfo.h"
 
-void TextureSetDefinitionSharedInfo::AddSourceTexture(const TextureSetTextureDef& Texture)
+void TextureSetDefinitionSharedInfo::AddSourceTexture(const TextureSetSourceTextureDef& Texture)
 {
 	SourceTextures.Add(Texture);
 }
 
-void TextureSetDefinitionSharedInfo::AddProcessedTexture(const TextureSetTextureDef& Texture)
+void TextureSetDefinitionSharedInfo::AddProcessedTexture(const TextureSetProcessedTextureDef& Texture)
 {
 	checkf(!ProcessedTextureIndicies.Contains(Texture.Name), TEXT("Attempting to add processed texture %s twice"), Texture.Name);
 	ProcessedTextureIndicies.Add(Texture.Name, ProcessedTextures.Num());
 	ProcessedTextures.Add(Texture);
 }
 
-const TArray<TextureSetTextureDef> TextureSetDefinitionSharedInfo::GetSourceTextures() const
+const TArray<TextureSetSourceTextureDef> TextureSetDefinitionSharedInfo::GetSourceTextures() const
 {
 	return SourceTextures;
 }
 
-const TArray<TextureSetTextureDef> TextureSetDefinitionSharedInfo::GetProcessedTextures() const
+const TArray<TextureSetProcessedTextureDef> TextureSetDefinitionSharedInfo::GetProcessedTextures() const
 {
 	return ProcessedTextures;
 }
 
-const TextureSetTextureDef TextureSetDefinitionSharedInfo::GetProcessedTextureByName(FName Name) const
+const TextureSetProcessedTextureDef TextureSetDefinitionSharedInfo::GetProcessedTextureByName(FName Name) const
 {
 	return ProcessedTextures[ProcessedTextureIndicies.FindChecked(Name)];
 }

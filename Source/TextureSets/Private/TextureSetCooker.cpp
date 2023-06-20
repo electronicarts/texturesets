@@ -15,10 +15,9 @@ int GetPixelIndex(int X, int Y, int Channel, int Width, int Height)
 		+ Channel;
 }
 
-TextureSetCooker::TextureSetCooker(UTextureSet* TS)
+TextureSetCooker::TextureSetCooker(UTextureSet* TS, bool DefaultsOnly)
 	: SharedInfo(TS->Definition->GetSharedInfo())
 	, PackingInfo(TS->Definition->GetPackingInfo())
-
 {
 	TextureSet = TS;
 	Definition = TS->Definition;
@@ -29,9 +28,9 @@ TextureSetCooker::TextureSetCooker(UTextureSet* TS)
 		PackedTextureKeys.Add(TS->ComputePackedTextureKey(i));
 
 	// Fill in source textures so the modules can define processing
-	for (TextureSetTextureDef SourceTextureDef : SharedInfo.GetSourceTextures())
+	for (TextureSetSourceTextureDef SourceTextureDef : SharedInfo.GetSourceTextures())
 	{
-		const TObjectPtr<UTexture>* SourceTexturePtr = TextureSet->SourceTextures.Find(SourceTextureDef.Name);
+		const TObjectPtr<UTexture>* SourceTexturePtr = DefaultsOnly ? nullptr : TextureSet->SourceTextures.Find(SourceTextureDef.Name);
 		if (SourceTexturePtr && SourceTexturePtr->Get())
 		{
 			TSharedRef<FImageWrapper> ImageWrapper = MakeShared<FImageWrapper>(SourceTexturePtr->Get());

@@ -9,7 +9,7 @@ void UTextureSetElementCollection::BuildSharedInfo(TextureSetDefinitionSharedInf
 {
 	for (const FElementDefinition& Element: Elements)
 	{
-		TextureSetTextureDef TextureDef;
+		TextureSetSourceTextureDef TextureDef;
 		TextureDef.Name = Element.ElementName;
 		TextureDef.SRGB = Element.SRGB;
 		TextureDef.ChannelCount = Element.ChannelCount;

@@ -8,6 +8,7 @@
 #include "TextureSetDefinition.generated.h"
 
 class UMaterialExpressionTextureSetSampleParameter;
+class UTextureSet;
 class UTextureSetModule;
 class UTextureSetAssetParams;
 class UTextureSetSampleParams;
@@ -45,7 +46,7 @@ public:
 	TArray<TSubclassOf<UTextureSetSampleParams>> GetRequiredSampleParamClasses() const;
 
 	// Get the default packed texture for a specific packed texture index
-	UTexture* GetDefaultPackedTexture(int index) const;
+	UTexture* GetDefaultPackedTexture(int Index);
 
 	int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
 #if WITH_EDITOR
@@ -62,8 +63,8 @@ private:
 	UPROPERTY(EditAnywhere, meta=(TitleProperty="CompressionSettings"))
 	TArray<FTextureSetPackedTextureDef> PackedTextures;
 
-	UPROPERTY(VisibleAnywhere, DuplicateTransient)
-	TArray<UTexture*> DefaultTextures;
+	UPROPERTY(VisibleAnywhere)
+	UTextureSet* DefaultTextureSet;
 
 #if WITH_EDITOR
 	void UpdateDefaultTextures();

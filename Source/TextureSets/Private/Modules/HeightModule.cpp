@@ -8,7 +8,7 @@
 
 void UHeightModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const
 {
-	TextureSetTextureDef HeightDef = {"Height", false, 1, FVector4(1, 0, 0, 0)};
+	TextureSetSourceTextureDef HeightDef = {"Height", false, 1, FVector4(1, 0, 0, 0)};
 
 	Info.AddSourceTexture(HeightDef);
 	Info.AddProcessedTexture(HeightDef);

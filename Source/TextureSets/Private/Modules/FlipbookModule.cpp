@@ -8,7 +8,7 @@ void UFlipbookModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) cons
 {
 	if (bUseMotionVectors)
 	{
-		Info.AddSourceTexture(TextureSetTextureDef{"MotionVector", false, 2, FVector4(0.5, 0.5, 0, 0)});
+		Info.AddSourceTexture(TextureSetSourceTextureDef{"MotionVector", false, 2, FVector4(0.5, 0.5, 0, 0)});
 	}
 }
 

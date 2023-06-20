@@ -14,7 +14,7 @@ class TextureSetCooker
 {
 public:
 
-	TextureSetCooker(UTextureSet* TS);
+	TextureSetCooker(UTextureSet* TS, bool DefaultsOnly = false);
 
 	// Called for each packed texture of a texture set, can execute in parallel.
 	void PackTexture(int Index, TMap<FName, FVector4>& MaterialParams) const;

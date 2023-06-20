@@ -5,13 +5,19 @@
 #include "CoreMinimal.h"
 #include "TextureSetPackedTextureDef.h"
 
-// A texture map input
-struct TextureSetTextureDef
+// Processed texture map ready for packing
+struct TextureSetProcessedTextureDef
 {
 public:
 	FName Name;
 	bool SRGB; // Used for correct packing and sampling
 	uint8 ChannelCount; // between 1 and 4
+};
+
+// A texture map input
+struct TextureSetSourceTextureDef : public TextureSetProcessedTextureDef
+{
+public:
 	FVector4 DefaultValue; // Used as a fallback if this map is not provided
 };
 
@@ -22,18 +28,18 @@ struct TextureSetDefinitionSharedInfo
 public:
 	virtual ~TextureSetDefinitionSharedInfo() {}
 
-	void AddSourceTexture(const TextureSetTextureDef& Texture);
-	void AddProcessedTexture(const TextureSetTextureDef& Texture);
+	void AddSourceTexture(const TextureSetSourceTextureDef& Texture);
+	void AddProcessedTexture(const TextureSetProcessedTextureDef& Texture);
 
-	const TArray<TextureSetTextureDef> GetSourceTextures() const;
-	const TArray<TextureSetTextureDef> GetProcessedTextures() const;
-	const TextureSetTextureDef GetProcessedTextureByName(FName Name) const;
+	const TArray<TextureSetSourceTextureDef> GetSourceTextures() const;
+	const TArray<TextureSetProcessedTextureDef> GetProcessedTextures() const;
+	const TextureSetProcessedTextureDef GetProcessedTextureByName(FName Name) const;
 
 private:
 	// Input texture maps which are to be processed
-	TArray<TextureSetTextureDef> SourceTextures;
+	TArray<TextureSetSourceTextureDef> SourceTextures;
 	// Processed texture maps which are to be packed
-	TArray<TextureSetTextureDef> ProcessedTextures;
+	TArray<TextureSetProcessedTextureDef> ProcessedTextures;
 	TMap<FName, int> ProcessedTextureIndicies;
 };
 
@@ -56,7 +62,6 @@ public:
 		TextureSetPackedChannelInfo ChannelInfo[4];
 		int ChannelCount;
 		bool AllowHardwareSRGB;
-		FVector4 DefaultValue;
 		FName RangeCompressMulName;
 		FName RangeCompressAddName;
 	};

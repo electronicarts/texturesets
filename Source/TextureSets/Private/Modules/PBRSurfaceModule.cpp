@@ -18,13 +18,13 @@
 
 void UPBRSurfaceModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const
 {
-	static const TextureSetTextureDef MetalDef {MetalName, false, 1, FVector4(0, 0, 0, 0)};
-	static const TextureSetTextureDef BaseColorDef {BaseColorName, true, 3, FVector4(0.5, 0.5, 0.5, 0)};
-	static const TextureSetTextureDef AlbedoDef {AlbedoName, true, 3, FVector4(0.5, 0.5, 0.5, 0)};
-	static const TextureSetTextureDef SpecularDef {SpecularName, true, 3, FVector4(0, 0, 0, 0)};
-	static const TextureSetTextureDef RoughnessDef {RoughnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)};
-	static const TextureSetTextureDef SmoothnessDef {SmoothnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)};
-	static const TextureSetTextureDef TangentNormalDef {TangentNormalName, false, 2, FVector4(0.5, 0.5, 1, 0)};
+	static const TextureSetSourceTextureDef MetalDef {MetalName, false, 1, FVector4(0, 0, 0, 0)};
+	static const TextureSetSourceTextureDef BaseColorDef {BaseColorName, true, 3, FVector4(0.5, 0.5, 0.5, 0)};
+	static const TextureSetSourceTextureDef AlbedoDef {AlbedoName, true, 3, FVector4(0.5, 0.5, 0.5, 0)};
+	static const TextureSetSourceTextureDef SpecularDef {SpecularName, true, 3, FVector4(0, 0, 0, 0)};
+	static const TextureSetSourceTextureDef RoughnessDef {RoughnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)};
+	static const TextureSetSourceTextureDef SmoothnessDef {SmoothnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)};
+	static const TextureSetSourceTextureDef TangentNormalDef {TangentNormalName, false, 2, FVector4(0.5, 0.5, 1, 0)};
 
 	switch (Paramaterization)
 	{
