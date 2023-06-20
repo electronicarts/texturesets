@@ -136,17 +136,22 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 	}
 
 	// sRGB if possible
-	PackedTexture->SRGB = TextureDef.GetHardwareSRGBEnabled() && TextureInfo.AllowHardwareSRGB;
+	PackedTexture->SRGB = TextureInfo.HardwareSRGB;
+
+	// Let the texture compression know if we don't need the alpha channel
+	PackedTexture->CompressionNoAlpha = TextureInfo.ChannelCount <= 3;
 
 	// Range compression
-	// Note: Range compression is not compatible with sRGB, and sRGB is preferred.
-	if (TextureDef.bDoRangeCompression && !PackedTexture->SRGB)
+	if (TextureDef.bDoRangeCompression)
 	{
 		FVector4 RestoreMul = FVector4::One();
 		FVector4 RestoreAdd = FVector4::Zero();
 
 		for (int c = 0; c < TextureInfo.ChannelCount; c++)
 		{
+			if (TextureInfo.ChannelInfo[c].ChannelEncoding != TextureSetPackingInfo::EChannelEncoding::Linear_RangeCompressed)
+				continue;
+
 			const float Min = MinPixelValues[c];
 			const float Max = MaxPixelValues[c];
 
@@ -166,10 +171,10 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 			RestoreMul[c] = 1.0f / (Max - Min);
 			RestoreAdd[c] = Min;
 		}
-
 		MaterialParams.Add(TextureInfo.RangeCompressMulName, RestoreMul);
 		MaterialParams.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
 	}
+
 	PackedTexture->Source.UnlockMip(0);
 }
 

@@ -49,11 +49,19 @@ struct TextureSetPackingInfo
 	friend class UTextureSetDefinition;
 public:
 
+	enum class EChannelEncoding
+	{
+		Linear_Raw,
+		Linear_RangeCompressed,
+		SRGB
+	};
+
 	struct TextureSetPackedChannelInfo
 	{
 	public:
 		FName ProcessedTexture;
 		int ProessedTextureChannel;
+		EChannelEncoding ChannelEncoding;
 	};
 
 	struct TextureSetPackedTextureInfo
@@ -61,7 +69,7 @@ public:
 	public:
 		TextureSetPackedChannelInfo ChannelInfo[4];
 		int ChannelCount;
-		bool AllowHardwareSRGB;
+		bool HardwareSRGB;
 		FName RangeCompressMulName;
 		FName RangeCompressAddName;
 	};

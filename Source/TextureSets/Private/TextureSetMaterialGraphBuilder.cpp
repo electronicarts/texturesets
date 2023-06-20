@@ -173,32 +173,52 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 	CustomExp->Inputs.Add({"Texcoord"});
 	CustomExp->Inputs.Add({"Tex"});
 
-	CustomExp->Code = "float4 Sample = Tex.Sample(TexSampler, Texcoord).rgba;\n";
+	static const FString ChannelSuffixLower[4] {"r", "g", "b", "a"};
+	static const FString ChannelSuffixUpper[4] {"R", "G", "B", "A"};
 
-	// TODO: sRGB when hardware sRGB has not been used.
+	// Do the sample and set in the correct size of float for how many channels we have
+	CustomExp->Code = "float" + FString::FromInt(TextureInfo.ChannelCount) + " Sample = Tex.Sample(TexSampler, Texcoord).";
+	
+	for (int c = 0; c < TextureInfo.ChannelCount; c++)
+		CustomExp->Code += ChannelSuffixLower[c];
+
+	CustomExp->Code += ";\n";
 
 	int RangeCompressMulInput = 0;
 	int RangeCompressAddInput = 0;
 
-	if (TextureDef.bDoRangeCompression)
+	// Process each channel
+	for (int c = 0; c < TextureInfo.ChannelCount; c++)
 	{
-		RangeCompressMulInput = CustomExp->Inputs.Num();
-		CustomExp->Inputs.Add({"RangeCompressMul"});
-		RangeCompressAddInput = CustomExp->Inputs.Num();
-		CustomExp->Inputs.Add({"RangeCompressAdd"});
+		TArray<FStringFormatArg> FormatArgs = {ChannelSuffixLower[c], ChannelSuffixUpper[c]};
 
-		CustomExp->Code += "Sample = Sample * RangeCompressMul + RangeCompressAdd;\n";
+		// Decode channel based on which encoding it uses
+		if (TextureInfo.ChannelInfo[c].ChannelEncoding == TextureSetPackingInfo::EChannelEncoding::Linear_RangeCompressed)
+		{
+			if (RangeCompressMulInput == 0)
+			{
+				RangeCompressMulInput = CustomExp->Inputs.Num();
+				CustomExp->Inputs.Add({"RangeCompressMul"});
+				RangeCompressAddInput = CustomExp->Inputs.Num();
+				CustomExp->Inputs.Add({"RangeCompressAdd"});
+			}
+
+			CustomExp->Code += FString::Format(TEXT("Sample.{0} = Sample.{0} * RangeCompressMul.{0} + RangeCompressAdd.{0};\n"), FormatArgs);
+		}
+		else if (TextureInfo.ChannelInfo[c].ChannelEncoding == TextureSetPackingInfo::EChannelEncoding::SRGB && (!TextureInfo.HardwareSRGB || c >= 4))
+		{
+			// Need to do sRGB decompression in the shader
+			CustomExp->Code += FString::Format(TEXT("Sample.{0} = pow(Sample.{0}, 2.2f);\n"), FormatArgs);
+		}
+
+		// Add an output pin for this channel
+		CustomExp->AdditionalOutputs.Add(FCustomOutput({FName(ChannelSuffixUpper[c]), ECustomMaterialOutputType::CMOT_Float1}));
+		CustomExp->Code += FString::Format(TEXT("{1} = Sample.{0};\n"), FormatArgs);
 	}
-	
-	CustomExp->AdditionalOutputs.Add(FCustomOutput({"R", ECustomMaterialOutputType::CMOT_Float1}));
-	CustomExp->Code += "R = Sample.r;\n";
-	CustomExp->AdditionalOutputs.Add(FCustomOutput({"G", ECustomMaterialOutputType::CMOT_Float1}));
-	CustomExp->Code += "G = Sample.g;\n";
-	CustomExp->AdditionalOutputs.Add(FCustomOutput({"B", ECustomMaterialOutputType::CMOT_Float1}));
-	CustomExp->Code += "B = Sample.b;\n";
-	CustomExp->AdditionalOutputs.Add(FCustomOutput({"A", ECustomMaterialOutputType::CMOT_Float1}));
-	CustomExp->Code += "A = Sample.a;\n";
-	CustomExp->OutputType = CMOT_Float4;
+
+	// Return the correct output type
+	static const ECustomMaterialOutputType OutputTypes[4] {CMOT_Float1, CMOT_Float2, CMOT_Float3, CMOT_Float4};
+	CustomExp->OutputType = OutputTypes[TextureInfo.ChannelCount - 1];
 	CustomExp->Code += "return Sample;";
 
 	CustomExp->RebuildOutputs();
@@ -206,7 +226,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 	TextureStreamingDef->ConnectExpression(CustomExp->GetInput(0), 0);
 	TextureObject->ConnectExpression(CustomExp->GetInput(1), 0);
 
-	if (TextureDef.bDoRangeCompression)
+	if (RangeCompressMulInput != 0)
 	{
 		ConstantParameters.FindChecked(TextureInfo.RangeCompressMulName)->ConnectExpression(CustomExp->GetInput(RangeCompressMulInput), 0);
 		ConstantParameters.FindChecked(TextureInfo.RangeCompressAddName)->ConnectExpression(CustomExp->GetInput(RangeCompressAddInput), 0);

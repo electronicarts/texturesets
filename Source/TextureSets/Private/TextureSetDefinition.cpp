@@ -147,10 +147,10 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 	{
 		const FTextureSetPackedTextureDef& TextureDef = PackedTextures[i];
 		TextureSetPackingInfo::TextureSetPackedTextureInfo TextureInfo;
-		TextureInfo.AllowHardwareSRGB = true;
 
 		TArray<FName> SourceNames = TextureDef.GetSources();
 		TextureInfo.ChannelCount = SourceNames.Num();
+		TextureInfo.HardwareSRGB = TextureDef.GetHardwareSRGBEnabled();
 
 		for (int c = 0; c < TextureInfo.ChannelCount; c++)
 		{
@@ -175,8 +175,21 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 
 			TextureInfo.ChannelInfo[c].ProcessedTexture = SourceTexName;
 			TextureInfo.ChannelInfo[c].ProessedTextureChannel = SourceChannel;
-			if (!Processed.SRGB && c < 3)
-				TextureInfo.AllowHardwareSRGB = false; // If we have any non-sRGB textures in R, G, or B, then we can't use hardware SRGB.
+
+			if (Processed.SRGB)
+			{
+				TextureInfo.ChannelInfo[c].ChannelEncoding = TextureSetPackingInfo::EChannelEncoding::SRGB;
+			}
+			else
+			{
+				if (c < 3)
+					TextureInfo.HardwareSRGB = false; // If we have any non-sRGB textures in R, G, or B, then we can't use hardware SRGB.
+
+				if (TextureDef.bDoRangeCompression)
+					TextureInfo.ChannelInfo[c].ChannelEncoding = TextureSetPackingInfo::EChannelEncoding::Linear_RangeCompressed;
+				else
+					TextureInfo.ChannelInfo[c].ChannelEncoding = TextureSetPackingInfo::EChannelEncoding::Linear_Raw;
+			}
 		}
 
 		TextureInfo.RangeCompressMulName = FName("RangeCompress_" + FString::FromInt(i) + "_Mul");
