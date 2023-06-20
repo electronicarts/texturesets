@@ -265,7 +265,6 @@ const TMap<FName, FVector4> UTextureSet::GetMaterialParameters()
 
 void UTextureSet::CookImmediate(bool Force)
 {
-	check(!Cooker.IsValid()); // Don't want to mess up another cook in progress
 	check(IsValid(Definition));
 
 	UpdateCookedTextures();

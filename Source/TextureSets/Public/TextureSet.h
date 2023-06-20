@@ -102,8 +102,6 @@ public:
 	UPROPERTY(AdvancedDisplay, VisibleAnywhere)
 	FString TextureSetDataKey;
 
-	TUniquePtr<TextureSetCooker> Cooker;
-
 	int GetNumPackedTextures() const { return PackedTextureData.Num(); }
 	UTexture* GetPackedTexture(int Index) const { return PackedTextureData[Index].Texture; }
 
