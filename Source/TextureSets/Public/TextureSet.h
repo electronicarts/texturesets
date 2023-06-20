@@ -66,7 +66,11 @@ public:
 
 	void FixupData();
 
-	FString ComputeTextureSetDataKey();
+	// Compute the hash key for a specific hashed texture.
+	FString ComputePackedTextureKey(int PackedTextureDefIndex) const;
+
+	// Compute the hash key for the entire texture set (including all hashed textures)
+	FString ComputeTextureSetDataKey() const;
 
 	void CookImmediate(bool Force);
 
@@ -93,7 +97,6 @@ private:
 
 	void UpdateCookedTextures();
 	void ProcessCookedTexture();
-	FString ComputePackedTextureKey(int PackedTextureDefIndex);
 
 	UPROPERTY(AdvancedDisplay, EditAnywhere) // Temp EditAnywhere, for testing
 	TArray<TObjectPtr<UTexture>> PackedTextures;

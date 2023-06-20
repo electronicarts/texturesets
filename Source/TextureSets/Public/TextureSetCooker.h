@@ -26,6 +26,9 @@ public:
 
 	void PackAllTextures(TMap<FName, FVector4>& MaterialParams) const;
 
+	bool IsOutOfDate() const;
+	bool IsOutOfDate(int PackedTextureIndex) const;
+
 private:
 	bool IsPrepared;
 
@@ -39,6 +42,9 @@ private:
 	
 	const TextureSetDefinitionSharedInfo SharedInfo;
 	const TextureSetPackingInfo PackingInfo;
+
+	FString TextureSetDataKey;
+	TArray<FString> PackedTextureKeys;
 
 	void ReportProgress() const
 	{

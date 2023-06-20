@@ -29,6 +29,11 @@ TextureSetCooker::TextureSetCooker(UTextureSet* TS, FOnTextureSetCookerReportPro
 		SharedInfo.GetSourceTextures().Num() +
 		PackingInfo.NumPackedTextures() * (2 + 4)
 		);
+
+	TextureSetDataKey = TS->ComputeTextureSetDataKey();
+
+	for (int i = 0; i < TS->GetNumPackedTextures(); i++)
+		PackedTextureKeys.Add(TS->ComputePackedTextureKey(i));
 }
 
 void TextureSetCooker::Prepare()
@@ -200,4 +205,17 @@ void TextureSetCooker::PackAllTextures(TMap<FName, FVector4>& MaterialParams) co
 	{
 		PackTexture(i, MaterialParams);
 	}
+}
+
+bool TextureSetCooker::IsOutOfDate() const
+{
+	return TextureSet->ComputeTextureSetDataKey() != TextureSetDataKey;
+}
+
+bool TextureSetCooker::IsOutOfDate(int PackedTextureIndex) const
+{
+	if (PackedTextureIndex >= PackedTextureKeys.Num())
+		return true;
+
+	return TextureSet->ComputePackedTextureKey(PackedTextureIndex) != PackedTextureKeys[PackedTextureIndex];
 }

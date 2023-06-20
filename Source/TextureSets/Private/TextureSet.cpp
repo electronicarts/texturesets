@@ -177,7 +177,7 @@ void UTextureSet::FixupData()
 #endif
 }
 
-FString UTextureSet::ComputePackedTextureKey(int PackedTextureIndex)
+FString UTextureSet::ComputePackedTextureKey(int PackedTextureIndex) const
 {
 	check(IsValid(Definition));
 
@@ -213,7 +213,7 @@ FString UTextureSet::ComputePackedTextureKey(int PackedTextureIndex)
 	return PackedTextureDataKey;
 }
 
-FString UTextureSet::ComputeTextureSetDataKey()
+FString UTextureSet::ComputeTextureSetDataKey() const
 {
 	if (!IsValid(Definition))
 		return "TEXTURE_SET_INVALID_DEFINITION";
