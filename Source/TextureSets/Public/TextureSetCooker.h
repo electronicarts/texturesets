@@ -10,13 +10,11 @@
 
 class UTextureSet;
 
-DECLARE_DELEGATE_OneParam(FOnTextureSetCookerReportProgress, float)
-
 class TextureSetCooker
 {
 public:
 
-	TextureSetCooker(UTextureSet* TS, FOnTextureSetCookerReportProgress Report = nullptr);
+	TextureSetCooker(UTextureSet* TS);
 
 	// Called for each packed texture of a texture set, can execute in parallel.
 	void PackTexture(int Index, TMap<FName, FVector4>& MaterialParams) const;
@@ -29,9 +27,6 @@ private:
 	const UTextureSet* TextureSet;
 	const UTextureSetDefinition* Definition;
 
-	const FOnTextureSetCookerReportProgress ReportProgressDelegate;
-	float ProgressStepSize;
-
 	FTextureSetProcessingContext Context;
 	
 	const TextureSetDefinitionSharedInfo SharedInfo;
@@ -39,10 +34,5 @@ private:
 
 	FString TextureSetDataKey;
 	TArray<FString> PackedTextureKeys;
-
-	void ReportProgress() const
-	{
-		ReportProgressDelegate.ExecuteIfBound(ProgressStepSize);
-	}
 };
 

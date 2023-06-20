@@ -15,19 +15,13 @@ int GetPixelIndex(int X, int Y, int Channel, int Width, int Height)
 		+ Channel;
 }
 
-TextureSetCooker::TextureSetCooker(UTextureSet* TS, FOnTextureSetCookerReportProgress Report)
-	: ReportProgressDelegate(Report)
-	, SharedInfo(TS->Definition->GetSharedInfo())
+TextureSetCooker::TextureSetCooker(UTextureSet* TS)
+	: SharedInfo(TS->Definition->GetSharedInfo())
 	, PackingInfo(TS->Definition->GetPackingInfo())
 
 {
 	TextureSet = TS;
 	Definition = TS->Definition;
-
-	ProgressStepSize = 1.0f / (
-		SharedInfo.GetSourceTextures().Num() +
-		PackingInfo.NumPackedTextures() * (2 + 4)
-		);
 
 	TextureSetDataKey = TS->ComputeTextureSetDataKey();
 
@@ -49,7 +43,6 @@ TextureSetCooker::TextureSetCooker(UTextureSet* TS, FOnTextureSetCookerReportPro
 			TSharedRef<FDefaultTexture> DefaultTexture = MakeShared<FDefaultTexture>(SourceTextureDef.DefaultValue, SourceTextureDef.ChannelCount);
 			Context.SourceTextures.Add( SourceTextureDef.Name, DefaultTexture);
 		}
-		ReportProgress();
 	}
 
 	// Modules fill in the processed textures
@@ -90,8 +83,6 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 	PackedTexture->Source.Init(Width, Height, 1, 1, TSF_RGBA16F);
 
 	FFloat16* PixelsValues = (FFloat16*)PackedTexture->Source.LockMip(0);
-
-	ReportProgress();
 
 	float MaxPixelValues[4] {};
 	float MinPixelValues[4] {};
@@ -143,7 +134,6 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 				}
 			}
 		}
-		ReportProgress();
 	}
 
 	// sRGB if possible
@@ -182,7 +172,6 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 		MaterialParams.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
 	}
 	PackedTexture->Source.UnlockMip(0);
-	ReportProgress();
 }
 
 bool TextureSetCooker::IsOutOfDate() const

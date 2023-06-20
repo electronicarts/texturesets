@@ -11,7 +11,11 @@
 #include "ImageUtils.h"
 #include "Misc/ScopedSlowTask.h"
 
-#define REQUIRE_MANUAL_COOK
+static TAutoConsoleVariable<int32> CVarTextureSetParallelCook(
+	TEXT("r.TextureSet.ParallelCook"),
+	1,
+	TEXT("Execute the texture cooking across multiple threads in parallel when possible"),
+	ECVF_Default);
 
 #define LOCTEXT_NAMESPACE "TextureSet"
 
@@ -264,27 +268,24 @@ void UTextureSet::CookImmediate(bool Force)
 	check(!Cooker.IsValid()); // Don't want to mess up another cook in progress
 	check(IsValid(Definition));
 
-	FScopedSlowTask CookTask(1.0f, LOCTEXT("CookingTextureSet", "Cooking Texture Set..."));
-	CookTask.MakeDialog();
-
-	FOnTextureSetCookerReportProgress CookProgress = FOnTextureSetCookerReportProgress::CreateLambda([&CookTask](float f) { CookTask.EnterProgressFrame(f); });
-
 	UpdateCookedTextures();
 	FString NewTextureSetDataKey = ComputeTextureSetDataKey();
 	if ((NewTextureSetDataKey != TextureSetDataKey) || Force)
 	{
 		TextureSetDataKey = NewTextureSetDataKey;
 
-		TextureSetCooker LocalCooker(this, CookProgress);
+		TextureSetCooker LocalCooker(this);
 
-		for (int i = 0; i < PackedTextureData.Num(); i++)
+		ParallelFor(PackedTextureData.Num(), [this, LocalCooker](int32 i)
 		{
+			PackedTextureData[i].Key = ComputePackedTextureKey(i);
 			PackedTextureData[i].MaterialParameters.Empty();
 			LocalCooker.PackTexture(i, PackedTextureData[i].MaterialParameters);
-			PackedTextureData[i].Texture->Modify(true);
 
-			PackedTextureData[i].Key = ComputePackedTextureKey(i);
-		}
+		}, CVarTextureSetParallelCook.GetValueOnAnyThread() ? EParallelForFlags::None : EParallelForFlags::ForceSingleThread);
+
+		for (int i = 0; i < PackedTextureData.Num(); i++)
+			PackedTextureData[i].Texture->Modify(true);
 
 		UpdateResource();
 	}
