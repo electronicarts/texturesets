@@ -9,6 +9,8 @@ class ITextureSetTexture
 public:
 	virtual ~ITextureSetTexture() {}
 
+	virtual void Initialize() = 0;
+
 	virtual int GetWidth() const = 0;
 	virtual int GetHeight() const = 0;
 	virtual int GetChannels() const = 0;

@@ -277,8 +277,6 @@ void UTextureSet::CookImmediate(bool Force)
 
 		TextureSetCooker LocalCooker(this, CookProgress);
 
-		LocalCooker.Prepare();
-
 		for (int i = 0; i < PackedTextureData.Num(); i++)
 		{
 			PackedTextureData[i].MaterialParameters.Empty();

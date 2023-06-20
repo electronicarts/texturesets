@@ -18,19 +18,13 @@ public:
 
 	TextureSetCooker(UTextureSet* TS, FOnTextureSetCookerReportProgress Report = nullptr);
 
-	// Called once on a texture-set before packing
-	void Prepare();
-
 	// Called for each packed texture of a texture set, can execute in parallel.
 	void PackTexture(int Index, TMap<FName, FVector4>& MaterialParams) const;
-
-	void PackAllTextures(TMap<FName, FVector4>& MaterialParams) const;
 
 	bool IsOutOfDate() const;
 	bool IsOutOfDate(int PackedTextureIndex) const;
 
 private:
-	bool IsPrepared;
 
 	const UTextureSet* TextureSet;
 	const UTextureSetDefinition* Definition;

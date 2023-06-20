@@ -1,12 +1,25 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#include "Textures/ImageWrapper.h"
+#include "Textures/TextureWrapper.h"
 
-FImageWrapper::FImageWrapper(const FImage& I, int Encoding)
+FImageWrapper::FImageWrapper(UTexture* T)
+	: Initialized(false)
+	, Texture(T)
 {
-	I.Linearize(Encoding, Image);
 
-	switch (I.Format)
+}
+
+void FImageWrapper::Initialize()
+{
+	FScopeLock Lock(&InitializeCS);
+
+	if (Initialized)
+		return;
+
+	FImage RawImage;
+	Texture->Source.GetMipImage(RawImage, 0, 0, 0);
+
+	switch (RawImage.Format)
 	{
 	case ERawImageFormat::G8:
 	case ERawImageFormat::G16:
@@ -24,6 +37,10 @@ FImageWrapper::FImageWrapper(const FImage& I, int Encoding)
 	default:
 		unimplemented();
 	}
+
+	RawImage.Linearize((int)Texture->SourceColorSettings.EncodingOverride, Image);
+
+	Initialized = true;
 }
 
 float FImageWrapper::GetPixel(int X, int Y, int Channel) const

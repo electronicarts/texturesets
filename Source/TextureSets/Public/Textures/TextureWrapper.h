@@ -6,14 +6,19 @@
 #include "ImageCore.h"
 #include "ITextureSetTexture.h"
 
-// These are just here temporarily
+// TODO: Rename to FTextureWrapper
 class FImageWrapper : public ITextureSetTexture
 {
 public:
-	FImageWrapper(const FImage& I, int Encoding);
+	FImageWrapper(UTexture* Texture);
 
+	mutable FCriticalSection InitializeCS;
+	bool Initialized;
+	UTexture* Texture;
 	FImage Image;
 	int ValidChannels;
+
+	virtual void Initialize();
 
 	virtual int GetWidth() const override { return Image.GetWidth(); }
 	virtual int GetHeight() const override { return Image.GetHeight(); }

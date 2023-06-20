@@ -13,6 +13,8 @@ public:
 		, Channels(Chan)
 	{}
 
+	virtual void Initialize() {};
+
 	virtual int GetWidth() const override { return 4; }
 	virtual int GetHeight() const override { return 4; }
 	virtual int GetChannels() const override{ return Channels; }

@@ -4,7 +4,7 @@
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetModule.h"
-#include "Textures/ImageWrapper.h"
+#include "Textures/TextureWrapper.h"
 #include "Textures/DefaultTexture.h"
 #include "Textures/TextureOperatorEnlarge.h"
 
@@ -16,8 +16,7 @@ int GetPixelIndex(int X, int Y, int Channel, int Width, int Height)
 }
 
 TextureSetCooker::TextureSetCooker(UTextureSet* TS, FOnTextureSetCookerReportProgress Report)
-	: IsPrepared (false)
-	, ReportProgressDelegate(Report)
+	: ReportProgressDelegate(Report)
 	, SharedInfo(TS->Definition->GetSharedInfo())
 	, PackingInfo(TS->Definition->GetPackingInfo())
 
@@ -34,32 +33,21 @@ TextureSetCooker::TextureSetCooker(UTextureSet* TS, FOnTextureSetCookerReportPro
 
 	for (int i = 0; i < TS->GetNumPackedTextures(); i++)
 		PackedTextureKeys.Add(TS->ComputePackedTextureKey(i));
-}
-
-void TextureSetCooker::Prepare()
-{
-	check(!IsPrepared);
 
 	// Fill in source textures so the modules can define processing
-	// TODO: Execute in parallel for
 	for (TextureSetTextureDef SourceTextureDef : SharedInfo.GetSourceTextures())
 	{
 		const TObjectPtr<UTexture>* SourceTexturePtr = TextureSet->SourceTextures.Find(SourceTextureDef.Name);
 		if (SourceTexturePtr && SourceTexturePtr->Get())
 		{
-			// Decode mips and convert to linear for processing
-			UTexture* Tex = SourceTexturePtr->Get();
-			FImage Image;
-			Tex->Source.GetMipImage(Image, 0, 0, 0); // TODO: Make sure this works
-			TSharedRef<FImageWrapper> ImageWrapper = MakeShared<FImageWrapper>(Image, (int)Tex->SourceColorSettings.EncodingOverride);
+			TSharedRef<FImageWrapper> ImageWrapper = MakeShared<FImageWrapper>(SourceTexturePtr->Get());
 			Context.SourceTextures.Add(SourceTextureDef.Name, ImageWrapper);
 		}
 		else
 		{
 			// Sub in a default value if we don't have a source in our texture-set
-			Context.SourceTextures.Add(
-				SourceTextureDef.Name,
-				MakeShared<FDefaultTexture>(SourceTextureDef.DefaultValue, SourceTextureDef.ChannelCount));
+			TSharedRef<FDefaultTexture> DefaultTexture = MakeShared<FDefaultTexture>(SourceTextureDef.DefaultValue, SourceTextureDef.ChannelCount);
+			Context.SourceTextures.Add( SourceTextureDef.Name, DefaultTexture);
 		}
 		ReportProgress();
 	}
@@ -69,15 +57,10 @@ void TextureSetCooker::Prepare()
 	{
 		Module->Process(Context);
 	}
-	
-
-	IsPrepared = true;
 }
 
 void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialParams) const
 {
-	check(IsPrepared);
-
 	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
 	const TextureSetPackingInfo::TextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
 	int Width = 0;
@@ -88,6 +71,9 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 	{
 		const auto& ChanelInfo = TextureInfo.ChannelInfo[c];
 		const TSharedRef<ITextureSetTexture> ProcessedTexture = Context.ProcessedTextures.FindChecked(ChanelInfo.ProcessedTexture);
+
+		ProcessedTexture->Initialize();
+
 		const int ChannelWidth = ProcessedTexture->GetWidth();
 		const int ChannelHeight = ProcessedTexture->GetHeight();
 		const float NewRatio = (float)Width / (float)Height;
@@ -197,14 +183,6 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 	}
 	PackedTexture->Source.UnlockMip(0);
 	ReportProgress();
-}
-
-void TextureSetCooker::PackAllTextures(TMap<FName, FVector4>& MaterialParams) const
-{
-	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
-	{
-		PackTexture(i, MaterialParams);
-	}
 }
 
 bool TextureSetCooker::IsOutOfDate() const
