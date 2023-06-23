@@ -28,7 +28,7 @@ void UTextureSet::PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext)
 	if (ObjectSaveContext.IsCooking())
 		return;
 
-	UpdateTextureData();
+	UpdateDerivedData();
 }
 
 void UTextureSet::PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext)
@@ -39,68 +39,7 @@ void UTextureSet::PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext)
 
 	if (ObjectSaveContext.IsCooking())
 		return;
-
-	UpdateResource();
 #endif
-}
-
-void UTextureSet::UpdateCookedTextures()
-{
-#if WITH_EDITOR	
-	if (!IsValid(Definition))
-		return;
-
-	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
-
-	// Garbage collection will destroy the unused cooked textures when all references from material instance are removed
-	PackedTextureData.SetNum(PackingInfo.NumPackedTextures());
-
-	for (int t = 0; t < PackingInfo.NumPackedTextures(); t++)
-	{
-		UTexture* PackedTexture = GetPackedTexture(t);
-
-		FName TextureName = FName(GetName() + "_CookedTexture_" + FString::FromInt(t));
-
-		if (PackedTexture == nullptr)
-		{
-			PackedTexture = static_cast<UTexture*>(FindObjectWithOuter(this, nullptr, TextureName));
-			PackedTextureData[t].Texture = PackedTexture;
-		}
-
-		if (!IsValid(PackedTexture) || !PackedTexture->IsInOuter(this) || PackedTexture->GetFName() != TextureName)
-		{
-			PackedTexture = NewObject<UTexture2D>(this, TextureName, RF_NoFlags);
-			PackedTextureData[t].Texture = PackedTexture;
-			PackedTextureData[t].MaterialParameters.Empty();
-			PackedTextureData[t].Key = "";
-
-			// Perform a quick cook, filling in default values
-			TextureSetCooker DefaultCooker(this, true);
-			DefaultCooker.PackTexture(t, PackedTextureData[t].MaterialParameters);
-		}
-	}
-
-	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackingInfo.NumPackedTextures(); PackedTextureIndex++)
-	{
-		UTexture* CookedTexture = GetPackedTexture(PackedTextureIndex);
-
-		const FTextureSetPackedTextureDef& Def = PackingInfo.GetPackedTextureDef(PackedTextureIndex);
-
-		bool AnyChanges = false;
-		if (CookedTexture->CompressionSettings != Def.CompressionSettings)
-		{
-			CookedTexture->CompressionSettings = Def.CompressionSettings;
-			AnyChanges = true;
-		}
-
-		if (AnyChanges)
-		{
-			CookedTexture->Modify();
-			CookedTexture->UpdateResource();
-		}
-	}
-
-#endif //WITH_EDITOR
 }
 
 void UTextureSet::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
@@ -118,7 +57,7 @@ void UTextureSet::PostLoad()
 {
 	Super::PostLoad();
 	FixupData();
-	UpdateTextureData();
+	UpdateDerivedData();
 }
 
 #if WITH_EDITOR
@@ -212,9 +151,9 @@ FString UTextureSet::ComputePackedTextureKey(int PackedTextureIndex) const
 		PackedTextureDataKey += Module->GetName() + "<" + FString::FromInt(Module->ComputeProcessingHash()) + ">_";
 	}
 
-	// Tag for debugging, easily force rebuild
-	if (!AssetTag.IsEmpty())
-		PackedTextureDataKey += AssetTag;
+	// Key for debugging, easily force rebuild
+	if (!UserKey.IsEmpty())
+		PackedTextureDataKey += "UserKey<" + UserKey + ">";
 
 	return PackedTextureDataKey;
 }
@@ -236,60 +175,79 @@ FString UTextureSet::ComputeTextureSetDataKey() const
 	return NewTextureSetDataKey;
 }
 
-void UTextureSet::UpdateTextureData()
+void UTextureSet::UpdateDerivedData()
 {
-	// TODO: Async cooking
-	CookImmediate(false);
-}
+	if (!IsValid(Definition))
+	{
+		// If we have no definition, clear our derived data
+		DerivedData = nullptr;
+		return;
+	}
 
-void UTextureSet::UpdateResource()
-{
+	FString NewKey = ComputeTextureSetDataKey();
+	if (IsValid(DerivedData) && NewKey == DerivedData->Key)
+		return; // Hash key is valid, no rebuild required.
+
+	// TODO: Try to retreive derived data from the DDC
+
+
+	// Not found in DDC, create a new derived data set for the key
+	if (!IsValid(DerivedData))
+	{
+		FName DerivedDataName = MakeUniqueObjectName(this, UTextureSetDerivedData::StaticClass(), "DerivedData");
+		DerivedData = NewObject<UTextureSetDerivedData>(this, DerivedDataName, RF_NoFlags);
+	}
+
+	// Update our derived data key
+	DerivedData->Key = NewKey;
+
 	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
 
-	for (int32 PackedTextureIndex = 0; PackedTextureIndex < PackingInfo.NumPackedTextures(); PackedTextureIndex++)
+	// Garbage collection should destroy the unused cooked textures when all references from material instance are removed
+	// TODO: Verify this happens with the RF_Standalone flag set (I'm not sure it will)
+	DerivedData->PackedTextureData.SetNum(PackingInfo.NumPackedTextures());
+
+	for (int t = 0; t < PackingInfo.NumPackedTextures(); t++)
 	{
-		UTexture* CookedTexture = GetPackedTexture(PackedTextureIndex);
-		CookedTexture->UpdateResource();
-	}
-}
+		FPackedTextureData& PackedTextureData = DerivedData->PackedTextureData[t];
 
-const TMap<FName, FVector4> UTextureSet::GetMaterialParameters()
-{
-	TMap<FName, FVector4> CombinedParams;
+		FName TextureName = FName(GetName() + "_CookedTexture_" + FString::FromInt(t));
 
-	for (FPackedTextureData PackedData : PackedTextureData)
-	{
-		CombinedParams.Append(PackedData.MaterialParameters);
-	}
-
-	return CombinedParams;
-}
-
-void UTextureSet::CookImmediate(bool Force)
-{
-	check(IsValid(Definition));
-
-	UpdateCookedTextures();
-	FString NewTextureSetDataKey = ComputeTextureSetDataKey();
-	if ((NewTextureSetDataKey != TextureSetDataKey) || Force)
-	{
-		TextureSetDataKey = NewTextureSetDataKey;
-
-		TextureSetCooker LocalCooker(this);
-
-		ParallelFor(PackedTextureData.Num(), [this, LocalCooker](int32 i)
+		if (PackedTextureData.Texture == nullptr)
 		{
-			PackedTextureData[i].Key = ComputePackedTextureKey(i);
-			PackedTextureData[i].MaterialParameters.Empty();
-			LocalCooker.PackTexture(i, PackedTextureData[i].MaterialParameters);
+			// Try to find an existing texture stored in our package that may have become unreferenced, but still exists.
+			PackedTextureData.Texture = static_cast<UTexture*>(FindObjectWithOuter(this, nullptr, TextureName));
+		}
 
-		}, CVarTextureSetParallelCook.GetValueOnAnyThread() ? EParallelForFlags::None : EParallelForFlags::ForceSingleThread);
+		if (!IsValid(PackedTextureData.Texture) || !PackedTextureData.Texture->IsInOuter(this) || PackedTextureData.Texture->GetFName() != TextureName)
+		{
+			PackedTextureData.Texture = NewObject<UTexture2D>(this, TextureName, RF_NoFlags);
 
-		for (int i = 0; i < PackedTextureData.Num(); i++)
-			PackedTextureData[i].Texture->Modify(true);
-
-		UpdateResource();
+			// Perform a quick cook, filling in default values
+			TextureSetCooker DefaultCooker(this, true);
+			DefaultCooker.PackTexture(t, DerivedData->PackedTextureData[t]);
+		}
 	}
+
+	// Build our textures
+	TextureSetCooker LocalCooker(this);
+
+	const EParallelForFlags ParallelForFlags = CVarTextureSetParallelCook.GetValueOnAnyThread() ? EParallelForFlags::None : EParallelForFlags::ForceSingleThread;
+	ParallelFor(DerivedData->PackedTextureData.Num(), [this, LocalCooker](int32 t)
+	{
+		LocalCooker.PackTexture(t, DerivedData->PackedTextureData[t]);
+
+	}, ParallelForFlags);
+
+	// Make sure we mark the textures as modified so changes are visible
+	for (int i = 0; i < DerivedData->PackedTextureData.Num(); i++)
+	{
+		UTexture* PackedTexture = DerivedData->PackedTextureData[i].Texture;
+		PackedTexture->Modify(true);
+		PackedTexture->UpdateResource();
+	}
+
+	// TODO: Trigger an update of the material instances
 }
 
 #undef LOCTEXT_NAMESPACE

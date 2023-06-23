@@ -155,7 +155,7 @@ void FAssetTypeActions_TextureSet::ExecuteForceReCook(TWeakObjectPtr<UTextureSet
 	TObjectPtr<UTextureSet> TextureSet = Object.Get();
 	if (TextureSet != nullptr)
 	{
-		TextureSet->CookImmediate(true);
+		TextureSet->UpdateDerivedData();
 
 		FEditorDelegates::RefreshEditor.Broadcast();
 		FEditorSupportDelegates::RedrawAllViewports.Broadcast();

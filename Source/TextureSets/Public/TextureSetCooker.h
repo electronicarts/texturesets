@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "TextureSetInfo.h"
 #include "TextureSetModule.h"
+#include "TextureSetDerivedData.h"
 
 //#include "TextureSetCooker.generated.h"
 
@@ -17,7 +18,7 @@ public:
 	TextureSetCooker(UTextureSet* TS, bool DefaultsOnly = false);
 
 	// Called for each packed texture of a texture set, can execute in parallel.
-	void PackTexture(int Index, TMap<FName, FVector4>& MaterialParams) const;
+	void PackTexture(int Index, FPackedTextureData& Data) const;
 
 	bool IsOutOfDate() const;
 	bool IsOutOfDate(int PackedTextureIndex) const;

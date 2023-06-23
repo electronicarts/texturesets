@@ -24,7 +24,7 @@ TextureSetCooker::TextureSetCooker(UTextureSet* TS, bool DefaultsOnly)
 
 	TextureSetDataKey = TS->ComputeTextureSetDataKey();
 
-	for (int i = 0; i < TS->GetNumPackedTextures(); i++)
+	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
 		PackedTextureKeys.Add(TS->ComputePackedTextureKey(i));
 
 	// Fill in source textures so the modules can define processing
@@ -51,8 +51,14 @@ TextureSetCooker::TextureSetCooker(UTextureSet* TS, bool DefaultsOnly)
 	}
 }
 
-void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialParams) const
+void TextureSetCooker::PackTexture(int Index, FPackedTextureData& Data) const
 {
+	check(IsValid(Data.Texture));
+	check(!IsOutOfDate(Index));
+
+	Data.MaterialParameters.Empty();
+	Data.Key = PackedTextureKeys[Index];
+
 	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
 	const TextureSetPackingInfo::TextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
 	int Width = 0;
@@ -78,7 +84,7 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 		Ratio = NewRatio;
 	}
 
-	UTexture2D* PackedTexture = CastChecked<UTexture2D>(TextureSet->GetPackedTexture(Index));
+	UTexture2D* PackedTexture = CastChecked<UTexture2D>(Data.Texture);
 	PackedTexture->Source.Init(Width, Height, 1, 1, TSF_RGBA16F);
 
 	FFloat16* PixelsValues = (FFloat16*)PackedTexture->Source.LockMip(0);
@@ -138,6 +144,9 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 	// sRGB if possible
 	PackedTexture->SRGB = TextureInfo.HardwareSRGB;
 
+	// Make sure the texture's compression settings are correct
+	PackedTexture->CompressionSettings = TextureDef.CompressionSettings;
+
 	// Let the texture compression know if we don't need the alpha channel
 	PackedTexture->CompressionNoAlpha = TextureInfo.ChannelCount <= 3;
 
@@ -171,8 +180,8 @@ void TextureSetCooker::PackTexture(int Index, TMap<FName, FVector4>& MaterialPar
 			RestoreMul[c] = 1.0f / (Max - Min);
 			RestoreAdd[c] = Min;
 		}
-		MaterialParams.Add(TextureInfo.RangeCompressMulName, RestoreMul);
-		MaterialParams.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
+		Data.MaterialParameters.Add(TextureInfo.RangeCompressMulName, RestoreMul);
+		Data.MaterialParameters.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
 	}
 
 	PackedTexture->Source.UnlockMip(0);

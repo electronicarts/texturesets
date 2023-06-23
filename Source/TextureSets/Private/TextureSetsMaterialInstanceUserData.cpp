@@ -166,27 +166,35 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 		if (Definition == nullptr)
 			continue;
 
-		const int NumPackedTextures = Definition->GetPackingInfo().NumPackedTextures();
-
-		// Set the texture parameter for each cooked texture
-		for (int i = 0; i < NumPackedTextures; i++)
-		{
-			if (TextureSetOverride.TextureSet->GetNumPackedTextures() > i)
-			{
-				FTextureParameterValue TextureParameter;
-				TextureParameter.ParameterValue = TextureSetOverride.IsOverridden ? TextureSetOverride.TextureSet->GetPackedTexture(i) : nullptr;
-				TextureParameter.ParameterInfo.Name = SampleExpression->GetTextureParameterName(i);
-				MaterialInstance->TextureParameterValues.Add(TextureParameter);
-			}
-		}
+		const UTextureSetDerivedData* DerivedData = TextureSetOverride.TextureSet->GetDerivedData();
 
 		// Set any constant parameters what we have
-		for (auto& [Name, Value] : TextureSetOverride.TextureSet->GetMaterialParameters())
+		for (auto& [Name, Value] : DerivedData->MaterialParameters)
 		{
 			FVectorParameterValue Parameter;
 			Parameter.ParameterValue = FLinearColor(Value);
 			Parameter.ParameterInfo.Name = SampleExpression->GetConstantParameterName(Name);
 			MaterialInstance->VectorParameterValues.Add(Parameter);
+		}
+
+		for (int i = 0; i < DerivedData->PackedTextureData.Num(); i++)
+		{
+			const FPackedTextureData& PackedTextureData = DerivedData->PackedTextureData[i];
+
+			// Set the texture parameter for each packed texture
+			FTextureParameterValue TextureParameter;
+			TextureParameter.ParameterValue = TextureSetOverride.IsOverridden ? PackedTextureData.Texture : nullptr;
+			TextureParameter.ParameterInfo.Name = SampleExpression->GetTextureParameterName(i);
+			MaterialInstance->TextureParameterValues.Add(TextureParameter);
+
+			// Set any constant parameters that come with this texture
+			for (auto& [Name, Value] : PackedTextureData.MaterialParameters)
+			{
+				FVectorParameterValue Parameter;
+				Parameter.ParameterValue = FLinearColor(Value);
+				Parameter.ParameterInfo.Name = SampleExpression->GetConstantParameterName(Name);
+				MaterialInstance->VectorParameterValues.Add(Parameter);
+			}
 		}
 	}
 }

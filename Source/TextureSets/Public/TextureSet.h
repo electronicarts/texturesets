@@ -8,6 +8,7 @@
 #include "Templates/SharedPointer.h"
 #include "ImageCore.h"
 #include "TextureSetCooker.h"
+#include "TextureSetDerivedData.h"
 
 #include "TextureSet.generated.h"
 
@@ -21,24 +22,6 @@ public:
 		: FImage(InSizeX, InSizeY, InNumSlices, InFormat, InGammaSpace)
 	{
 	}
-};
-
-USTRUCT()
-struct TEXTURESETS_API FPackedTextureData
-{
-	GENERATED_BODY()
-
-public:
-	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<UTexture> Texture;
-
-	// Material parameters that were generated along with this packed texture
-	UPROPERTY(VisibleAnywhere)
-	TMap<FName, FVector4> MaterialParameters;
-
-	// Hashed value computed when this texture was built
-	UPROPERTY(VisibleAnywhere)
-	FString Key;
 };
 
 UCLASS(BlueprintType, hidecategories = (Object))
@@ -82,39 +65,24 @@ public:
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 
-	void FixupData();
-
 	// Compute the hash key for a specific hashed texture.
 	FString ComputePackedTextureKey(int PackedTextureDefIndex) const;
 
 	// Compute the hash key for the entire texture set (including all hashed textures)
 	FString ComputeTextureSetDataKey() const;
 
-	void CookImmediate(bool Force);
+	void UpdateDerivedData();
+	const UTextureSetDerivedData* GetDerivedData() { return DerivedData.Get(); }
 
-	UPROPERTY(Transient, DuplicateTransient)
-	int32 CookedTexturesProcessedBitmask;
+	void FixupData();
 
-	UPROPERTY(EditAnywhere, Category="Debugging")
-	FString AssetTag;
-
-	// Replace FString by FGuid later for better performance, for now, keep FString for easy debugging as key is just plain text
-	UPROPERTY(AdvancedDisplay, VisibleAnywhere)
-	FString TextureSetDataKey;
-
-	int GetNumPackedTextures() const { return PackedTextureData.Num(); }
-	UTexture* GetPackedTexture(int Index) const { return PackedTextureData[Index].Texture; }
-
-	void UpdateTextureData();
-	void UpdateResource();
-
-	const TMap<FName, FVector4> GetMaterialParameters();
+	// For debugging, allow the user to manually change a value that doesn't affect the logic,
+	// but is hashed. Forces a regeneration of the data when a new unique value is entered.
+	UPROPERTY(EditAnywhere, AdvancedDisplay)
+	FString UserKey;
 
 private:
 
-	void UpdateCookedTextures();
-
 	UPROPERTY(AdvancedDisplay, VisibleAnywhere)
-	TArray<FPackedTextureData> PackedTextureData;
-
+	TObjectPtr<UTextureSetDerivedData> DerivedData;
 };

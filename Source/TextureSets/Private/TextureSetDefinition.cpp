@@ -253,7 +253,7 @@ void UTextureSetDefinition::UpdateDefaultTextures()
 		DefaultTextureSet->Definition = this;
 	}
 
-	DefaultTextureSet->UpdateTextureData();
+	DefaultTextureSet->UpdateDerivedData();
 }
 #endif
 
@@ -262,7 +262,7 @@ UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int Index)
 #if WITH_EDITOR
 	UpdateDefaultTextures();
 #endif
-	return DefaultTextureSet->GetPackedTexture(Index);
+	return DefaultTextureSet->GetDerivedData()->PackedTextureData[Index].Texture;
 }
 
 int32 UTextureSetDefinition::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
@@ -325,12 +325,11 @@ void UTextureSetDefinition::UpdateDependentAssets(bool AutoLoad)
 		if (TextureSet != nullptr)
 		{
 			// update texture set and create/destroy cooked textures
-			TextureSet->UpdateTextureData();
-			// mark texture set as mordified
+			TextureSet->UpdateDerivedData();
+			// mark texture set as modified
 			TextureSet->Modify();
 			// broadcast the changes to other editor tabs
 			TextureSet->PostEditChange();
-			TextureSet->UpdateResource();
 		}
 	}
 }
