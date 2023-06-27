@@ -73,6 +73,7 @@ public:
 
 	void UpdateDerivedData();
 	const UTextureSetDerivedData* GetDerivedData() { return DerivedData.Get(); }
+	UTexture* GetDerivedTexture(int Index) { return DerivedTextures[Index]; }
 
 	void FixupData();
 
@@ -85,4 +86,7 @@ private:
 
 	UPROPERTY(AdvancedDisplay, VisibleAnywhere)
 	TObjectPtr<UTextureSetDerivedData> DerivedData;
+
+	UPROPERTY(AdvancedDisplay, VisibleAnywhere)
+	TArray<TObjectPtr<UTexture>> DerivedTextures;
 };

@@ -183,7 +183,7 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 
 			// Set the texture parameter for each packed texture
 			FTextureParameterValue TextureParameter;
-			TextureParameter.ParameterValue = TextureSetOverride.IsOverridden ? PackedTextureData.Texture : nullptr;
+			TextureParameter.ParameterValue = TextureSetOverride.IsOverridden ? TextureSetOverride.TextureSet->GetDerivedTexture(i) : nullptr;
 			TextureParameter.ParameterInfo.Name = SampleExpression->GetTextureParameterName(i);
 			MaterialInstance->TextureParameterValues.Add(TextureParameter);
 

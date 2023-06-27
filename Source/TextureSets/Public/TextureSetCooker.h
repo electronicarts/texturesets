@@ -6,26 +6,37 @@
 #include "TextureSetInfo.h"
 #include "TextureSetModule.h"
 #include "TextureSetDerivedData.h"
-
-//#include "TextureSetCooker.generated.h"
+#if WITH_EDITOR
+#include "DerivedDataPluginInterface.h"
+#endif
 
 class UTextureSet;
 
-class TextureSetCooker
+#if WITH_EDITOR
+
+class TextureSetCooker : public FDerivedDataPluginInterface
 {
 public:
 
 	TextureSetCooker(UTextureSet* TS, bool DefaultsOnly = false);
 
-	// Called for each packed texture of a texture set, can execute in parallel.
-	void PackTexture(int Index, FPackedTextureData& Data) const;
-
 	bool IsOutOfDate() const;
 	bool IsOutOfDate(int PackedTextureIndex) const;
 
-private:
+	// FDerivedDataPluginInterface
+	virtual const TCHAR* GetPluginName() const override;
+	virtual const TCHAR* GetVersionString() const override;
+	virtual FString GetPluginSpecificCacheKeySuffix() const override;
+	virtual bool IsBuildThreadsafe() const override;
+	virtual bool IsDeterministic() const override;
+	virtual FString GetDebugContextString() const override;
+	virtual bool Build(TArray<uint8>& OutData) override;
 
-	const UTextureSet* TextureSet;
+private:
+	// Called for each packed texture of a texture set, can execute in parallel.
+	void PackTexture(int Index, UTexture* Texture, FPackedTextureData& Data) const;
+
+	UTextureSet* TextureSet;
 	const UTextureSetDefinition* Definition;
 
 	FTextureSetProcessingContext Context;
@@ -36,4 +47,4 @@ private:
 	FString TextureSetDataKey;
 	TArray<FString> PackedTextureKeys;
 };
-
+#endif

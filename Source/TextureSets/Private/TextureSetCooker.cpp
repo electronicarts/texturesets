@@ -7,6 +7,16 @@
 #include "Textures/TextureWrapper.h"
 #include "Textures/DefaultTexture.h"
 #include "Textures/TextureOperatorEnlarge.h"
+#include "TextureSetDerivedData.h"
+#if WITH_EDITOR
+#include "DerivedDataBuildVersion.h"
+#endif
+
+static TAutoConsoleVariable<int32> CVarTextureSetParallelCook(
+	TEXT("r.TextureSet.ParallelCook"),
+	1,
+	TEXT("Execute the texture cooking across multiple threads in parallel when possible"),
+	ECVF_Default);
 
 int GetPixelIndex(int X, int Y, int Channel, int Width, int Height)
 {
@@ -51,13 +61,88 @@ TextureSetCooker::TextureSetCooker(UTextureSet* TS, bool DefaultsOnly)
 	}
 }
 
-void TextureSetCooker::PackTexture(int Index, FPackedTextureData& Data) const
+bool TextureSetCooker::IsOutOfDate() const
 {
-	check(IsValid(Data.Texture));
+	return TextureSet->ComputeTextureSetDataKey() != TextureSetDataKey;
+}
+
+bool TextureSetCooker::IsOutOfDate(int PackedTextureIndex) const
+{
+	if (PackedTextureIndex >= PackedTextureKeys.Num())
+		return true;
+
+	return TextureSet->ComputePackedTextureKey(PackedTextureIndex) != PackedTextureKeys[PackedTextureIndex];
+}
+
+const TCHAR* TextureSetCooker::GetPluginName() const
+{
+	return TEXT("TextureSet");
+}
+
+const TCHAR* TextureSetCooker::GetVersionString() const
+{
+	return TEXT("F022E127-9B3D-4D58-9B24-1C7AA5C6AF3B");
+}
+
+FString TextureSetCooker::GetPluginSpecificCacheKeySuffix() const
+{
+	return TextureSetDataKey;
+}
+
+bool TextureSetCooker::IsBuildThreadsafe() const
+{
+	return false; // TODO: Enable this if possible
+}
+
+bool TextureSetCooker::IsDeterministic() const
+{
+	return false; // TODO: Enable this if possible
+}
+
+FString TextureSetCooker::GetDebugContextString() const
+{
+	return TextureSet->GetFullName();
+}
+
+bool TextureSetCooker::Build(TArray<uint8>& OutData)
+{
+	if (IsOutOfDate())
+		return false; // TODO: What are the consequences of this? Do we fail gracefully?
+
+	TObjectPtr<UTextureSetDerivedData> DerivedData = TextureSet->DerivedData;
+
+	if (!IsValid(DerivedData))
+		return false;
+
+	// Update our derived data key
+	DerivedData->Key = TextureSetDataKey;
+
+	DerivedData->PackedTextureData.SetNum(PackingInfo.NumPackedTextures());
+
+	const EParallelForFlags ParallelForFlags = CVarTextureSetParallelCook.GetValueOnAnyThread() ? EParallelForFlags::None : EParallelForFlags::ForceSingleThread;
+	ParallelFor(DerivedData->PackedTextureData.Num(), [this, DerivedData](int32 t)
+	{
+		PackTexture(t, TextureSet->DerivedTextures[t], DerivedData->PackedTextureData[t]);
+
+	}, ParallelForFlags);
+
+	FMemoryWriter MemWriterAr(OutData);
+	DerivedData->Serialize(MemWriterAr);
+
+	return true;
+}
+
+void TextureSetCooker::PackTexture(int Index, UTexture* Texture, FPackedTextureData& Data) const
+{
+	check(IsValid(Texture));
 	check(!IsOutOfDate(Index));
 
 	Data.MaterialParameters.Empty();
 	Data.Key = PackedTextureKeys[Index];
+
+	UE::DerivedData::FBuildVersionBuilder IdBuilder;
+	IdBuilder << Data.Key;
+	Data.Id = IdBuilder.Build();
 
 	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
 	const TextureSetPackingInfo::TextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
@@ -84,7 +169,7 @@ void TextureSetCooker::PackTexture(int Index, FPackedTextureData& Data) const
 		Ratio = NewRatio;
 	}
 
-	UTexture2D* PackedTexture = CastChecked<UTexture2D>(Data.Texture);
+	UTexture2D* PackedTexture = CastChecked<UTexture2D>(Texture);
 	PackedTexture->Source.Init(Width, Height, 1, 1, TSF_RGBA16F);
 
 	FFloat16* PixelsValues = (FFloat16*)PackedTexture->Source.LockMip(0);
@@ -185,17 +270,7 @@ void TextureSetCooker::PackTexture(int Index, FPackedTextureData& Data) const
 	}
 
 	PackedTexture->Source.UnlockMip(0);
-}
-
-bool TextureSetCooker::IsOutOfDate() const
-{
-	return TextureSet->ComputeTextureSetDataKey() != TextureSetDataKey;
-}
-
-bool TextureSetCooker::IsOutOfDate(int PackedTextureIndex) const
-{
-	if (PackedTextureIndex >= PackedTextureKeys.Num())
-		return true;
-
-	return TextureSet->ComputePackedTextureKey(PackedTextureIndex) != PackedTextureKeys[PackedTextureIndex];
+	// Set the ID of the generated source to match the hash ID of this texture.
+	// This will be used to recover the cooked texture data from the DDC.
+	PackedTexture->Source.SetId(Data.Id, true);
 }

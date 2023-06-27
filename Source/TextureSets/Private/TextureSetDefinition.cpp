@@ -262,7 +262,7 @@ UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int Index)
 #if WITH_EDITOR
 	UpdateDefaultTextures();
 #endif
-	return DefaultTextureSet->GetDerivedData()->PackedTextureData[Index].Texture;
+	return DefaultTextureSet->GetDerivedTexture(Index);
 }
 
 int32 UTextureSetDefinition::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)

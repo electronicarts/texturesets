@@ -46,6 +46,7 @@ public:
 	TArray<TSubclassOf<UTextureSetSampleParams>> GetRequiredSampleParamClasses() const;
 
 	// Get the default packed texture for a specific packed texture index
+	int GetNumPackedTexture() const { return PackedTextures.Num(); }
 	UTexture* GetDefaultPackedTexture(int Index);
 
 	int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression);

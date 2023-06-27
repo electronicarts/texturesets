@@ -39,7 +39,8 @@ public class TextureSets : ModuleRules
 				new string[]
 				{
 					"UnrealEd",
-					"GraphEditor"
+					"GraphEditor",
+					"DerivedDataCache", // TODO: Don't think we can have this for runtime builds
 				}
 				);
 		}

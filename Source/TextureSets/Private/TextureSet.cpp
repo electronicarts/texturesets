@@ -10,12 +10,12 @@
 #include "Engine/TextureDefines.h"
 #include "ImageUtils.h"
 #include "Misc/ScopedSlowTask.h"
-
-static TAutoConsoleVariable<int32> CVarTextureSetParallelCook(
-	TEXT("r.TextureSet.ParallelCook"),
-	1,
-	TEXT("Execute the texture cooking across multiple threads in parallel when possible"),
-	ECVF_Default);
+#include "ProfilingDebugging/CookStats.h"
+#include "DerivedDataCacheInterface.h"
+#include "Serialization/MemoryReader.h"
+#if WITH_EDITOR
+#include "DerivedDataBuildVersion.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "TextureSet"
 
@@ -155,7 +155,12 @@ FString UTextureSet::ComputePackedTextureKey(int PackedTextureIndex) const
 	if (!UserKey.IsEmpty())
 		PackedTextureDataKey += "UserKey<" + UserKey + ">";
 
-	return PackedTextureDataKey;
+	UE::DerivedData::FBuildVersionBuilder IdBuilder;
+	IdBuilder << PackedTextureDataKey;
+
+	const FGuid NewID = IdBuilder.Build();
+
+	return NewID.ToString();
 }
 
 FString UTextureSet::ComputeTextureSetDataKey() const
@@ -172,7 +177,12 @@ FString UTextureSet::ComputeTextureSetDataKey() const
 		NewTextureSetDataKey += ComputePackedTextureKey(i);
 	}
 
-	return NewTextureSetDataKey;
+	UE::DerivedData::FBuildVersionBuilder IdBuilder;
+	IdBuilder << NewTextureSetDataKey;
+
+	const FGuid NewID = IdBuilder.Build();
+
+	return NewID.ToString();
 }
 
 void UTextureSet::UpdateDerivedData()
@@ -188,9 +198,6 @@ void UTextureSet::UpdateDerivedData()
 	if (IsValid(DerivedData) && NewKey == DerivedData->Key)
 		return; // Hash key is valid, no rebuild required.
 
-	// TODO: Try to retreive derived data from the DDC
-
-
 	// Not found in DDC, create a new derived data set for the key
 	if (!IsValid(DerivedData))
 	{
@@ -198,53 +205,61 @@ void UTextureSet::UpdateDerivedData()
 		DerivedData = NewObject<UTextureSetDerivedData>(this, DerivedDataName, RF_NoFlags);
 	}
 
-	// Update our derived data key
-	DerivedData->Key = NewKey;
-
-	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
-
 	// Garbage collection should destroy the unused cooked textures when all references from material instance are removed
 	// TODO: Verify this happens with the RF_Standalone flag set (I'm not sure it will)
-	DerivedData->PackedTextureData.SetNum(PackingInfo.NumPackedTextures());
+	DerivedTextures.SetNum(Definition->GetNumPackedTexture());
 
-	for (int t = 0; t < PackingInfo.NumPackedTextures(); t++)
+	for (int t = 0; t < DerivedTextures.Num(); t++)
 	{
-		FPackedTextureData& PackedTextureData = DerivedData->PackedTextureData[t];
+		UTexture* Texture = DerivedTextures[t];
 
 		FName TextureName = FName(GetName() + "_CookedTexture_" + FString::FromInt(t));
 
-		if (PackedTextureData.Texture == nullptr)
+		if (Texture == nullptr)
 		{
 			// Try to find an existing texture stored in our package that may have become unreferenced, but still exists.
-			PackedTextureData.Texture = static_cast<UTexture*>(FindObjectWithOuter(this, nullptr, TextureName));
+			Texture = static_cast<UTexture*>(FindObjectWithOuter(this, nullptr, TextureName));
 		}
 
-		if (!IsValid(PackedTextureData.Texture) || !PackedTextureData.Texture->IsInOuter(this) || PackedTextureData.Texture->GetFName() != TextureName)
+		if (!IsValid(Texture) || !Texture->IsInOuter(this) || Texture->GetFName() != TextureName)
 		{
-			PackedTextureData.Texture = NewObject<UTexture2D>(this, TextureName, RF_NoFlags);
-
-			// Perform a quick cook, filling in default values
-			TextureSetCooker DefaultCooker(this, true);
-			DefaultCooker.PackTexture(t, DerivedData->PackedTextureData[t]);
+			Texture = NewObject<UTexture2D>(this, TextureName, RF_Standalone);
 		}
+
+		DerivedTextures[t] = Texture;
 	}
 
-	// Build our textures
-	TextureSetCooker LocalCooker(this);
-
-	const EParallelForFlags ParallelForFlags = CVarTextureSetParallelCook.GetValueOnAnyThread() ? EParallelForFlags::None : EParallelForFlags::ForceSingleThread;
-	ParallelFor(DerivedData->PackedTextureData.Num(), [this, LocalCooker](int32 t)
+	// Retreive derived data from the DDC, or cook new data
+	TArray<uint8> OutData;
+	TextureSetCooker* Cooker = new TextureSetCooker(this);
+	bool bDataWasBuilt = false;
+	//COOK_STAT(auto Timer = NavCollisionCookStats::UsageStats.TimeSyncWork());
+	if (GetDerivedDataCacheRef().GetSynchronous(Cooker, OutData, &bDataWasBuilt))
 	{
-		LocalCooker.PackTexture(t, DerivedData->PackedTextureData[t]);
+		//COOK_STAT(Timer.AddHitOrMiss(bDataWasBuilt ? FCookStats::CallStats::EHitOrMiss::Miss : FCookStats::CallStats::EHitOrMiss::Hit, OutData.Num()));
+		// If data was built, the cooker has already configured our derived data for us.
+		// If data was retreived from the cache, we have to de-serialized it.
+		if (!bDataWasBuilt)
+		{
+			check(OutData.Num());
 
-	}, ParallelForFlags);
+			// Deserialize the derived data
+			FMemoryReader MemoryReaderAr(OutData);
+			DerivedData->Serialize(MemoryReaderAr);
 
-	// Make sure we mark the textures as modified so changes are visible
-	for (int i = 0; i < DerivedData->PackedTextureData.Num(); i++)
-	{
-		UTexture* PackedTexture = DerivedData->PackedTextureData[i].Texture;
-		PackedTexture->Modify(true);
-		PackedTexture->UpdateResource();
+			// Recover the textures
+			for (int t = 0; t < DerivedData->PackedTextureData.Num(); t++)
+			{
+				const FPackedTextureData& TextureData = DerivedData->PackedTextureData[t];
+				// Setting the source ID to the same value as is set by the TextureSetCooker means
+				// the DDC should be able to locate the existing cooked data, even if our source
+				// contains no data.
+				DerivedTextures[t]->Source.SetId(TextureData.Id, true);
+
+				// TODO: Validate texture has cooked data, otherwise we need to regenerate the source of this texture
+				// TODO: Texture source data can be cached seperately from the Derived Data, since it's only an intermediate representation
+			}
+		}
 	}
 
 	// TODO: Trigger an update of the material instances

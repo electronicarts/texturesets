@@ -12,10 +12,6 @@ struct TEXTURESETS_API FPackedTextureData
 	GENERATED_BODY()
 
 public:
-	// Reference to the UTexture
-	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<UTexture> Texture;
-
 	// Material parameters that were generated along with this packed texture
 	UPROPERTY(VisibleAnywhere)
 	TMap<FName, FVector4> MaterialParameters;
@@ -23,6 +19,10 @@ public:
 	// Hashed value computed when this texture was built
 	UPROPERTY(VisibleAnywhere)
 	FString Key;
+
+	// Guid generated from the key
+	UPROPERTY(VisibleAnywhere)
+	FGuid Id;
 };
 
 UCLASS(Within=TextureSet)
