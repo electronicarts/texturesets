@@ -72,8 +72,8 @@ public:
 	FString ComputeTextureSetDataKey() const;
 
 	void UpdateDerivedData();
-	const UTextureSetDerivedData* GetDerivedData() { return DerivedData.Get(); }
-	UTexture* GetDerivedTexture(int Index) { return DerivedTextures[Index]; }
+	UTextureSetDerivedData* GetDerivedData() { return DerivedData.Get(); }
+	UTexture* GetDerivedTexture(int Index) { return DerivedTextures[Index].Get(); }
 
 	void FixupData();
 
@@ -88,5 +88,7 @@ private:
 	TObjectPtr<UTextureSetDerivedData> DerivedData;
 
 	UPROPERTY(AdvancedDisplay, VisibleAnywhere)
-	TArray<TObjectPtr<UTexture>> DerivedTextures;
+	TArray<TSoftObjectPtr<UTexture>> DerivedTextures;
+
+
 };

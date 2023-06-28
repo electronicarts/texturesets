@@ -14,14 +14,10 @@ class UTextureSet;
 
 #if WITH_EDITOR
 
-class TextureSetCooker : public FDerivedDataPluginInterface
+class TextureSetDerivedDataPlugin : public FDerivedDataPluginInterface
 {
 public:
-
-	TextureSetCooker(UTextureSet* TS, bool DefaultsOnly = false);
-
-	bool IsOutOfDate() const;
-	bool IsOutOfDate(int PackedTextureIndex) const;
+	TextureSetDerivedDataPlugin(TSharedRef<TextureSetCooker> CookerRef);
 
 	// FDerivedDataPluginInterface
 	virtual const TCHAR* GetPluginName() const override;
@@ -33,8 +29,26 @@ public:
 	virtual bool Build(TArray<uint8>& OutData) override;
 
 private:
+	TSharedRef<TextureSetCooker> Cooker;
+};
+
+class TextureSetCooker
+{
+	friend class TextureSetDerivedDataPlugin;
+public:
+
+	TextureSetCooker(UTextureSet* TS);
+
+	bool IsOutOfDate() const;
+	bool IsOutOfDate(int PackedTextureIndex) const;
+
+	void Build() const;
 	// Called for each packed texture of a texture set, can execute in parallel.
-	void PackTexture(int Index, UTexture* Texture, FPackedTextureData& Data) const;
+	void BuildTextureData(int Index) const;
+
+	void UpdateTexture(int Index) const;
+
+private:
 
 	UTextureSet* TextureSet;
 	const UTextureSetDefinition* Definition;

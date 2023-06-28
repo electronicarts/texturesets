@@ -25,7 +25,56 @@ int GetPixelIndex(int X, int Y, int Channel, int Width, int Height)
 		+ Channel;
 }
 
-TextureSetCooker::TextureSetCooker(UTextureSet* TS, bool DefaultsOnly)
+TextureSetDerivedDataPlugin::TextureSetDerivedDataPlugin(TSharedRef<TextureSetCooker> CookerRef)
+	: Cooker(CookerRef)
+{
+}
+
+const TCHAR* TextureSetDerivedDataPlugin::GetPluginName() const
+{
+	return TEXT("TextureSet");
+}
+
+const TCHAR* TextureSetDerivedDataPlugin::GetVersionString() const
+{
+	return TEXT("B022E127-9B3D-4D58-9B24-1C7AA5C6AF3B");
+}
+
+FString TextureSetDerivedDataPlugin::GetPluginSpecificCacheKeySuffix() const
+{
+	return Cooker->TextureSetDataKey;
+}
+
+bool TextureSetDerivedDataPlugin::IsBuildThreadsafe() const
+{
+	return false; // TODO: Enable this if possible
+}
+
+bool TextureSetDerivedDataPlugin::IsDeterministic() const
+{
+	return false; // TODO: Enable this if possible
+}
+
+FString TextureSetDerivedDataPlugin::GetDebugContextString() const
+{
+	return Cooker->TextureSet->GetFullName();
+}
+
+bool TextureSetDerivedDataPlugin::Build(TArray<uint8>& OutData)
+{
+	if (Cooker->IsOutOfDate())
+		return false; // TODO: What are the consequences of this? Do we fail gracefully?
+
+	Cooker->Build();
+
+	OutData.Empty(2048);
+	FMemoryWriter MemWriterAr(OutData);
+	Cooker->TextureSet->GetDerivedData()->Serialize(MemWriterAr);
+
+	return true;
+}
+
+TextureSetCooker::TextureSetCooker(UTextureSet* TS)
 	: SharedInfo(TS->Definition->GetSharedInfo())
 	, PackingInfo(TS->Definition->GetPackingInfo())
 {
@@ -40,7 +89,7 @@ TextureSetCooker::TextureSetCooker(UTextureSet* TS, bool DefaultsOnly)
 	// Fill in source textures so the modules can define processing
 	for (TextureSetSourceTextureDef SourceTextureDef : SharedInfo.GetSourceTextures())
 	{
-		const TObjectPtr<UTexture>* SourceTexturePtr = DefaultsOnly ? nullptr : TextureSet->SourceTextures.Find(SourceTextureDef.Name);
+		const TObjectPtr<UTexture>* SourceTexturePtr = TextureSet->SourceTextures.Find(SourceTextureDef.Name);
 		if (SourceTexturePtr && SourceTexturePtr->Get())
 		{
 			TSharedRef<FImageWrapper> ImageWrapper = MakeShared<FImageWrapper>(SourceTexturePtr->Get());
@@ -74,45 +123,11 @@ bool TextureSetCooker::IsOutOfDate(int PackedTextureIndex) const
 	return TextureSet->ComputePackedTextureKey(PackedTextureIndex) != PackedTextureKeys[PackedTextureIndex];
 }
 
-const TCHAR* TextureSetCooker::GetPluginName() const
+void TextureSetCooker::Build() const
 {
-	return TEXT("TextureSet");
-}
-
-const TCHAR* TextureSetCooker::GetVersionString() const
-{
-	return TEXT("F022E127-9B3D-4D58-9B24-1C7AA5C6AF3B");
-}
-
-FString TextureSetCooker::GetPluginSpecificCacheKeySuffix() const
-{
-	return TextureSetDataKey;
-}
-
-bool TextureSetCooker::IsBuildThreadsafe() const
-{
-	return false; // TODO: Enable this if possible
-}
-
-bool TextureSetCooker::IsDeterministic() const
-{
-	return false; // TODO: Enable this if possible
-}
-
-FString TextureSetCooker::GetDebugContextString() const
-{
-	return TextureSet->GetFullName();
-}
-
-bool TextureSetCooker::Build(TArray<uint8>& OutData)
-{
-	if (IsOutOfDate())
-		return false; // TODO: What are the consequences of this? Do we fail gracefully?
-
 	TObjectPtr<UTextureSetDerivedData> DerivedData = TextureSet->DerivedData;
 
-	if (!IsValid(DerivedData))
-		return false;
+	check(IsValid(DerivedData))
 
 	// Update our derived data key
 	DerivedData->Key = TextureSetDataKey;
@@ -120,28 +135,26 @@ bool TextureSetCooker::Build(TArray<uint8>& OutData)
 	DerivedData->PackedTextureData.SetNum(PackingInfo.NumPackedTextures());
 
 	const EParallelForFlags ParallelForFlags = CVarTextureSetParallelCook.GetValueOnAnyThread() ? EParallelForFlags::None : EParallelForFlags::ForceSingleThread;
-	ParallelFor(DerivedData->PackedTextureData.Num(), [this, DerivedData](int32 t)
+	
+	ParallelFor(DerivedData->PackedTextureData.Num(), [this](int32 t)
 	{
-		PackTexture(t, TextureSet->DerivedTextures[t], DerivedData->PackedTextureData[t]);
+		BuildTextureData(t);
 
 	}, ParallelForFlags);
-
-	FMemoryWriter MemWriterAr(OutData);
-	DerivedData->Serialize(MemWriterAr);
-
-	return true;
 }
 
-void TextureSetCooker::PackTexture(int Index, UTexture* Texture, FPackedTextureData& Data) const
+void TextureSetCooker::BuildTextureData(int Index) const
 {
-	check(IsValid(Texture));
 	check(!IsOutOfDate(Index));
+
+	FPackedTextureData& Data = TextureSet->DerivedData->PackedTextureData[Index];
 
 	Data.MaterialParameters.Empty();
 	Data.Key = PackedTextureKeys[Index];
 
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
 	IdBuilder << Data.Key;
+	// Setting a new ID should cause the texture's platform data to be invalidated due to the user data we attached to it.
 	Data.Id = IdBuilder.Build();
 
 	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
@@ -169,10 +182,10 @@ void TextureSetCooker::PackTexture(int Index, UTexture* Texture, FPackedTextureD
 		Ratio = NewRatio;
 	}
 
-	UTexture2D* PackedTexture = CastChecked<UTexture2D>(Texture);
-	PackedTexture->Source.Init(Width, Height, 1, 1, TSF_RGBA16F);
-
-	FFloat16* PixelsValues = (FFloat16*)PackedTexture->Source.LockMip(0);
+	// Copy pixel data into the texture's source
+	UTexture* Texture = TextureSet->GetDerivedTexture(Index);
+	Texture->Source.Init(Width, Height, 1, 1, TSF_RGBA16F);
+	FFloat16* PixelValues = (FFloat16*)Texture->Source.LockMip(0);
 
 	float MaxPixelValues[4] {};
 	float MinPixelValues[4] {};
@@ -207,7 +220,7 @@ void TextureSetCooker::PackTexture(int Index, UTexture* Texture, FPackedTextureD
 					float PixelValue = ProcessedTexture->GetPixel(x, y, ChanelInfo.ProessedTextureChannel);
 					MaxPixelValues[c] = FMath::Max(MaxPixelValues[c], PixelValue);
 					MinPixelValues[c] = FMath::Min(MinPixelValues[c], PixelValue);
-					PixelsValues[PixelIndex] = PixelValue;
+					PixelValues[PixelIndex] = PixelValue;
 				}
 			}
 		}
@@ -220,20 +233,11 @@ void TextureSetCooker::PackTexture(int Index, UTexture* Texture, FPackedTextureD
 				{
 					int PixelIndex = GetPixelIndex(x, y, c, Width, Height);
 
-					PixelsValues[PixelIndex] = 0.0f;
+					PixelValues[PixelIndex] = 0.0f;
 				}
 			}
 		}
 	}
-
-	// sRGB if possible
-	PackedTexture->SRGB = TextureInfo.HardwareSRGB;
-
-	// Make sure the texture's compression settings are correct
-	PackedTexture->CompressionSettings = TextureDef.CompressionSettings;
-
-	// Let the texture compression know if we don't need the alpha channel
-	PackedTexture->CompressionNoAlpha = TextureInfo.ChannelCount <= 3;
 
 	// Range compression
 	if (TextureDef.bDoRangeCompression)
@@ -258,7 +262,7 @@ void TextureSetCooker::PackTexture(int Index, UTexture* Texture, FPackedTextureD
 				{
 					int PixelIndex = GetPixelIndex(x, y, c, Width, Height);
 
-					PixelsValues[PixelIndex] = (PixelsValues[PixelIndex] - Min) * Max - Min;
+					PixelValues[PixelIndex] = (PixelValues[PixelIndex] - Min) * Max - Min;
 				}
 			}
 
@@ -269,8 +273,29 @@ void TextureSetCooker::PackTexture(int Index, UTexture* Texture, FPackedTextureD
 		Data.MaterialParameters.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
 	}
 
-	PackedTexture->Source.UnlockMip(0);
+	Texture->Source.UnlockMip(0);
+
+	UpdateTexture(Index);
+}
+
+void TextureSetCooker::UpdateTexture(int Index) const
+{
+	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
+	const TextureSetPackingInfo::TextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
+	const FPackedTextureData& Data = TextureSet->DerivedData->PackedTextureData[Index];
+
+	UTexture* Texture = TextureSet->GetDerivedTexture(Index);
+
+	// sRGB if possible
+	Texture->SRGB = TextureInfo.HardwareSRGB;
+
+	// Make sure the texture's compression settings are correct
+	Texture->CompressionSettings = TextureDef.CompressionSettings;
+
+	// Let the texture compression know if we don't need the alpha channel
+	Texture->CompressionNoAlpha = TextureInfo.ChannelCount <= 3;
+
 	// Set the ID of the generated source to match the hash ID of this texture.
-	// This will be used to recover the cooked texture data from the DDC.
-	PackedTexture->Source.SetId(Data.Id, true);
+	// This will be used to recover the cooked texture data from the DDC if possible.
+	Texture->Source.SetId(Data.Id, true);
 }

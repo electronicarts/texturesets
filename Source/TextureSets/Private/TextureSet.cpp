@@ -191,74 +191,88 @@ void UTextureSet::UpdateDerivedData()
 	{
 		// If we have no definition, clear our derived data
 		DerivedData = nullptr;
+		DerivedTextures.Empty();
 		return;
 	}
 
-	FString NewKey = ComputeTextureSetDataKey();
-	if (IsValid(DerivedData) && NewKey == DerivedData->Key)
-		return; // Hash key is valid, no rebuild required.
+	// Garbage collection should destroy the unused cooked textures when all references from material instance are removed
+	// TODO: Verify this happens
+	DerivedTextures.SetNum(Definition->GetNumPackedTexture());
 
-	// Not found in DDC, create a new derived data set for the key
+	for (int t = 0; t < DerivedTextures.Num(); t++)
+	{
+		FName TextureName = FName(GetName() + "_CookedTexture_" + FString::FromInt(t));
+
+		if (!DerivedTextures[t].IsValid())
+		{
+			// Try to find an existing texture stored in our package that may have become unreferenced, but still exists.
+			DerivedTextures[t] = static_cast<UTexture*>(FindObjectWithOuter(this, nullptr, TextureName));
+		}
+
+		if (!DerivedTextures[t].IsValid() || !DerivedTextures[t]->IsInOuter(this) || DerivedTextures[t]->GetFName() != TextureName)
+		{
+			// Create a new texture if none exists
+			DerivedTextures[t] = NewObject<UTexture2D>(this, TextureName, RF_NoFlags);
+		}
+	}
+
+	// Create a new derived data if ours is missing
 	if (!IsValid(DerivedData))
 	{
 		FName DerivedDataName = MakeUniqueObjectName(this, UTextureSetDerivedData::StaticClass(), "DerivedData");
 		DerivedData = NewObject<UTextureSetDerivedData>(this, DerivedDataName, RF_NoFlags);
 	}
 
-	// Garbage collection should destroy the unused cooked textures when all references from material instance are removed
-	// TODO: Verify this happens with the RF_Standalone flag set (I'm not sure it will)
-	DerivedTextures.SetNum(Definition->GetNumPackedTexture());
+	TSharedRef<TextureSetCooker> Cooker = MakeShared<TextureSetCooker>(this);
 
-	for (int t = 0; t < DerivedTextures.Num(); t++)
+	bool bDataWasBuilt = false;
+
+	// Fetch or build derived data for the texture set
+	FString NewKey = ComputeTextureSetDataKey();
+	if (NewKey != DerivedData->Key)
 	{
-		UTexture* Texture = DerivedTextures[t];
+		Modify();
 
-		FName TextureName = FName(GetName() + "_CookedTexture_" + FString::FromInt(t));
-
-		if (Texture == nullptr)
+		// Keys to current derived data don't match
+		// Retreive derived data from the DDC, or cook new data
+		TArray<uint8> Data;
+		FDerivedDataCacheInterface& DDC = GetDerivedDataCacheRef();
+		//COOK_STAT(auto Timer = NavCollisionCookStats::UsageStats.TimeSyncWork());
+		if (DDC.GetSynchronous(new TextureSetDerivedDataPlugin(Cooker), Data, &bDataWasBuilt))
 		{
-			// Try to find an existing texture stored in our package that may have become unreferenced, but still exists.
-			Texture = static_cast<UTexture*>(FindObjectWithOuter(this, nullptr, TextureName));
+			//COOK_STAT(Timer.AddHitOrMiss(bDataWasBuilt ? FCookStats::CallStats::EHitOrMiss::Miss : FCookStats::CallStats::EHitOrMiss::Hit, OutData.Num()));
+			if (bDataWasBuilt)
+			{
+				// If data was built, the cooker has already configured our derived data for us.
+				// Update the texture resource so we see it reflected in the editor right away
+				for (int t = 0; t < DerivedTextures.Num(); t++)
+				{
+					DerivedTextures[t]->UpdateResource();
+				}
+			}
+			else
+			{
+				// If data was retreived from the cache, de-serialized it.
+				FMemoryReader MemoryReaderDerivedData(Data);
+				DerivedData->Serialize(MemoryReaderDerivedData);
+			}
 		}
-
-		if (!IsValid(Texture) || !Texture->IsInOuter(this) || Texture->GetFName() != TextureName)
-		{
-			Texture = NewObject<UTexture2D>(this, TextureName, RF_Standalone);
-		}
-
-		DerivedTextures[t] = Texture;
 	}
 
-	// Retreive derived data from the DDC, or cook new data
-	TArray<uint8> OutData;
-	TextureSetCooker* Cooker = new TextureSetCooker(this);
-	bool bDataWasBuilt = false;
-	//COOK_STAT(auto Timer = NavCollisionCookStats::UsageStats.TimeSyncWork());
-	if (GetDerivedDataCacheRef().GetSynchronous(Cooker, OutData, &bDataWasBuilt))
+	// Ensure our textures are up to date
+	if (!bDataWasBuilt)
 	{
-		//COOK_STAT(Timer.AddHitOrMiss(bDataWasBuilt ? FCookStats::CallStats::EHitOrMiss::Miss : FCookStats::CallStats::EHitOrMiss::Hit, OutData.Num()));
-		// If data was built, the cooker has already configured our derived data for us.
-		// If data was retreived from the cache, we have to de-serialized it.
-		if (!bDataWasBuilt)
+		for (int t = 0; t < DerivedTextures.Num(); t++)
 		{
-			check(OutData.Num());
+			Cooker->UpdateTexture(t);
 
-			// Deserialize the derived data
-			FMemoryReader MemoryReaderAr(OutData);
-			DerivedData->Serialize(MemoryReaderAr);
-
-			// Recover the textures
-			for (int t = 0; t < DerivedData->PackedTextureData.Num(); t++)
+			// This can happen if a texture build gets interrupted after a texture-set cook.
+			if (!DerivedTextures[t]->PlatformDataExistsInCache())
 			{
-				const FPackedTextureData& TextureData = DerivedData->PackedTextureData[t];
-				// Setting the source ID to the same value as is set by the TextureSetCooker means
-				// the DDC should be able to locate the existing cooked data, even if our source
-				// contains no data.
-				DerivedTextures[t]->Source.SetId(TextureData.Id, true);
-
-				// TODO: Validate texture has cooked data, otherwise we need to regenerate the source of this texture
-				// TODO: Texture source data can be cached seperately from the Derived Data, since it's only an intermediate representation
+				// Build this texture to regenerate the source data, so it can be cached.
+				Cooker->BuildTextureData(t);
 			}
+			DerivedTextures[t]->UpdateResource();
 		}
 	}
 
