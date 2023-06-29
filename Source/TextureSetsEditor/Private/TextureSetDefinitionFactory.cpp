@@ -2,13 +2,15 @@
 
 #include "TextureSetDefinitionFactory.h"
 
+#include "TextureSetDefinition.h"
+
 UTextureSetDefinitionFactory::UTextureSetDefinitionFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	SupportedClass = UTextureSetDefinition::StaticClass();
 
-	bCreateNew    = true;
-	bText         = false;
+	bCreateNew = true;
+	bText = false;
 	bEditorImport = false;
 	bEditAfterNew = true;
 }

@@ -1,34 +1,7 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#if WITH_EDITOR
 #include "STextureSetParameterWidget.h"
 
-#include "Containers/BitArray.h"
-#include "Containers/Set.h"
-#include "Containers/SparseArray.h"
-#include "Containers/UnrealString.h"
-#include "Delegates/Delegate.h"
-#include "HAL/Platform.h"
-#include "HAL/PlatformCrt.h"
-#include "Internationalization/Internationalization.h"
-#include "Internationalization/Text.h"
-#include "Layout/Children.h"
-#include "Misc/AssertionMacros.h"
-#include "Misc/Attribute.h"
-#include "Misc/Optional.h"
-#include "SlotBase.h"
-#include "Styling/CoreStyle.h"
-#include "Styling/ISlateStyle.h"
-#include "Styling/SlateTypes.h"
-#include "Templates/ChooseClass.h"
-#include "Templates/UnrealTemplate.h"
-#include "UObject/NameTypes.h"
-#include "Widgets/SBoxPanel.h"
-#include "Widgets/Text/SMultiLineEditableText.h"
-#include "Widgets/Views/SHeaderRow.h"
-#include "Widgets/Views/SListView.h"
-#include "Widgets/Views/STableRow.h"
-#include "PropertyCustomizationHelpers.h"
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetsMaterialInstanceUserData.h"
@@ -148,4 +121,3 @@ void STextureSetParameterWidget::OnTextureSetAssetChanged(const FAssetData& InAs
 }
 
 #undef LOCTEXT_NAMESPACE
-#endif

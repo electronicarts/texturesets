@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/DataAsset.h"
-#include "TextureSetDefinition.h"
+#include "Factories/Factory.h"
+
 #include "TextureSetDefinitionFactory.generated.h"
 
 UCLASS()

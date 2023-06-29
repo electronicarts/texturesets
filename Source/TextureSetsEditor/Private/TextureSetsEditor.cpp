@@ -3,25 +3,12 @@
 #include "TextureSetsEditor.h"
 
 #include "IMaterialEditor.h"
-#include "MaterialEditorUtilities.h"
-#include "MaterialExpressionTextureSetSampleParameter.h"
-#include "TextureSet.h"
-#include "TextureSetsMaterialInstanceUserData.h"
-#include "TextureSetEditingUtils.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSet.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSetDefinition.h"
-#include "MaterialGraph/MaterialGraph.h"
-#include "Materials/MaterialExpressionExecBegin.h"
-#include "Materials/MaterialExpressionExecEnd.h"
 #include "MaterialPropertyHelpers.h"
-#include "MaterialEditingLibrary.h"
 #include "MaterialEditor/Public/MaterialEditorModule.h"
 #include "MaterialEditor/MaterialEditorInstanceConstant.h"
-#include "DetailWidgetRow.h"
-#include "IDetailGroup.h"
-#include "Materials/MaterialInstanceConstant.h"
-#include "STextureSetParameterWidget.h"
-
+#include "TextureSetsMaterialInstanceUserData.h"
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
