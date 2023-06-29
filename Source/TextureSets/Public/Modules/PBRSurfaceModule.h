@@ -31,8 +31,9 @@ UENUM()
 enum class EPBRNormalSpace
 {
 	Tangent,
-	World,
-	SurfaceGradient,
+	// TODO: Support alternative normal sample outputs
+	//World,
+	//SurfaceGradient,
 };
 
 UCLASS()
@@ -40,11 +41,12 @@ class UPBRSampleParams : public UTextureSetSampleParams
 {
 	GENERATED_BODY()
 public:
-	UPROPERTY(EditAnywhere);
-	EPBRParamaterization ParameterizationOutput;
-
-	UPROPERTY(EditAnywhere);
-	EPBRNormalSpace NormalSpaceOutput;
+	// TODO: Support conversion on sampling
+	//UPROPERTY(EditAnywhere);
+	//EPBRParamaterization ParameterizationOutput;
+	//
+	//UPROPERTY(EditAnywhere);
+	//EPBRNormalSpace NormalSpaceOutput;
 
 	UPROPERTY(EditAnywhere);
 	EPBRMicrosurface MicrosurfaceOutput;
@@ -86,13 +88,13 @@ public:
 
 private:
 	UPROPERTY(EditAnywhere)
-	EPBRParamaterization Paramaterization; // Partially implemented
+	EPBRParamaterization Paramaterization;
 
 	UPROPERTY(EditAnywhere)
-	EPBRMicrosurface Microsurface; // Partially implemented
+	EPBRMicrosurface Microsurface;
 
 	UPROPERTY(EditAnywhere)
-	EPBRNormal Normal; // Partially implemented
+	EPBRNormal Normal;
 
 	UPROPERTY(EditAnywhere)
 	bool bEnableNDFPrefiltering; // Not implemented
