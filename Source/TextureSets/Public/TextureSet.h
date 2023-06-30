@@ -88,7 +88,7 @@ private:
 	TObjectPtr<UTextureSetDerivedData> DerivedData;
 
 	UPROPERTY(AdvancedDisplay, VisibleAnywhere)
-	TArray<TSoftObjectPtr<UTexture>> DerivedTextures;
+	TArray<TObjectPtr<UTexture>> DerivedTextures;
 
 
 };

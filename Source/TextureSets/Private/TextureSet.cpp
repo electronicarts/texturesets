@@ -195,21 +195,20 @@ void UTextureSet::UpdateDerivedData()
 		return;
 	}
 
-	// Garbage collection should destroy the unused cooked textures when all references from material instance are removed
-	// TODO: Verify this happens
+	// Garbage collection will destroy the unused cooked textures when all references from material instance are removed
 	DerivedTextures.SetNum(Definition->GetNumPackedTexture());
 
 	for (int t = 0; t < DerivedTextures.Num(); t++)
 	{
 		FName TextureName = FName(GetName() + "_CookedTexture_" + FString::FromInt(t));
 
-		if (!DerivedTextures[t].IsValid())
+		if (!IsValid(DerivedTextures[t]))
 		{
 			// Try to find an existing texture stored in our package that may have become unreferenced, but still exists.
 			DerivedTextures[t] = static_cast<UTexture*>(FindObjectWithOuter(this, nullptr, TextureName));
 		}
 
-		if (!DerivedTextures[t].IsValid() || !DerivedTextures[t]->IsInOuter(this) || DerivedTextures[t]->GetFName() != TextureName)
+		if (!IsValid(DerivedTextures[t]) || !DerivedTextures[t]->IsInOuter(this) || DerivedTextures[t]->GetFName() != TextureName)
 		{
 			// Create a new texture if none exists
 			DerivedTextures[t] = NewObject<UTexture2D>(this, TextureName, RF_NoFlags);
