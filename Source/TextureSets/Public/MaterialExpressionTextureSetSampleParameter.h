@@ -29,9 +29,6 @@ public:
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<class UTextureSetDefinition> Definition;
 
-	UPROPERTY(EditAnywhere)
-	bool bSamplePackedTextures; // Temp, set to true to enable packing and unpacking
-
 	UPROPERTY(EditAnywhere, EditFixedSize, NoClear)
 	TArray<class UTextureSetSampleParams*> SampleParams;
 
