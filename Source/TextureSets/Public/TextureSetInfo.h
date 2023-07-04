@@ -34,6 +34,7 @@ public:
 	const TArray<TextureSetSourceTextureDef> GetSourceTextures() const;
 	const TArray<TextureSetProcessedTextureDef> GetProcessedTextures() const;
 	const TextureSetProcessedTextureDef GetProcessedTextureByName(FName Name) const;
+	const bool HasProcessedTextureOfName(FName Name) const;
 
 private:
 	// Input texture maps which are to be processed

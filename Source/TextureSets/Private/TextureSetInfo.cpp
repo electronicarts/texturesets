@@ -29,6 +29,11 @@ const TextureSetProcessedTextureDef TextureSetDefinitionSharedInfo::GetProcessed
 	return ProcessedTextures[ProcessedTextureIndicies.FindChecked(Name)];
 }
 
+const bool TextureSetDefinitionSharedInfo::HasProcessedTextureOfName(FName Name) const
+{
+	return ProcessedTextureIndicies.Contains(Name);
+}
+
 void TextureSetDefinitionSamplingInfo::AddMaterialParameter(FName Name, EMaterialValueType Type)
 {
 	checkf(!MaterialParameters.Contains(Name), TEXT("Attempting to add shader constant %s twice"), Name);

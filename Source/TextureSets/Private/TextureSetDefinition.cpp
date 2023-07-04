@@ -162,6 +162,11 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 			SourceNames[c].ToString().Split(".", &SourceTexString, &SourceChannelString);
 			const FName SourceTexName = FName(SourceTexString);
 
+			if (!SharedInfo.HasProcessedTextureOfName(SourceTexName))
+				continue;
+			
+			TextureSetProcessedTextureDef Processed = SharedInfo.GetProcessedTextureByName(SourceTexName);
+
 			static const TMap<FString, int> ChannelStringLookup = {
 				{"r", 0},
 				{"g", 1},
@@ -170,8 +175,6 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 			};
 
 			const int SourceChannel = ChannelStringLookup.FindChecked(SourceChannelString);
-
-			TextureSetProcessedTextureDef Processed = SharedInfo.GetProcessedTextureByName(FName(SourceTexName));
 
 			TextureInfo.ChannelInfo[c].ProcessedTexture = SourceTexName;
 			TextureInfo.ChannelInfo[c].ProessedTextureChannel = SourceChannel;

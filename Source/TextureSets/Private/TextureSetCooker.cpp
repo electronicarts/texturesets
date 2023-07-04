@@ -166,6 +166,10 @@ void TextureSetCooker::BuildTextureData(int Index) const
 	for (int c = 0; c < TextureInfo.ChannelCount; c++)
 	{
 		const auto& ChanelInfo = TextureInfo.ChannelInfo[c];
+
+		if (!Context.ProcessedTextures.Contains(ChanelInfo.ProcessedTexture))
+			continue;
+
 		const TSharedRef<ITextureSetTexture> ProcessedTexture = Context.ProcessedTextures.FindChecked(ChanelInfo.ProcessedTexture);
 
 		ProcessedTexture->Initialize();
@@ -193,10 +197,11 @@ void TextureSetCooker::BuildTextureData(int Index) const
 	// TODO: Execute each channel in ParallelFor?
 	for (int c = 0; c < 4; c++)
 	{
-		if (c < TextureInfo.ChannelCount)
+		// Copy processed textures into packed textures
+		const auto& ChanelInfo = TextureInfo.ChannelInfo[c];
+
+		if (c < TextureInfo.ChannelCount && Context.ProcessedTextures.Contains(ChanelInfo.ProcessedTexture))
 		{
-			// Copy processed textures into packed textures
-			const auto& ChanelInfo = TextureInfo.ChannelInfo[c];
 			TSharedRef<ITextureSetTexture> ProcessedTexture = Context.ProcessedTextures.FindChecked(ChanelInfo.ProcessedTexture);
 
 			check(ProcessedTexture->GetWidth() <= Width);
