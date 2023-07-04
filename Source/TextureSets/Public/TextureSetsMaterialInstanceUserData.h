@@ -42,7 +42,7 @@ public:
 
 	// UObject Overrides
 	virtual void PostInitProperties() override;
-	virtual void PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext) override;
+	virtual void PreSave(FObjectPreSaveContext SaveContext) override;
 
 	// UAssetUserData Overrides
 	virtual void PostLoadOwner() override;

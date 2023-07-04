@@ -213,6 +213,7 @@ void UTextureSet::UpdateDerivedData()
 			// Create a new texture if none exists
 			DerivedTextures[t] = NewObject<UTexture2D>(this, TextureName, RF_NoFlags);
 		}
+		DerivedTextures[t]->SetFlags(RF_Public); // TODO: Remove this flag when we can clear references to these textures from the material instances in serialized data
 	}
 
 	// Create a new derived data if ours is missing
