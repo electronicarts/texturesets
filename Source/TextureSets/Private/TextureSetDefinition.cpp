@@ -56,9 +56,10 @@ bool UTextureSetDefinition::CanEditChange(const FProperty* InProperty) const
 #endif
 
 #if WITH_EDITOR
-void UTextureSetDefinition::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+void UTextureSetDefinition::PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext)
 {
-	Super::PostEditChangeProperty(PropertyChangedEvent);
+	Super::PreSaveRoot(ObjectSaveContext);
+
 	UpdateDefaultTextures();
 }
 #endif
@@ -207,7 +208,15 @@ const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 
 const TArray<const UTextureSetModule*> UTextureSetDefinition::GetModules() const
 {
-	return TArray<const UTextureSetModule*>(Modules);
+	TArray<const UTextureSetModule*> ValidModules;
+
+	for (const UTextureSetModule* Module : Modules)
+	{
+		if (IsValid(Module))
+			ValidModules.Add(Module);
+	}
+
+	return ValidModules;
 }
 
 TArray<TSubclassOf<UTextureSetAssetParams>> UTextureSetDefinition::GetRequiredAssetParamClasses() const

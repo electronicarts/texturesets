@@ -159,8 +159,8 @@ void TextureSetCooker::BuildTextureData(int Index) const
 
 	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
 	const TextureSetPackingInfo::TextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
-	int Width = 0;
-	int Height = 0;
+	int Width = 4;
+	int Height = 4;
 	float Ratio = 0;
 
 	for (int c = 0; c < TextureInfo.ChannelCount; c++)
@@ -182,7 +182,7 @@ void TextureSetCooker::BuildTextureData(int Index) const
 		Width = FMath::Max(Width, ChannelWidth);
 		Height = FMath::Max(Height, ChannelHeight);
 		// Verify that all processed textures have the same aspect ratio
-		check(NewRatio == Ratio || Ratio == 0);
+		check(NewRatio == Ratio || Ratio == 0.0f);
 		Ratio = NewRatio;
 	}
 

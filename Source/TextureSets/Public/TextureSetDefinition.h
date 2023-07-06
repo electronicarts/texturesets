@@ -29,7 +29,7 @@ public:
 	// UObject Overrides
 #if WITH_EDITOR
 	virtual bool CanEditChange(const FProperty* InProperty) const override;
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext) override;
 #endif
 	virtual void PostLoad() override;
 
