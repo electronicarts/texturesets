@@ -14,8 +14,52 @@
 #include "Materials/MaterialInstanceConstant.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "ImageUtils.h"
+#if WITH_EDITOR
+#include "Misc/DataValidation.h"
+#endif
+
+#define LOCTEXT_NAMESPACE "TextureSets"
 
 const FString UTextureSetDefinition::ChannelSuffixes[4] = {".r", ".g", ".b", ".a"};
+
+#if WITH_EDITOR
+EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext& Context)
+{
+	EDataValidationResult Result = Super::IsDataValid(Context);
+
+	// Module validation
+	for (int i = 0; i < Modules.Num(); i++)
+	{
+		const UTextureSetModule* Module = Modules[i];
+		if (!IsValid(Module))
+		{
+			Context.AddError(FText::Format(LOCTEXT("MissingModule","Module at index {0} is invalid."), i));
+		}
+	}
+
+	// Packing validation
+	for (FName Name : GetUnpackedChannelNames())
+	{
+		if (Name.IsNone())
+			continue;
+
+		Context.AddError(FText::Format(LOCTEXT("UnpackedChannelWarning","\"{0}\" is unused, did you forget to pack it?"), FText::FromName(Name)));
+	}
+
+	for (int i = 0; i < PackedTextures.Num(); i++)
+	{
+		const FTextureSetPackedTextureDef& PackedTexture = PackedTextures[i];
+
+		if (PackedTexture.UsedChannels() > PackedTexture.AvailableChannels())
+			Context.AddError(FText::Format(LOCTEXT("OverpackedTexture","Packed texture {0} is specifying more packed channels than are provided by the chosen compression format."), i));
+	}
+
+	if (Context.GetNumErrors())
+		Result = EDataValidationResult::Invalid;
+
+	return Result;
+}
+#endif
 
 #if WITH_EDITOR
 bool UTextureSetDefinition::CanEditChange(const FProperty* InProperty) const

@@ -14,14 +14,32 @@
 #include "DerivedDataCacheInterface.h"
 #include "Serialization/MemoryReader.h"
 #if WITH_EDITOR
+#include "Misc/DataValidation.h"
 #include "DerivedDataBuildVersion.h"
 #endif
 
-#define LOCTEXT_NAMESPACE "TextureSet"
+#define LOCTEXT_NAMESPACE "TextureSets"
 
 UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {}
+
+#if WITH_EDITOR
+EDataValidationResult UTextureSet::IsDataValid(FDataValidationContext& Context)
+{
+	EDataValidationResult Result = Super::IsDataValid(Context);
+
+	if (!IsValid(Definition))
+	{
+		Context.AddError(LOCTEXT("MissingDefinitionWarning","A texture set must reference a valid definition."));
+	}
+
+	if (Context.GetNumErrors())
+		Result = EDataValidationResult::Invalid;
+
+	return Result;
+}
+#endif
 
 void UTextureSet::PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext)
 {

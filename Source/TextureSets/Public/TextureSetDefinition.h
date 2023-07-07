@@ -14,6 +14,7 @@ class UTextureSetAssetParams;
 class UTextureSetSampleParams;
 class FTextureSetMaterialGraphBuilder;
 
+
 // The texture set definition. Definitions consist primarily of a list of modules, and a packing definition.
 // The definition is configurable, and drives most other aspects of the texture-set from import to packing to sampling.
 UCLASS()
@@ -28,6 +29,7 @@ public:
 
 	// UObject Overrides
 #if WITH_EDITOR
+	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) override;
 	virtual bool CanEditChange(const FProperty* InProperty) const override;
 	virtual void PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext) override;
 #endif

@@ -35,31 +35,32 @@ int FTextureSetPackedTextureDef::AvailableChannels() const
 
 int FTextureSetPackedTextureDef::UsedChannels() const
 {
-	int Specified = 0;
-
 	if (!SourceA.IsNone())
-		Specified = 4;
+		return 4;
 	else if (!SourceB.IsNone())
-		Specified = 3;
+		return 3;
 	else if (!SourceG.IsNone())
-		Specified = 2;
+		return 2;
 	else if (!SourceR.IsNone())
-		Specified = 1;
-
-	return FMath::Min(AvailableChannels(), Specified);
+		return 1;
+	else
+		return 0;
 }
 
 TArray<FName> FTextureSetPackedTextureDef::GetSources() const
 {
 	TArray<FName> ReturnValue;
-	if (UsedChannels() >= 1)
+	const int Channels = FMath::Min(UsedChannels(), AvailableChannels());
+
+	if (Channels >= 1)
 		ReturnValue.Add(SourceR);
-	if (UsedChannels() >= 2)
+	if (Channels >= 2)
 		ReturnValue.Add(SourceG);
-	if (UsedChannels() >= 3)
+	if (Channels >= 3)
 		ReturnValue.Add(SourceB);
-	if (UsedChannels() >= 4)
+	if (Channels >= 4)
 		ReturnValue.Add(SourceA);
+
 	return ReturnValue;
 }
 
