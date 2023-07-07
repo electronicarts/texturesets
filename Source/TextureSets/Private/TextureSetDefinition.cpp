@@ -389,3 +389,5 @@ void UTextureSetDefinition::UpdateDependentAssets(bool AutoLoad)
 		}
 	}
 }
+
+#undef LOCTEXT_NAMESPACE
