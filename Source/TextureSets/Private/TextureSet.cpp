@@ -27,17 +27,15 @@ UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITOR
 EDataValidationResult UTextureSet::IsDataValid(FDataValidationContext& Context)
 {
-	EDataValidationResult Result = Super::IsDataValid(Context);
+	EDataValidationResult Result = EDataValidationResult::Valid;
 
 	if (!IsValid(Definition))
 	{
-		Context.AddError(LOCTEXT("MissingDefinitionWarning","A texture set must reference a valid definition."));
+		Context.AddError(LOCTEXT("MissingDefinition","A texture set must reference a valid definition."));
+		Result = EDataValidationResult::Invalid;
 	}
 
-	if (Context.GetNumErrors())
-		Result = EDataValidationResult::Invalid;
-
-	return Result;
+	return CombineDataValidationResults(Result, Super::IsDataValid(Context));
 }
 #endif
 

@@ -25,7 +25,7 @@ const FString UTextureSetDefinition::ChannelSuffixes[4] = {".r", ".g", ".b", ".a
 #if WITH_EDITOR
 EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext& Context)
 {
-	EDataValidationResult Result = Super::IsDataValid(Context);
+	EDataValidationResult Result = EDataValidationResult::Valid;
 
 	// Module validation
 	for (int i = 0; i < Modules.Num(); i++)
@@ -34,6 +34,7 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 		if (!IsValid(Module))
 		{
 			Context.AddError(FText::Format(LOCTEXT("MissingModule","Module at index {0} is invalid."), i));
+			Result = EDataValidationResult::Invalid;
 		}
 	}
 
@@ -43,7 +44,8 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 		if (Name.IsNone())
 			continue;
 
-		Context.AddError(FText::Format(LOCTEXT("UnpackedChannelWarning","\"{0}\" is unused, did you forget to pack it?"), FText::FromName(Name)));
+		Context.AddError(FText::Format(LOCTEXT("UnpackedChannel","\"{0}\" is unused, did you forget to pack it?"), FText::FromName(Name)));
+		Result = EDataValidationResult::Invalid;
 	}
 
 	for (int i = 0; i < PackedTextures.Num(); i++)
@@ -51,13 +53,13 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 		const FTextureSetPackedTextureDef& PackedTexture = PackedTextures[i];
 
 		if (PackedTexture.UsedChannels() > PackedTexture.AvailableChannels())
+		{
 			Context.AddError(FText::Format(LOCTEXT("OverpackedTexture","Packed texture {0} is specifying more packed channels than are provided by the chosen compression format."), i));
+			Result = EDataValidationResult::Invalid;
+		}
 	}
 
-	if (Context.GetNumErrors())
-		Result = EDataValidationResult::Invalid;
-
-	return Result;
+	return CombineDataValidationResults(Result, Super::IsDataValid(Context));;
 }
 #endif
 

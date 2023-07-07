@@ -55,6 +55,10 @@ public:
 	virtual class UMaterialFunction* CreateMaterialFunction() override;
 #endif
 
+#if WITH_EDITOR
+	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) override;
+#endif
+
 private:
 #if WITH_EDITOR
 	void UpdateSampleParamArray();

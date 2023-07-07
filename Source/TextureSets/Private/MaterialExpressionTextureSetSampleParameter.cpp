@@ -9,6 +9,11 @@
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionTextureSampleParameter2D.h"
+#if WITH_EDITOR
+#include "Misc/DataValidation.h"
+#endif
+
+#define LOCTEXT_NAMESPACE "TextureSets"
 
 UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampleParameter(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -51,6 +56,21 @@ UMaterialFunction* UMaterialExpressionTextureSetSampleParameter::CreateMaterialF
 #endif
 
 #if WITH_EDITOR
+EDataValidationResult UMaterialExpressionTextureSetSampleParameter::IsDataValid(FDataValidationContext& Context)
+{
+	EDataValidationResult Result = EDataValidationResult::Valid;
+
+	if (!IsValid(Definition))
+	{
+		Context.AddError(LOCTEXT("MissingDefinition","A texture set sample must reference a valid definition."));
+		Result = EDataValidationResult::Invalid;
+	}
+
+	return CombineDataValidationResults(Result, Super::IsDataValid(Context));
+}
+#endif
+
+#if WITH_EDITOR
 void UMaterialExpressionTextureSetSampleParameter::UpdateSampleParamArray()
 {
 	if (!IsValid(Definition))
@@ -80,3 +100,5 @@ void UMaterialExpressionTextureSetSampleParameter::UpdateSampleParamArray()
 	}
 }
 #endif
+
+#undef LOCTEXT_NAMESPACE
