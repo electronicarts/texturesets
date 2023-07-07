@@ -303,4 +303,5 @@ void TextureSetCooker::UpdateTexture(int Index) const
 	// Set the ID of the generated source to match the hash ID of this texture.
 	// This will be used to recover the cooked texture data from the DDC if possible.
 	Texture->Source.SetId(Data.Id, true);
+	Texture->bSourceBulkDataTransient = true;
 }
