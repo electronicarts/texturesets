@@ -43,13 +43,13 @@ UMaterialFunction* UMaterialExpressionTextureSetSampleParameter::CreateMaterialF
 	if (!IsValid(Definition))
 		return nullptr;
 
+	// Make sure our samping parameters are up to date before generating the sampling graph
+	UpdateSampleParamArray();
+
 	FTextureSetMaterialGraphBuilder GraphBuilder = FTextureSetMaterialGraphBuilder(this);
 
 	// Call out to modules to do the work of connecting processed texture samples to outputs
 	Definition->GenerateSamplingGraph(this, GraphBuilder);
-
-	// TODO: What's this, does it need to be called?
-	UpdateSampleParamArray();
 
 	return GraphBuilder.GetMaterialFunction();
 }
