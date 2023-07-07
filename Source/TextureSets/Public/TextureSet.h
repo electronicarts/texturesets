@@ -62,7 +62,6 @@ public:
 #endif
 
 	virtual void PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext) override;
-	virtual void PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext) override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR

@@ -43,21 +43,9 @@ EDataValidationResult UTextureSet::IsDataValid(FDataValidationContext& Context)
 
 void UTextureSet::PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext)
 {
-	if (ObjectSaveContext.IsCooking())
-		return;
+	Super::PreSaveRoot(ObjectSaveContext);
 
 	UpdateDerivedData();
-}
-
-void UTextureSet::PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext)
-{
-#if WITH_EDITOR	
-	if (!IsValid(Definition))
-		return;
-
-	if (ObjectSaveContext.IsCooking())
-		return;
-#endif
 }
 
 void UTextureSet::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
