@@ -17,7 +17,7 @@ public:
 	SLATE_BEGIN_ARGS(STextureSetParameterWidget)	{}
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, UMaterialInstanceConstant* MaterialInstance, FGuid Parameter);
+	void Construct(const FArguments& InArgs, UMaterialInstanceConstant* MaterialInstance, FName Parameter);
 
 private:
 
@@ -29,5 +29,5 @@ private:
 	void OnTextureSetAssetChanged(const FAssetData& InAssetData);
 
 	UMaterialInstanceConstant* MaterialInstance;
-	FGuid Parameter;
+	FName Parameter;
 };

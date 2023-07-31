@@ -14,7 +14,7 @@
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
-void STextureSetParameterWidget::Construct(const FArguments& InArgs, UMaterialInstanceConstant* InMaterialInstance, FGuid InParameter)
+void STextureSetParameterWidget::Construct(const FArguments& InArgs, UMaterialInstanceConstant* InMaterialInstance, FName InParameter)
 {
 	check(InMaterialInstance);
 	MaterialInstance = InMaterialInstance;
@@ -40,7 +40,7 @@ void STextureSetParameterWidget::Construct(const FArguments& InArgs, UMaterialIn
 			.Padding(4)
 			[
 				SNew(STextBlock)
-				.Text(FText::FromName(Override.Name))
+				.Text(FText::FromName(InParameter))
 			]
 		]
 		+ SHorizontalBox::Slot()

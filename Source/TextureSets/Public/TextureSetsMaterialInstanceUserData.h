@@ -16,9 +16,6 @@ USTRUCT(BlueprintType)
 struct FSetOverride
 {
 	GENERATED_BODY()
-	
-	UPROPERTY(VisibleAnywhere)
-	FName Name;
 
 	UPROPERTY(VisibleAnywhere)
 	UTextureSet* TextureSet;
@@ -27,6 +24,10 @@ struct FSetOverride
 	bool IsOverridden;
 };
 
+/// <summary>
+/// Stores texture set override data on a material instance, since material instances can't directly reference texture sets.
+/// On post-load, this applies all the individual material parameters to the material.
+/// </summary>
 UCLASS(BlueprintType)
 class TEXTURESETS_API UTextureSetsMaterialInstanceUserData : public UAssetUserData
 {
@@ -37,7 +38,7 @@ public:
 #if WITH_EDITOR
 	// Ensures user data is in sync with the material
 	static void UpdateAssetUserData(UMaterialInstance* MaterialInstance);
-	static const UMaterialExpressionTextureSetSampleParameter* FindSampleExpression(const FGuid& NodeID, UMaterial* Material);
+	static const UMaterialExpressionTextureSetSampleParameter* FindSampleExpression(const FName& ParamName, UMaterial* Material);
 #endif
 
 	// UObject Overrides
@@ -55,13 +56,13 @@ public:
 	// Removes all texture set related material parameters from the material instance
 	void ClearTextureSetParameters();
 
-	const TArray<FGuid> GetOverrides() const;
-	const FSetOverride& GetOverride(FGuid Guid) const;
-	void SetOverride(FGuid Guid, const FSetOverride& Override);
+	const TArray<FName> GetOverrides() const;
+	const FSetOverride& GetOverride(FName Name) const;
+	void SetOverride(FName Name, const FSetOverride& Override);
 
 private:
 	UPROPERTY(VisibleAnywhere)
-	TMap<FGuid, FSetOverride> TexturesSetOverrides;
+	TMap<FName, FSetOverride> TexturesSetOverrides;
 
 	UMaterialInstance* MaterialInstance;
 	

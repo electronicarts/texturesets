@@ -3,9 +3,13 @@
 #include "TextureSetsEditor.h"
 
 #include "IMaterialEditor.h"
+#include "IDetailGroup.h"
+#include "DetailWidgetRow.h"
+#include "STextureSetParameterWidget.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSet.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSetDefinition.h"
 #include "MaterialPropertyHelpers.h"
+#include "Materials/MaterialInstanceConstant.h"
 #include "MaterialEditor/Public/MaterialEditorModule.h"
 #include "MaterialEditor/MaterialEditorInstanceConstant.h"
 #include "TextureSetsMaterialInstanceUserData.h"
@@ -109,11 +113,11 @@ void FTextureSetsEditorModule::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstan
 			.Text(FText::FromName(DetailGroup.GetGroupName()))
 		];
 
-	for (const FGuid& Guid : TextureSetOverrides->GetOverrides())
+	for (const FName& ParameterName : TextureSetOverrides->GetOverrides())
 	{
 		DetailGroup.AddWidgetRow()
 			[
-				SNew(STextureSetParameterWidget, MaterialInstance, Guid)
+				SNew(STextureSetParameterWidget, MaterialInstance, ParameterName)
 			];
 	}
 }

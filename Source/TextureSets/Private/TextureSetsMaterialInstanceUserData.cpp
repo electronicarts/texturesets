@@ -16,7 +16,7 @@
 #endif
 
 #if WITH_EDITOR
-const UMaterialExpressionTextureSetSampleParameter* UTextureSetsMaterialInstanceUserData::FindSampleExpression(const FGuid& NodeID, UMaterial* Material)
+const UMaterialExpressionTextureSetSampleParameter* UTextureSetsMaterialInstanceUserData::FindSampleExpression(const FName& ParamName, UMaterial* Material)
 {
 	// FindExpressionByGUID() doesn't work because it ignores subclasses of material function calls. We need to re-implement a search.
 
@@ -25,7 +25,7 @@ const UMaterialExpressionTextureSetSampleParameter* UTextureSetsMaterialInstance
 
 	for (const UMaterialExpressionTextureSetSampleParameter* CurNode : SamplerExpressions)
 	{
-		if (CurNode->MaterialExpressionGuid == NodeID)
+		if (CurNode->ParameterName == ParamName)
 			return CurNode;
 	}
 	return nullptr;
@@ -52,7 +52,7 @@ void UTextureSetsMaterialInstanceUserData::UpdateAssetUserData(UMaterialInstance
 		return; // Done here, not a material that needs texture set stuff.
 	}
 
-	TArray<FGuid> UnusedOverrides;
+	TArray<FName> UnusedOverrides;
 
 	if (IsValid(TextureSetUserData))
 		TextureSetUserData->TexturesSetOverrides.GetKeys(UnusedOverrides);
@@ -70,35 +70,26 @@ void UTextureSetsMaterialInstanceUserData::UpdateAssetUserData(UMaterialInstance
 			MaterialInstance->AddAssetUserData(TextureSetUserData);
 		}
 
-		const FGuid NodeGuid = TextureSetExpression->MaterialExpressionGuid;
-		if (TextureSetUserData->TexturesSetOverrides.Contains(NodeGuid))
+		const FName NodeParameterName = TextureSetExpression->ParameterName;
+		if (TextureSetUserData->TexturesSetOverrides.Contains(NodeParameterName))
 		{
-			UnusedOverrides.RemoveSingle(NodeGuid);
-
-			// Update existing override with the correct value
-			FSetOverride Override = TextureSetUserData->GetOverride(NodeGuid);
-			if (Override.Name != TextureSetExpression->ParameterName)
-			{
-				Override.Name = TextureSetExpression->ParameterName;
-				TextureSetUserData->SetOverride(NodeGuid, Override);
-			}
+			UnusedOverrides.RemoveSingle(NodeParameterName);
 		}
 		else
 		{
 			// Add new override
 			FSetOverride Override;
 
-			// TODO: See if there are any old overrides with the same name, which we could use to recover values from.
-			Override.Name = TextureSetExpression->ParameterName;
+			// TODO: See if there are any old overrides which have been re-named, which we can recover values from based on node GUIDs
 			Override.TextureSet = TextureSetExpression->DefaultTextureSet;
 			Override.IsOverridden = false;
 
-			TextureSetUserData->TexturesSetOverrides.Add(NodeGuid, Override);
+			TextureSetUserData->TexturesSetOverrides.Add(NodeParameterName, Override);
 		}
 	}
 
 	// Clear any overrides we no longer need.
-	for (FGuid Unused : UnusedOverrides)
+	for (FName Unused : UnusedOverrides)
 		TextureSetUserData->TexturesSetOverrides.Remove(Unused);
 }
 #endif
@@ -156,12 +147,12 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 	// Remove any exsting texture set related parameters, as we're about to re-create the ones that are needed.
 	ClearTextureSetParameters();
 
-	for (const auto& [Guid, TextureSetOverride] : TexturesSetOverrides)
+	for (const auto& [Name, TextureSetOverride] : TexturesSetOverrides)
 	{
 		if (!TextureSetOverride.IsOverridden || TextureSetOverride.TextureSet == nullptr)
 			continue;
 
-		const UMaterialExpressionTextureSetSampleParameter* SampleExpression = FindSampleExpression(Guid, MaterialInstance->GetMaterial());
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression = FindSampleExpression(Name, MaterialInstance->GetMaterial());
 		if (SampleExpression == nullptr)
 			continue;
 
@@ -172,11 +163,11 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 		const UTextureSetDerivedData* DerivedData = TextureSetOverride.TextureSet->GetDerivedData();
 
 		// Set any constant parameters what we have
-		for (auto& [Name, Value] : DerivedData->MaterialParameters)
+		for (auto& [ParameterName, Value] : DerivedData->MaterialParameters)
 		{
 			FVectorParameterValue Parameter;
 			Parameter.ParameterValue = FLinearColor(Value);
-			Parameter.ParameterInfo.Name = SampleExpression->GetConstantParameterName(Name);
+			Parameter.ParameterInfo.Name = SampleExpression->GetConstantParameterName(ParameterName);
 			MaterialInstance->VectorParameterValues.Add(Parameter);
 		}
 
@@ -191,11 +182,11 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 			MaterialInstance->TextureParameterValues.Add(TextureParameter);
 
 			// Set any constant parameters that come with this texture
-			for (auto& [Name, Value] : PackedTextureData.MaterialParameters)
+			for (auto& [ParameterName, Value] : PackedTextureData.MaterialParameters)
 			{
 				FVectorParameterValue Parameter;
 				Parameter.ParameterValue = FLinearColor(Value);
-				Parameter.ParameterInfo.Name = SampleExpression->GetConstantParameterName(Name);
+				Parameter.ParameterInfo.Name = SampleExpression->GetConstantParameterName(ParameterName);
 				MaterialInstance->VectorParameterValues.Add(Parameter);
 			}
 		}
@@ -203,21 +194,21 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 }
 #endif
 
-const TArray<FGuid> UTextureSetsMaterialInstanceUserData::GetOverrides() const
+const TArray<FName> UTextureSetsMaterialInstanceUserData::GetOverrides() const
 {
-	TArray<FGuid> Guids;
-	TexturesSetOverrides.GetKeys(Guids);
-	return Guids;
+	TArray<FName> Names;
+	TexturesSetOverrides.GetKeys(Names);
+	return Names;
 }
 
-const FSetOverride& UTextureSetsMaterialInstanceUserData::GetOverride(FGuid Guid) const
+const FSetOverride& UTextureSetsMaterialInstanceUserData::GetOverride(FName Name) const
 {
-	return TexturesSetOverrides.FindChecked(Guid);
+	return TexturesSetOverrides.FindChecked(Name);
 }
 
-void UTextureSetsMaterialInstanceUserData::SetOverride(FGuid Guid, const FSetOverride& Override)
+void UTextureSetsMaterialInstanceUserData::SetOverride(FName Name, const FSetOverride& Override)
 {
-	TexturesSetOverrides.Add(Guid, Override);
+	TexturesSetOverrides.Add(Name, Override);
 #if WITH_EDITOR
 	UpdateTextureSetParameters();
 
