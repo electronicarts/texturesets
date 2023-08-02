@@ -48,7 +48,10 @@ public:
 	}
 
 	FName GetTextureParameterName(int TextureIndex) const;
-	FName GetConstantParameterName(FName Parameter) const;
+	FName GetConstantParameterName(FName ConstantName) const;
+
+	static FName MakeTextureParameterName(FName ParameterName, int TextureIndex);
+	static FName MakeConstantParameterName(FName ParameterName, FName ConstantName);
 	static bool IsTextureSetParameterName(FName Name);
 
 #if WITH_EDITOR

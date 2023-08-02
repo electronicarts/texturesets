@@ -24,12 +24,22 @@ UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampl
 
 FName UMaterialExpressionTextureSetSampleParameter::GetTextureParameterName(int TextureIndex) const
 {
+	return MakeTextureParameterName(ParameterName, TextureIndex);
+}
+
+FName UMaterialExpressionTextureSetSampleParameter::GetConstantParameterName(FName ConstantName) const
+{
+	return MakeConstantParameterName(ParameterName, ConstantName);
+}
+
+FName UMaterialExpressionTextureSetSampleParameter::MakeTextureParameterName(FName ParameterName, int TextureIndex)
+{
 	return FName("TEXSET_" + ParameterName.ToString() + "_PACKED_" + FString::FromInt(TextureIndex));
 }
 
-FName UMaterialExpressionTextureSetSampleParameter::GetConstantParameterName(FName Parameter) const
+FName UMaterialExpressionTextureSetSampleParameter::MakeConstantParameterName(FName ParameterName, FName ConstantName)
 {
-	return FName("TEXSET_" + ParameterName.ToString() + "_" + Parameter.ToString());
+	return FName("TEXSET_" + ParameterName.ToString() + "_" + ConstantName.ToString());
 }
 
 bool UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(FName Name)

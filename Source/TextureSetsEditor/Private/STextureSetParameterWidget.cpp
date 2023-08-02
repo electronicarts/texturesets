@@ -14,16 +14,23 @@
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
-void STextureSetParameterWidget::Construct(const FArguments& InArgs, UMaterialInstanceConstant* InMaterialInstance, FName InParameter)
+void STextureSetParameterWidget::Construct(const FArguments& InArgs, UMaterialInstanceConstant* InMaterialInstance, FMaterialParameterInfo InParameter, const UMaterialExpressionTextureSetSampleParameter* InExpression)
 {
 	check(InMaterialInstance);
 	MaterialInstance = InMaterialInstance;
 	Parameter = InParameter;
+	Expression = InExpression;
 
 	UTextureSetsMaterialInstanceUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
 	check(UserData);
 
-	const FSetOverride& Override = UserData->GetOverride(Parameter);
+	FString ParameterTitle = InParameter.Name.ToString();
+
+	// TODO: When these are properly shown in the layers, we won't need to specify where they're from
+	if (InParameter.Association == EMaterialParameterAssociation::BlendParameter)
+		ParameterTitle += " Blend " + FString::FromInt(InParameter.Index);
+	else if (InParameter.Association == EMaterialParameterAssociation::LayerParameter)
+		ParameterTitle += " Layer " + FString::FromInt(InParameter.Index);
 
 	ChildSlot
 	[
@@ -40,7 +47,7 @@ void STextureSetParameterWidget::Construct(const FArguments& InArgs, UMaterialIn
 			.Padding(4)
 			[
 				SNew(STextBlock)
-				.Text(FText::FromName(InParameter))
+				.Text(FText::FromString(ParameterTitle))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -62,8 +69,9 @@ ECheckBoxState STextureSetParameterWidget::IsTextureSetOverridden() const
 	UTextureSetsMaterialInstanceUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
 	check(UserData);
 
-	const FSetOverride& Override = UserData->GetOverride(Parameter);
-	return Override.IsOverridden ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	FTextureSetOverride Override;
+	if (UserData->GetOverride(Parameter, Override))
+		return Override.IsOverridden ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 
 	return ECheckBoxState::Unchecked;
 }
@@ -73,10 +81,13 @@ void STextureSetParameterWidget::ToggleTextureSetOverridden(ECheckBoxState NewSt
 	UTextureSetsMaterialInstanceUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
 	check(UserData);
 
-	FSetOverride Override = UserData->GetOverride(Parameter);
-	Override.IsOverridden = (NewState == ECheckBoxState::Checked);
+	FTextureSetOverride Override;
+	if (UserData->GetOverride(Parameter, Override))
+	{
+		Override.IsOverridden = (NewState == ECheckBoxState::Checked);
 
-	UserData->SetOverride(Parameter, Override);
+		UserData->SetOverride(Override);
+	}
 }
 
 bool STextureSetParameterWidget::OnShouldFilterTextureSetAsset(const FAssetData& InAssetData)
@@ -86,10 +97,9 @@ bool STextureSetParameterWidget::OnShouldFilterTextureSetAsset(const FAssetData&
 	const UTextureSet* NewTextureSet = CastChecked<UTextureSet>(InAssetData.GetAsset());
 	check(NewTextureSet);
 
-	const UMaterialExpressionTextureSetSampleParameter* SampleExpression = UTextureSetsMaterialInstanceUserData::FindSampleExpression(Parameter, MaterialInstance->GetMaterial());
-	check(SampleExpression);
+	check(Expression);
 
-	return NewTextureSet->Definition != SampleExpression->Definition;
+	return NewTextureSet->Definition != Expression->Definition;
 }
 
 FString STextureSetParameterWidget::GetTextureSetAssetPath() const
@@ -99,10 +109,9 @@ FString STextureSetParameterWidget::GetTextureSetAssetPath() const
 	const UTextureSetsMaterialInstanceUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
 	check(UserData);
 
-	const FSetOverride& TextureSetOverride = UserData->GetOverride(Parameter);
-				
-	if (TextureSetOverride.TextureSet)
-		return TextureSetOverride.TextureSet->GetPathName();
+	FTextureSetOverride Override;
+	if (UserData->GetOverride(Parameter, Override) && IsValid(Override.TextureSet))
+		return Override.TextureSet->GetPathName();
 	else
 		return FString();
 }
@@ -114,10 +123,13 @@ void STextureSetParameterWidget::OnTextureSetAssetChanged(const FAssetData& InAs
 	UTextureSetsMaterialInstanceUserData* UserData = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
 	check(UserData);
 
-	FSetOverride TextureSetOverride = UserData->GetOverride(Parameter);
-	TextureSetOverride.TextureSet = Cast<UTextureSet>(InAssetData.GetAsset());;
+	FTextureSetOverride Override;
+	if (UserData->GetOverride(Parameter, Override))
+	{
+		Override.TextureSet = Cast<UTextureSet>(InAssetData.GetAsset());
 
-	UserData->SetOverride(Parameter, TextureSetOverride);
+		UserData->SetOverride(Override);
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

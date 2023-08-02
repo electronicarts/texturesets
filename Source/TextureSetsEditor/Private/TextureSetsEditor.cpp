@@ -113,12 +113,17 @@ void FTextureSetsEditorModule::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstan
 			.Text(FText::FromName(DetailGroup.GetGroupName()))
 		];
 
-	for (const FName& ParameterName : TextureSetOverrides->GetOverrides())
+	const TMap<FMaterialParameterInfo, const UMaterialExpressionTextureSetSampleParameter*> Expressions = UTextureSetsMaterialInstanceUserData::FindAllSampleExpressions(MaterialInstance);
+
+	for (const FMaterialParameterInfo& ParameterInfo : TextureSetOverrides->GetOverrides())
 	{
-		DetailGroup.AddWidgetRow()
-			[
-				SNew(STextureSetParameterWidget, MaterialInstance, ParameterName)
-			];
+		if (Expressions.Contains(ParameterInfo))
+		{
+			DetailGroup.AddWidgetRow()
+				[
+					SNew(STextureSetParameterWidget, MaterialInstance, ParameterInfo, Expressions.FindChecked(ParameterInfo))
+				];
+		}
 	}
 }
 

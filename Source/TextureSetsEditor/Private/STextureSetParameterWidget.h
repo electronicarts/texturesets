@@ -7,6 +7,7 @@
 
 class FString;
 class UMaterialInstanceConstant;
+class UMaterialExpressionTextureSetSampleParameter;
 
 /**
  * The widget to display metadata as a table of tag/value rows
@@ -17,7 +18,7 @@ public:
 	SLATE_BEGIN_ARGS(STextureSetParameterWidget)	{}
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, UMaterialInstanceConstant* MaterialInstance, FName Parameter);
+	void Construct(const FArguments& InArgs, UMaterialInstanceConstant* MaterialInstance, FMaterialParameterInfo Parameter, const UMaterialExpressionTextureSetSampleParameter* Expression);
 
 private:
 
@@ -29,5 +30,6 @@ private:
 	void OnTextureSetAssetChanged(const FAssetData& InAssetData);
 
 	UMaterialInstanceConstant* MaterialInstance;
-	FName Parameter;
+	FMaterialParameterInfo Parameter;
+	const UMaterialExpressionTextureSetSampleParameter* Expression;
 };

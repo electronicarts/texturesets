@@ -8,6 +8,7 @@
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "Materials/MaterialInstance.h"
 #include "Materials/MaterialInstanceConstant.h"
+#include "Materials/MaterialFunctionInterface.h"
 #include "TextureSetDefinition.h"
 #include "TextureSet.h"
 
@@ -16,19 +17,76 @@
 #endif
 
 #if WITH_EDITOR
-const UMaterialExpressionTextureSetSampleParameter* UTextureSetsMaterialInstanceUserData::FindSampleExpression(const FName& ParamName, UMaterial* Material)
+const TMap<FMaterialParameterInfo, const UMaterialExpressionTextureSetSampleParameter*> UTextureSetsMaterialInstanceUserData::FindAllSampleExpressions(UMaterialInstance* MaterialInstance)
 {
-	// FindExpressionByGUID() doesn't work because it ignores subclasses of material function calls. We need to re-implement a search.
+	TMap<FMaterialParameterInfo, const UMaterialExpressionTextureSetSampleParameter*> Result;
 
-	TArray<const UMaterialExpressionTextureSetSampleParameter*> SamplerExpressions;
-	Material->GetAllExpressionsOfType<UMaterialExpressionTextureSetSampleParameter>(SamplerExpressions);
+	UMaterial* Material = MaterialInstance->GetMaterial();
 
-	for (const UMaterialExpressionTextureSetSampleParameter* CurNode : SamplerExpressions)
+	if (IsValid(Material))
 	{
-		if (CurNode->ParameterName == ParamName)
-			return CurNode;
+		// Find all expressions in material
+		{
+			TArray<const UMaterialExpressionTextureSetSampleParameter*> SamplerExpressions;
+			Material->GetAllExpressionsOfType<UMaterialExpressionTextureSetSampleParameter>(SamplerExpressions);
+		
+			for (const UMaterialExpressionTextureSetSampleParameter* Expression : SamplerExpressions)
+			{
+				FMaterialParameterInfo Info;
+				Info.Name = Expression->ParameterName;
+				Info.Association = EMaterialParameterAssociation::GlobalParameter;
+				Info.Index = INDEX_NONE;
+				Result.Add(Info, Expression);
+			}
+		}
+
+		FMaterialLayersFunctions Layers;
+		MaterialInstance->GetMaterialLayers(Layers);
+		
+		// Find all expressions in layers
+		for (int i = 0; i < Layers.Layers.Num(); i++)
+		{
+			if (!Layers.Layers[i])
+				continue;
+
+			UMaterialFunction* LayerFunction = Layers.Layers[i]->GetBaseFunction();
+		
+			TArray<UMaterialExpressionTextureSetSampleParameter*> SamplerExpressions;
+			LayerFunction->GetAllExpressionsOfType<UMaterialExpressionTextureSetSampleParameter>(SamplerExpressions);
+		
+			for (const UMaterialExpressionTextureSetSampleParameter* Expression : SamplerExpressions)
+			{
+				FMaterialParameterInfo Info;
+				Info.Name = Expression->ParameterName;
+				Info.Association = EMaterialParameterAssociation::LayerParameter;
+				Info.Index = i;
+				Result.Add(Info, Expression);
+			}
+		}
+
+		// Find all expression in layer blends
+		for (int i = 0; i < Layers.Blends.Num(); i++)
+		{
+			if (!Layers.Blends[i])
+				continue;
+
+			UMaterialFunction* BlendFunction = Layers.Blends[i]->GetBaseFunction();
+
+			TArray<UMaterialExpressionTextureSetSampleParameter*> SamplerExpressions;
+			BlendFunction->GetAllExpressionsOfType<UMaterialExpressionTextureSetSampleParameter>(SamplerExpressions);
+
+			for (const UMaterialExpressionTextureSetSampleParameter* Expression : SamplerExpressions)
+			{
+				FMaterialParameterInfo Info;
+				Info.Name = Expression->ParameterName;
+				Info.Association = EMaterialParameterAssociation::BlendParameter;
+				Info.Index = i;
+				Result.Add(Info, Expression);
+			}
+		}
 	}
-	return nullptr;
+
+	return Result;
 }
 #endif
 
@@ -40,8 +98,7 @@ void UTextureSetsMaterialInstanceUserData::UpdateAssetUserData(UMaterialInstance
 	if (!IsValid(MaterialInstance->GetMaterial()))
 		return; // Possible if parent has not been assigned yet.
 
-	TArray<const UMaterialExpressionTextureSetSampleParameter*> TextureSetExpressions;
-	MaterialInstance->GetMaterial()->GetAllExpressionsOfType<UMaterialExpressionTextureSetSampleParameter>(TextureSetExpressions);
+	const TMap<FMaterialParameterInfo, const UMaterialExpressionTextureSetSampleParameter*> TextureSetExpressions = UTextureSetsMaterialInstanceUserData::FindAllSampleExpressions(MaterialInstance);
 
 	UTextureSetsMaterialInstanceUserData* TextureSetUserData = MaterialInstance->GetAssetUserData<UTextureSetsMaterialInstanceUserData>();
 
@@ -52,15 +109,15 @@ void UTextureSetsMaterialInstanceUserData::UpdateAssetUserData(UMaterialInstance
 		return; // Done here, not a material that needs texture set stuff.
 	}
 
-	TArray<FName> UnusedOverrides;
+	TArray<FMaterialParameterInfo> UnusedOverrides;
 
 	if (IsValid(TextureSetUserData))
-		TextureSetUserData->TexturesSetOverrides.GetKeys(UnusedOverrides);
-
-	for (const UMaterialExpressionTextureSetSampleParameter* TextureSetExpression : TextureSetExpressions)
 	{
-		check(TextureSetExpression);
+		UnusedOverrides = TextureSetUserData->GetOverrides();
+	}
 
+	for (const auto& [NodeParameterInfo, TextureSetExpression] : TextureSetExpressions)
+	{
 		// Add texture set user data if it doesn't exist
 		// Note that this happens inside the loop of texture set expressions.
 		// This is so the user data is only added if there is a texture set expression.
@@ -70,27 +127,29 @@ void UTextureSetsMaterialInstanceUserData::UpdateAssetUserData(UMaterialInstance
 			MaterialInstance->AddAssetUserData(TextureSetUserData);
 		}
 
-		const FName NodeParameterName = TextureSetExpression->ParameterName;
-		if (TextureSetUserData->TexturesSetOverrides.Contains(NodeParameterName))
+		if (TextureSetUserData->HasOverride(NodeParameterInfo))
 		{
-			UnusedOverrides.RemoveSingle(NodeParameterName);
+			UnusedOverrides.RemoveSingle(NodeParameterInfo);
 		}
 		else
 		{
 			// Add new override
-			FSetOverride Override;
+			FTextureSetOverride Override;
 
 			// TODO: See if there are any old overrides which have been re-named, which we can recover values from based on node GUIDs
-			Override.TextureSet = TextureSetExpression->DefaultTextureSet;
+			Override.Info = NodeParameterInfo;
+			Override.TextureSet = nullptr;
 			Override.IsOverridden = false;
 
-			TextureSetUserData->TexturesSetOverrides.Add(NodeParameterName, Override);
+			TextureSetUserData->SetOverride(Override);
 		}
 	}
 
 	// Clear any overrides we no longer need.
-	for (FName Unused : UnusedOverrides)
-		TextureSetUserData->TexturesSetOverrides.Remove(Unused);
+	for (const FMaterialParameterInfo& Unused : UnusedOverrides)
+	{
+		TextureSetUserData->RemoveOverride(Unused);
+	}
 }
 #endif
 
@@ -127,12 +186,54 @@ void UTextureSetsMaterialInstanceUserData::PostLoadOwner()
 
 void UTextureSetsMaterialInstanceUserData::ClearTextureSetParameters()
 {
+	// Clears all parameters in a material instance that are driven by a texture set.
+
+	for(int i = 0; i < MaterialInstance->ScalarParameterValues.Num(); i++)
+	{
+		const FScalarParameterValue& TextureParameter = MaterialInstance->ScalarParameterValues[i];
+		if (UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(TextureParameter.ParameterInfo.Name))
+		{
+			MaterialInstance->ScalarParameterValues.RemoveAt(i);
+			i--;
+		}
+	}
+
+	for(int i = 0; i < MaterialInstance->VectorParameterValues.Num(); i++)
+	{
+		const FVectorParameterValue& TextureParameter = MaterialInstance->VectorParameterValues[i];
+		if (UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(TextureParameter.ParameterInfo.Name))
+		{
+			MaterialInstance->VectorParameterValues.RemoveAt(i);
+			i--;
+		}
+	}
+
+	for(int i = 0; i < MaterialInstance->DoubleVectorParameterValues.Num(); i++)
+	{
+		const FDoubleVectorParameterValue& TextureParameter = MaterialInstance->DoubleVectorParameterValues[i];
+		if (UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(TextureParameter.ParameterInfo.Name))
+		{
+			MaterialInstance->DoubleVectorParameterValues.RemoveAt(i);
+			i--;
+		}
+	}
+
 	for(int i = 0; i < MaterialInstance->TextureParameterValues.Num(); i++)
 	{
 		const FTextureParameterValue& TextureParameter = MaterialInstance->TextureParameterValues[i];
 		if (UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(TextureParameter.ParameterInfo.Name))
 		{
 			MaterialInstance->TextureParameterValues.RemoveAt(i);
+			i--;
+		}
+	}
+
+	for(int i = 0; i < MaterialInstance->RuntimeVirtualTextureParameterValues.Num(); i++)
+	{
+		const FRuntimeVirtualTextureParameterValue& TextureParameter = MaterialInstance->RuntimeVirtualTextureParameterValues[i];
+		if (UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(TextureParameter.ParameterInfo.Name))
+		{
+			MaterialInstance->RuntimeVirtualTextureParameterValues.RemoveAt(i);
 			i--;
 		}
 	}
@@ -147,14 +248,17 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 	// Remove any exsting texture set related parameters, as we're about to re-create the ones that are needed.
 	ClearTextureSetParameters();
 
-	for (const auto& [Name, TextureSetOverride] : TexturesSetOverrides)
+	const TMap<FMaterialParameterInfo, const UMaterialExpressionTextureSetSampleParameter*> Expressions = UTextureSetsMaterialInstanceUserData::FindAllSampleExpressions(MaterialInstance);
+
+	for (const FTextureSetOverride& TextureSetOverride : TexturesSetOverrides)
 	{
 		if (!TextureSetOverride.IsOverridden || TextureSetOverride.TextureSet == nullptr)
 			continue;
 
-		const UMaterialExpressionTextureSetSampleParameter* SampleExpression = FindSampleExpression(Name, MaterialInstance->GetMaterial());
-		if (SampleExpression == nullptr)
+		if (!Expressions.Contains(TextureSetOverride.Info))
 			continue;
+
+		const UMaterialExpressionTextureSetSampleParameter* SampleExpression = Expressions.FindChecked(TextureSetOverride.Info);
 
 		UTextureSetDefinition* Definition = SampleExpression->Definition;
 		if (Definition == nullptr)
@@ -167,7 +271,9 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 		{
 			FVectorParameterValue Parameter;
 			Parameter.ParameterValue = FLinearColor(Value);
-			Parameter.ParameterInfo.Name = SampleExpression->GetConstantParameterName(ParameterName);
+			Parameter.ParameterInfo.Name = SampleExpression->GetConstantParameterName(TextureSetOverride.Info.Name);
+			Parameter.ParameterInfo.Association = TextureSetOverride.Info.Association;
+			Parameter.ParameterInfo.Index = TextureSetOverride.Info.Index;
 			MaterialInstance->VectorParameterValues.Add(Parameter);
 		}
 
@@ -179,6 +285,8 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 			FTextureParameterValue TextureParameter;
 			TextureParameter.ParameterValue = TextureSetOverride.IsOverridden ? TextureSetOverride.TextureSet->GetDerivedTexture(i) : nullptr;
 			TextureParameter.ParameterInfo.Name = SampleExpression->GetTextureParameterName(i);
+			TextureParameter.ParameterInfo.Association = TextureSetOverride.Info.Association;
+			TextureParameter.ParameterInfo.Index = TextureSetOverride.Info.Index;
 			MaterialInstance->TextureParameterValues.Add(TextureParameter);
 
 			// Set any constant parameters that come with this texture
@@ -187,6 +295,8 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 				FVectorParameterValue Parameter;
 				Parameter.ParameterValue = FLinearColor(Value);
 				Parameter.ParameterInfo.Name = SampleExpression->GetConstantParameterName(ParameterName);
+				Parameter.ParameterInfo.Association = TextureSetOverride.Info.Association;
+				Parameter.ParameterInfo.Index = TextureSetOverride.Info.Index;
 				MaterialInstance->VectorParameterValues.Add(Parameter);
 			}
 		}
@@ -194,21 +304,55 @@ void UTextureSetsMaterialInstanceUserData::UpdateTextureSetParameters()
 }
 #endif
 
-const TArray<FName> UTextureSetsMaterialInstanceUserData::GetOverrides() const
+const TArray<FMaterialParameterInfo> UTextureSetsMaterialInstanceUserData::GetOverrides() const
 {
-	TArray<FName> Names;
-	TexturesSetOverrides.GetKeys(Names);
-	return Names;
+	TArray<FMaterialParameterInfo> Infos;
+
+	for (FTextureSetOverride Override : TexturesSetOverrides)
+		Infos.Add(Override.Info);
+
+	return Infos;
 }
 
-const FSetOverride& UTextureSetsMaterialInstanceUserData::GetOverride(FName Name) const
+bool UTextureSetsMaterialInstanceUserData::HasOverride(const FMaterialParameterInfo& Info) const
 {
-	return TexturesSetOverrides.FindChecked(Name);
+	FTextureSetOverride Dummy;
+	return GetOverride(Info, Dummy);
 }
 
-void UTextureSetsMaterialInstanceUserData::SetOverride(FName Name, const FSetOverride& Override)
+bool UTextureSetsMaterialInstanceUserData::GetOverride(const FMaterialParameterInfo& Info, FTextureSetOverride& OutOverride) const
 {
-	TexturesSetOverrides.Add(Name, Override);
+	for (FTextureSetOverride Override : TexturesSetOverrides)
+	{
+		if (Override.Info == Info)
+		{
+			OutOverride = Override;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void UTextureSetsMaterialInstanceUserData::SetOverride(const FTextureSetOverride& Override)
+{
+	bool FoundExisting = false;
+
+	for (int i = 0; i < TexturesSetOverrides.Num(); i++)
+	{
+		if (TexturesSetOverrides[i].Info == Override.Info)
+		{
+			TexturesSetOverrides[i] = Override;
+			FoundExisting = true;
+			break;
+		}
+	}
+
+	if (!FoundExisting)
+	{
+		TexturesSetOverrides.Add(Override);
+	}
+
 #if WITH_EDITOR
 	UpdateTextureSetParameters();
 
@@ -218,4 +362,15 @@ void UTextureSetsMaterialInstanceUserData::SetOverride(FName Name, const FSetOve
 	// Trigger a redraw of the UI
 	UMaterialEditingLibrary::RefreshMaterialEditor(MaterialInstance);
 #endif
+}
+
+void UTextureSetsMaterialInstanceUserData::RemoveOverride(const FMaterialParameterInfo& Info)
+{
+	for (int i = 0; i < TexturesSetOverrides.Num(); i++)
+	{
+		if (TexturesSetOverrides[i].Info == Info)
+		{
+			TexturesSetOverrides.RemoveAt(i);
+		}
+	}
 }
