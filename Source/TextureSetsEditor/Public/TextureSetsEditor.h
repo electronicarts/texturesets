@@ -9,6 +9,7 @@ class IAssetTools;
 class IAssetTypeActions;
 class IDetailCategoryBuilder;
 class UMaterialInstanceConstant;
+class IMaterialParameterFilter;
 
 class FTextureSetsEditorModule : public IModuleInterface
 {
@@ -33,4 +34,6 @@ private:
 	FDelegateHandle OnMICreateGroupsWidgetHandle;
 
 	TArray<TSharedRef<IAssetTypeActions>> RegisteredAssetTypeActions;
+
+	TSharedPtr<IMaterialParameterFilter> ParameterFilter;
 };

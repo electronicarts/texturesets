@@ -10,23 +10,47 @@
 #include "AssetTypeActions/AssetTypeActions_TextureSetDefinition.h"
 #include "MaterialPropertyHelpers.h"
 #include "Materials/MaterialInstanceConstant.h"
+#include "MaterialEditor/DEditorParameterValue.h"
 #include "MaterialEditor/Public/MaterialEditorModule.h"
 #include "MaterialEditor/MaterialEditorInstanceConstant.h"
 #include "TextureSetsMaterialInstanceUserData.h"
+#include "MaterialExpressionTextureSetSampleParameter.h"
+
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
+
+static TAutoConsoleVariable<bool> CVarShowTextureSetParameters(
+	TEXT("ts.ShowTextureSetParameters"),
+	false,
+	TEXT("Makes texture set parameters visible in the material instance editor. These are usually hidden."));
+
+
+class TextureSetParameterFilter : public IMaterialParameterFilter
+{
+	virtual bool IsMaterialParameterHidden(TObjectPtr<UDEditorParameterValue> Param) override
+	{
+		return !CVarShowTextureSetParameters.GetValueOnAnyThread() && UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(Param->ParameterInfo.Name);
+	}
+};
 
 void FTextureSetsEditorModule::StartupModule()
 {
 	RegisterAssetTools();
 	RegisterCallbacks();
+
+	ParameterFilter = MakeShared<TextureSetParameterFilter>();
+	FMaterialPropertyHelpers::RegisterParameterFilter(ParameterFilter.Get());
 }
 
 void FTextureSetsEditorModule::ShutdownModule()
 {
 	UnregisterCallbacks();
 	UnregisterAssetTools();
+
+	FMaterialPropertyHelpers::UnregisterParameterFilter(ParameterFilter.Get());
+	ParameterFilter.Reset();
 }
+
 
 void FTextureSetsEditorModule::RegisterAssetTools()
 {
@@ -103,7 +127,8 @@ void FTextureSetsEditorModule::OnMICreateGroupsWidget(TObjectPtr<UMaterialInstan
 	if (!TextureSetOverrides)
 		return;
 
-	const FName& GroupName = FMaterialPropertyHelpers::TextureSetParamName;
+	// TODO: Allow texture set parameters to embed into regular parameter groups
+	const FName& GroupName = "Texture Sets";
 	IDetailGroup& DetailGroup = GroupsCategory.AddGroup(GroupName, FText::FromName(GroupName), false, true);
 
 	DetailGroup.HeaderRow()

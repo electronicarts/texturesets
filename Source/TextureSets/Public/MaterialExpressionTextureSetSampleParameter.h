@@ -15,14 +15,17 @@ class UTextureSet;
 class FObjectInitializer;
 class FArguments;
 
-UCLASS(MinimalAPI, HideCategories = (MaterialExpressionMaterialFunctionCall))
-class UMaterialExpressionTextureSetSampleParameter : public UProceduralMaterialFunction
+UCLASS(HideCategories = (MaterialExpressionMaterialFunctionCall))
+class TEXTURESETS_API UMaterialExpressionTextureSetSampleParameter : public UProceduralMaterialFunction
 {
 	GENERATED_UCLASS_BODY()
 public:
 	UPROPERTY(EditAnywhere)
 	FName ParameterName;
 	
+	UPROPERTY(EditAnywhere)
+	FName ParameterGroupName;
+
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<class UTextureSet> DefaultTextureSet;
 
