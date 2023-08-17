@@ -5,6 +5,7 @@
 #include "TextureSetDefinition.h"
 #include "TextureSetCooker.h"
 #include "TextureSetModule.h"
+#include "MaterialExpressionTextureSetSampleParameter.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "UObject/ObjectSaveContext.h"
 #include "Engine/TextureDefines.h"
@@ -39,22 +40,49 @@ EDataValidationResult UTextureSet::IsDataValid(FDataValidationContext& Context)
 }
 #endif
 
+void UTextureSet::AugmentMaterialParameters(const FCustomParameterValue& CustomParameter, TArray<FVectorParameterValue>& VectorParameters, TArray<FTextureParameterValue>& TextureParameters) const
+{
+	// Set any constant parameters what we have
+	for (auto& [ParameterName, Value] : DerivedData->MaterialParameters)
+	{
+		FVectorParameterValue Parameter;
+		Parameter.ParameterValue = FLinearColor(Value);
+		Parameter.ParameterInfo.Name = UMaterialExpressionTextureSetSampleParameter::MakeConstantParameterName(CustomParameter.ParameterInfo.Name, ParameterName);
+		Parameter.ParameterInfo.Association = CustomParameter.ParameterInfo.Association;
+		Parameter.ParameterInfo.Index = CustomParameter.ParameterInfo.Index;
+		VectorParameters.Add(Parameter);
+	}
+
+	for (int i = 0; i < DerivedData->PackedTextureData.Num(); i++)
+	{
+		const FPackedTextureData& PackedTextureData = DerivedData->PackedTextureData[i];
+
+		// Set the texture parameter for each packed texture
+		FTextureParameterValue TextureParameter;
+		TextureParameter.ParameterValue = DerivedTextures[i].Get();
+		TextureParameter.ParameterInfo.Name = UMaterialExpressionTextureSetSampleParameter::MakeTextureParameterName(CustomParameter.ParameterInfo.Name, i);
+		TextureParameter.ParameterInfo.Association = CustomParameter.ParameterInfo.Association;
+		TextureParameter.ParameterInfo.Index = CustomParameter.ParameterInfo.Index;
+		TextureParameters.Add(TextureParameter);
+
+		// Set any constant parameters that come with this texture
+		for (auto& [ParameterName, Value] : PackedTextureData.MaterialParameters)
+		{
+			FVectorParameterValue Parameter;
+			Parameter.ParameterValue = FLinearColor(Value);
+			Parameter.ParameterInfo.Name = UMaterialExpressionTextureSetSampleParameter::MakeConstantParameterName(CustomParameter.ParameterInfo.Name, ParameterName);
+			Parameter.ParameterInfo.Association = CustomParameter.ParameterInfo.Association;
+			Parameter.ParameterInfo.Index = CustomParameter.ParameterInfo.Index;
+			VectorParameters.Add(Parameter);
+		}
+	}
+}
+
 void UTextureSet::PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext)
 {
 	Super::PreSaveRoot(ObjectSaveContext);
 
 	UpdateDerivedData();
-}
-
-void UTextureSet::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
-{
-	if (IsValid(Definition))
-	{
-		const FString& DefinitionName = Definition->GetName();
-		OutTags.Add(FAssetRegistryTag("TextureSetDefinition", DefinitionName, FAssetRegistryTag::TT_Alphabetical));
-	}
-
-	Super::GetAssetRegistryTags(OutTags);
 }
 
 void UTextureSet::PostLoad()
@@ -63,6 +91,19 @@ void UTextureSet::PostLoad()
 	FixupData();
 	UpdateDerivedData();
 }
+
+#if WITH_EDITOR
+void UTextureSet::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+	if (IsValid(Definition))
+	{
+		OutTags.Add(FAssetRegistryTag("TextureSetDefinition", Definition->GetName(), FAssetRegistryTag::TT_Alphabetical));
+		OutTags.Add(FAssetRegistryTag("TextureSetDefinitionID", Definition->GetGuid().ToString(), FAssetRegistryTag::TT_Hidden));
+	}
+
+	Super::GetAssetRegistryTags(OutTags);
+}
+#endif
 
 #if WITH_EDITOR
 void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)

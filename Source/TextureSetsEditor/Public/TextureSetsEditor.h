@@ -9,7 +9,7 @@ class IAssetTools;
 class IAssetTypeActions;
 class IDetailCategoryBuilder;
 class UMaterialInstanceConstant;
-class IMaterialParameterFilter;
+class FTextureSetParameterEditor;
 
 class FTextureSetsEditorModule : public IModuleInterface
 {
@@ -23,17 +23,9 @@ private:
 	void RegisterAssetTypeAction(IAssetTools& AssetTools, TSharedRef<IAssetTypeActions> Action);
 	void UnregisterAssetTools();
 
-	void RegisterCallbacks();
-	void UnregisterCallbacks();
-
-	// Callbacks
-	void OnMaterialInstanceOpenedForEdit(UMaterialInstance* MaterialInstance);
-	void OnMICreateGroupsWidget(TObjectPtr<UMaterialInstanceConstant> MaterialInstance, IDetailCategoryBuilder& GroupsCategory);
-
 	FDelegateHandle OnMaterialInstanceOpenedForEditHandle;
-	FDelegateHandle OnMICreateGroupsWidgetHandle;
 
 	TArray<TSharedRef<IAssetTypeActions>> RegisteredAssetTypeActions;
 
-	TSharedPtr<IMaterialParameterFilter> ParameterFilter;
+	TSharedPtr<FTextureSetParameterEditor> ParameterEditor;
 };

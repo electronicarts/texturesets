@@ -9,6 +9,7 @@
 #include "ImageCore.h"
 #include "TextureSetCooker.h"
 #include "TextureSetDerivedData.h"
+#include "Materials/MaterialInstance.h"
 
 #include "TextureSet.generated.h"
 
@@ -25,7 +26,7 @@ public:
 };
 
 UCLASS(BlueprintType, hidecategories = (Object))
-class TEXTURESETS_API UTextureSet : public UObject
+class TEXTURESETS_API UTextureSet : public UObject, public ICustomMaterialParameterInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -61,10 +62,14 @@ public:
 	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) override;
 #endif
 
+	// ICustomMaterialParameterInterface
+	virtual void AugmentMaterialParameters(const FCustomParameterValue& CustomParameter, TArray<FVectorParameterValue>& VectorParameters, TArray<FTextureParameterValue>& TextureParameters) const override;
+
+	// UObject Interface
 	virtual void PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext) override;
-	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
+	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 

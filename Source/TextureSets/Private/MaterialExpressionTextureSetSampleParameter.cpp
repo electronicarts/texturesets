@@ -11,15 +11,77 @@
 #include "Materials/MaterialExpressionTextureSampleParameter2D.h"
 #if WITH_EDITOR
 #include "Misc/DataValidation.h"
+#include "IDetailPropertyRow.h"
+#include "MaterialPropertyHelpers.h"
+#include "Widgets/SBoxPanel.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "TextureSets"
+
+UDEditorTextureSetParameterValue::UDEditorTextureSetParameterValue(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	ParameterValue = nullptr;
+}
+
+bool UDEditorTextureSetParameterValue::GetValue(FMaterialParameterMetadata& OutResult) const
+{
+	UDEditorCustomParameterValue::GetValue(OutResult);
+	OutResult.Value = FMaterialParameterValue((UObject*)ParameterValue.Get());
+	OutResult.CustomParameterClass = UDEditorTextureSetParameterValue::StaticClass();
+	return true;
+}
+
+bool UDEditorTextureSetParameterValue::SetValue(const FMaterialParameterValue& Value)
+{
+	if (Value.Type == EMaterialParameterType::Custom)
+	{
+		// Null values are valid, objects that fail to cast to a texture set are not
+		UTextureSet* TextureSetValue = Cast<UTextureSet>(Value.AsCustomObject());
+		if (TextureSetValue != nullptr || Value.AsCustomObject() == nullptr)
+		{
+			ParameterValue = TextureSetValue;
+			return true;
+		}
+	}
+	return false;
+}
+
+//void UDEditorTextureSetParameterValue::CreateWidget(IDetailPropertyRow& Row, FText NameOverride, FSortedParamData* StackParameterData, UMaterialEditorInstanceConstant* MaterialEditorInstance)
+//{
+//	// TODO
+//	//FDetailWidgetDecl* CustomNameWidget = Row.CustomNameWidget();
+//	//if (CustomNameWidget)
+//	//{
+//	//	FDetailWidgetDecl* CustomNameWidget = Row.CustomNameWidget();
+//	//	if (CustomNameWidget)
+//	//	{
+//	//		(*CustomNameWidget)
+//	//		[
+//	//			SNew(SHorizontalBox)
+//	//			+SHorizontalBox::Slot()
+//	//			.VAlign(VAlign_Center)
+//	//			[
+//	//				SNew(STextBlock)
+//	//				.Text(NameOverride)
+//	//			.ToolTipText(FMaterialPropertyHelpers::GetParameterExpressionDescription(StackParameterData->Parameter, MaterialEditorInstance))
+//	//			.Font(FAppStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+//	//			]
+//	//		];
+//	//	}
+//	//}
+//}
 
 UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampleParameter(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	bShowOutputNameOnPin = true;
 	bShowOutputs         = true;
+
+	bIsParameterExpression = true;
+
+	// Update parameter on construction if it's invalid
+	UpdateParameterGuid(false, true);
 }
 
 FName UMaterialExpressionTextureSetSampleParameter::GetTextureParameterName(int TextureIndex) const
@@ -62,6 +124,75 @@ UMaterialFunction* UMaterialExpressionTextureSetSampleParameter::CreateMaterialF
 	Definition->GenerateSamplingGraph(this, GraphBuilder);
 
 	return GraphBuilder.GetMaterialFunction();
+}
+#endif
+
+#if WITH_EDITOR
+FGuid& UMaterialExpressionTextureSetSampleParameter::GetParameterExpressionId()
+{
+	return ExpressionGUID;
+}
+#endif
+
+#if WITH_EDITOR
+FName UMaterialExpressionTextureSetSampleParameter::GetParameterName() const
+{
+	return ParameterName;
+}
+#endif
+
+#if WITH_EDITOR
+void UMaterialExpressionTextureSetSampleParameter::SetParameterName(const FName& Name)
+{
+	ParameterName = Name;
+}
+#endif
+
+#if WITH_EDITOR
+bool UMaterialExpressionTextureSetSampleParameter::GetParameterValue(FMaterialParameterMetadata& OutMeta) const
+{
+	OutMeta.Value = DefaultTextureSet.Get();
+	OutMeta.Description = Desc;
+	OutMeta.ExpressionGuid = ExpressionGUID;
+	OutMeta.Group = Group;
+	OutMeta.SortPriority = SortPriority;
+	OutMeta.AssetPath = GetAssetPathName();
+	OutMeta.CustomParameterClass = UDEditorTextureSetParameterValue::StaticClass();
+	return true;
+}
+#endif
+
+#if WITH_EDITOR
+bool UMaterialExpressionTextureSetSampleParameter::SetParameterValue(const FName& Name, const FMaterialParameterMetadata& Meta, EMaterialExpressionSetParameterValueFlags Flags)
+{
+	if (Meta.Value.Type == EMaterialParameterType::Custom)
+	{
+		// Null values are valid, objects that fail to cast to a texture set are not
+		UTextureSet* TextureSetValue = Cast<UTextureSet>(Meta.Value.AsCustomObject());
+		if (IsValid(TextureSetValue) || Meta.Value.AsCustomObject() == nullptr)
+		{
+			if (Name == ParameterName)
+			{
+				DefaultTextureSet = TextureSetValue;
+
+				if (EnumHasAnyFlags(Flags, EMaterialExpressionSetParameterValueFlags::SendPostEditChangeProperty))
+				{
+					FProperty* Property = FindFProperty<FProperty>(StaticClass(), TEXT("DefaultTextureSet"));
+					FPropertyChangedEvent Event(Property);
+					PostEditChangeProperty(Event);
+				}
+
+				if (EnumHasAnyFlags(Flags, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority))
+				{
+					Group = Meta.Group;
+					SortPriority = Meta.SortPriority;
+				}
+
+				return true;
+			}
+		}
+	}
+	return false;
 }
 #endif
 

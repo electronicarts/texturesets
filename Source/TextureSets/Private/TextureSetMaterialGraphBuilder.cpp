@@ -49,7 +49,7 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialExpres
 		FMaterialParameterMetadata meta;
 		meta.Value.Type = EMaterialParameterType::Texture;
 		meta.Value.Texture = DefaultTexture;
-		meta.Group = Node->ParameterGroupName;
+		meta.Group = Node->Group;
 		meta.SortPriority = 0;
 		TextureObject->SetParameterValue(PackedTextureName, meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
 		TextureObject->UpdateParameterGuid(true, true);
@@ -144,7 +144,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeConstantParameter(FNam
 	UMaterialExpressionVectorParameter* NewParam = CreateExpression<UMaterialExpressionVectorParameter>();
 	NewParam->ParameterName = ParameterName;
 	NewParam->DefaultValue = FLinearColor(Default);
-	NewParam->Group = Node->ParameterGroupName;
+	NewParam->Group = Node->Group;
 	
 	// Main pin on the parameter is actually a float3, need to append the alpha to make it a float4.
 	UMaterialExpression* AppendNode = CreateExpression<UMaterialExpressionAppendVector>();

@@ -2,8 +2,6 @@
 
 #include "TextureSets.h"
 
-#include "TextureSetsMaterialInstanceUserData.h"
-
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
 void FTextureSetsModule::StartupModule()

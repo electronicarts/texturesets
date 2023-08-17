@@ -22,6 +22,12 @@
 
 const FString UTextureSetDefinition::ChannelSuffixes[4] = {".r", ".g", ".b", ".a"};
 
+UTextureSetDefinition::UTextureSetDefinition() : Super()
+{
+	if (!UniqueID.IsValid())
+		UniqueID = FGuid::NewGuid();
+}
+
 #if WITH_EDITOR
 EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext& Context)
 {

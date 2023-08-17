@@ -22,6 +22,8 @@ class TEXTURESETS_API UTextureSetDefinition : public UDataAsset
 {
 	GENERATED_BODY()
 
+	UTextureSetDefinition();
+
 public:
 	// Suffixes used when addressing specific channels of a texture by name
 	// Defined as {".r", ".g", ".b", ".a"}
@@ -58,6 +60,8 @@ public:
 
 	virtual void PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext) override;
 
+	FGuid GetGuid() { return UniqueID; }
+
 private:
 
 	UPROPERTY(EditAnywhere)
@@ -68,6 +72,10 @@ private:
 
 	UPROPERTY(VisibleAnywhere)
 	UTextureSet* DefaultTextureSet;
+
+	// Created once on construction, and used to compare texture sets
+	UPROPERTY(VisibleAnywhere)
+	FGuid UniqueID;
 
 #if WITH_EDITOR
 	void UpdateDefaultTextures();
