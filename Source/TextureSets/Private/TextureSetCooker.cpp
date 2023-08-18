@@ -244,38 +244,53 @@ void TextureSetCooker::BuildTextureData(int Index) const
 		}
 	}
 
-	// Range compression
-	if (TextureDef.bDoRangeCompression)
+	// Channel encoding (decoding happens in FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode)
 	{
 		FVector4 RestoreMul = FVector4::One();
 		FVector4 RestoreAdd = FVector4::Zero();
 
 		for (int c = 0; c < TextureInfo.ChannelCount; c++)
 		{
-			if (TextureInfo.ChannelInfo[c].ChannelEncoding != ETextureSetTextureChannelEncoding::Linear_RangeCompressed)
-				continue;
-
-			const float Min = MinPixelValues[c];
-			const float Max = MaxPixelValues[c];
-
-			if (Min >= Max) // Can happen if the texture is a solid fill
-				continue;
-
-			for (int x = 0; x < Width; x++)
+			if (TextureInfo.ChannelInfo[c].ChannelEncoding == ETextureSetTextureChannelEncoding::Linear_RangeCompressed)
 			{
-				for (int y = 0; y < Height; y++)
-				{
-					int PixelIndex = GetPixelIndex(x, y, c, Width, Height);
+				const float Min = MinPixelValues[c];
+				const float Max = MaxPixelValues[c];
 
-					PixelValues[PixelIndex] = (PixelValues[PixelIndex] - Min) * Max - Min;
+				if (Min >= Max) // Can happen if the texture is a solid fill
+					continue;
+
+				for (int x = 0; x < Width; x++)
+				{
+					for (int y = 0; y < Height; y++)
+					{
+						const int PixelIndex = GetPixelIndex(x, y, c, Width, Height);
+
+						PixelValues[PixelIndex] = (PixelValues[PixelIndex] - Min) * Max - Min;
+					}
+				}
+
+				RestoreMul[c] = 1.0f / (Max - Min);
+				RestoreAdd[c] = Min;
+			}
+			else if (TextureInfo.ChannelInfo[c].ChannelEncoding == ETextureSetTextureChannelEncoding::SRGB && (!TextureInfo.HardwareSRGB || c >= 3))
+			{
+				for (int x = 0; x < Width; x++)
+				{
+					for (int y = 0; y < Height; y++)
+					{
+						const int PixelIndex = GetPixelIndex(x, y, c, Width, Height);
+
+						PixelValues[PixelIndex] = FMath::Pow(PixelValues[PixelIndex], 1.0f / 2.2f);
+					}
 				}
 			}
-
-			RestoreMul[c] = 1.0f / (Max - Min);
-			RestoreAdd[c] = Min;
 		}
-		Data.MaterialParameters.Add(TextureInfo.RangeCompressMulName, RestoreMul);
-		Data.MaterialParameters.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
+
+		if (RestoreMul != FVector4::One() || RestoreAdd != FVector4::Zero())
+		{
+			Data.MaterialParameters.Add(TextureInfo.RangeCompressMulName, RestoreMul);
+			Data.MaterialParameters.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
+		}
 	}
 
 	Texture->Source.UnlockMip(0);
