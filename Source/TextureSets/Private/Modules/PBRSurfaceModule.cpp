@@ -16,15 +16,15 @@
 #include "Textures/TextureOperatorInvert.h"
 #endif
 
-void UPBRSurfaceModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const
+void UPBRSurfaceModule::BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const
 {
-	static const TextureSetSourceTextureDef MetalDef {MetalName, false, 1, FVector4(0, 0, 0, 0)};
-	static const TextureSetSourceTextureDef BaseColorDef {BaseColorName, true, 3, FVector4(0.5, 0.5, 0.5, 0)};
-	static const TextureSetSourceTextureDef AlbedoDef {AlbedoName, true, 3, FVector4(0.5, 0.5, 0.5, 0)};
-	static const TextureSetSourceTextureDef SpecularDef {SpecularName, true, 3, FVector4(0, 0, 0, 0)};
-	static const TextureSetSourceTextureDef RoughnessDef {RoughnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)};
-	static const TextureSetSourceTextureDef SmoothnessDef {SmoothnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)};
-	static const TextureSetSourceTextureDef TangentNormalDef {TangentNormalName, false, 2, FVector4(0.5, 0.5, 1, 0)};
+	static const FTextureSetSourceTextureDef MetalDef {MetalName, false, 1, FVector4(0, 0, 0, 0)};
+	static const FTextureSetSourceTextureDef BaseColorDef {BaseColorName, true, 3, FVector4(0.5, 0.5, 0.5, 0)};
+	static const FTextureSetSourceTextureDef AlbedoDef {AlbedoName, true, 3, FVector4(0.5, 0.5, 0.5, 0)};
+	static const FTextureSetSourceTextureDef SpecularDef {SpecularName, true, 3, FVector4(0, 0, 0, 0)};
+	static const FTextureSetSourceTextureDef RoughnessDef {RoughnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)};
+	static const FTextureSetSourceTextureDef SmoothnessDef {SmoothnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)};
+	static const FTextureSetSourceTextureDef TangentNormalDef {TangentNormalName, false, 2, FVector4(0.5, 0.5, 1, 0)};
 
 	switch (Paramaterization)
 	{
@@ -76,7 +76,7 @@ void UPBRSurfaceModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) co
 	}
 }
 
-void UPBRSurfaceModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+void UPBRSurfaceModule::BuildSamplingInfo(FTextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const UPBRSampleParams* PBRSampleParams = SampleExpression->GetSampleParams<UPBRSampleParams>();
 

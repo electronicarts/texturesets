@@ -55,8 +55,8 @@ private:
 
 	FTextureSetProcessingContext Context;
 	
-	const TextureSetDefinitionSharedInfo SharedInfo;
-	const TextureSetPackingInfo PackingInfo;
+	const FTextureSetDefinitionModuleInfo ModuleInfo;
+	const FTextureSetPackingInfo PackingInfo;
 
 	FString TextureSetDataKey;
 	TArray<FString> PackedTextureKeys;

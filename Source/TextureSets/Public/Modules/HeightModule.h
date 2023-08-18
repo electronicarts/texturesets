@@ -34,10 +34,10 @@ public:
 	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const override { return UHeightAssetParams::StaticClass(); }
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UHeightSampleParams::StaticClass(); }
 	
-	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const override;
+	virtual void BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const override;
 
 	virtual void BuildSamplingInfo(
-		TextureSetDefinitionSamplingInfo& SamplingInfo,
+		FTextureSetDefinitionSamplingInfo& SamplingInfo,
 		const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 	
 	virtual void Process(FTextureSetProcessingContext& Context) const override;

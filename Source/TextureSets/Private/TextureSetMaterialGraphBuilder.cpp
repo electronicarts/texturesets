@@ -20,7 +20,7 @@
 FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialExpressionTextureSetSampleParameter* Node)
 	: Node(Node)
 	, Definition(Node->Definition)
-	, SharedInfo(Definition->GetSharedInfo())
+	, ModuleInfo(Definition->GetModuleInfo())
 	, SamplingInfo(Definition->GetSamplingInfo(Node))
 	, PackingInfo(Definition->GetPackingInfo())
 {
@@ -37,7 +37,7 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialExpres
 	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
 	{
 		const FTextureSetPackedTextureDef& TextureDef = PackingInfo.GetPackedTextureDef(i);
-		const TextureSetPackingInfo::TextureSetPackedTextureInfo& TextureInfo = PackingInfo.GetPackedTextureInfo(i);
+		const FTextureSetPackedTextureInfo& TextureInfo = PackingInfo.GetPackedTextureInfo(i);
 		const FName PackedTextureName = Node->GetTextureParameterName(i);
 
 		TObjectPtr<UMaterialExpressionTextureObjectParameter> TextureObject = CreateExpression<UMaterialExpressionTextureObjectParameter>();
@@ -87,7 +87,7 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialExpres
 	}
 
 	// Append vectors back into their equivalent processed map samples
-	for (const auto& ProcessedTexture : SharedInfo.GetProcessedTextures())
+	for (const auto& ProcessedTexture : ModuleInfo.GetProcessedTextures())
 	{
 		const FName TextureName = ProcessedTexture.Name;
 		const int TextureChannels = ProcessedTexture.ChannelCount;
@@ -158,7 +158,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeConstantParameter(FNam
 UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode(UMaterialExpression* Texcoord, int Index)
 {
 	const FTextureSetPackedTextureDef& TextureDef = PackingInfo.GetPackedTextureDef(Index);
-	const TextureSetPackingInfo::TextureSetPackedTextureInfo& TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
+	const FTextureSetPackedTextureInfo& TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
 	UMaterialExpressionTextureObjectParameter* TextureObject = PackedTextureObjects[Index];
 
 	UMaterialExpressionTextureStreamingDef* TextureStreamingDef = CreateExpression<UMaterialExpressionTextureStreamingDef>();
@@ -193,7 +193,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 		TArray<FStringFormatArg> FormatArgs = {ChannelSuffixLower[c], ChannelSuffixUpper[c]};
 
 		// Decode channel based on which encoding it uses
-		if (TextureInfo.ChannelInfo[c].ChannelEncoding == TextureSetPackingInfo::EChannelEncoding::Linear_RangeCompressed)
+		if (TextureInfo.ChannelInfo[c].ChannelEncoding == ETextureSetTextureChannelEncoding::Linear_RangeCompressed)
 		{
 			if (RangeCompressMulInput == 0)
 			{
@@ -205,7 +205,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 
 			CustomExp->Code += FString::Format(TEXT("Sample.{0} = Sample.{0} * RangeCompressMul.{0} + RangeCompressAdd.{0};\n"), FormatArgs);
 		}
-		else if (TextureInfo.ChannelInfo[c].ChannelEncoding == TextureSetPackingInfo::EChannelEncoding::SRGB && (!TextureInfo.HardwareSRGB || c >= 4))
+		else if (TextureInfo.ChannelInfo[c].ChannelEncoding == ETextureSetTextureChannelEncoding::SRGB && (!TextureInfo.HardwareSRGB || c >= 4))
 		{
 			// Need to do sRGB decompression in the shader
 			CustomExp->Code += FString::Format(TEXT("Sample.{0} = pow(Sample.{0}, 2.2f);\n"), FormatArgs);

@@ -5,90 +5,142 @@
 #include "CoreMinimal.h"
 #include "TextureSetPackedTextureDef.h"
 
+#include "TextureSetInfo.generated.h"
+
 // Processed texture map ready for packing
-struct TextureSetProcessedTextureDef
+USTRUCT()
+struct FTextureSetProcessedTextureDef
 {
+	GENERATED_BODY()
+
 public:
+	UPROPERTY(VisibleAnywhere)
 	FName Name;
+
+	UPROPERTY(VisibleAnywhere)
 	bool SRGB; // Used for correct packing and sampling
+
+	UPROPERTY(VisibleAnywhere)
 	uint8 ChannelCount; // between 1 and 4
 };
 
 // A texture map input
-struct TextureSetSourceTextureDef : public TextureSetProcessedTextureDef
+USTRUCT()
+struct FTextureSetSourceTextureDef : public FTextureSetProcessedTextureDef
 {
+	GENERATED_BODY()
+
 public:
+	UPROPERTY(VisibleAnywhere)
 	FVector4 DefaultValue; // Used as a fallback if this map is not provided
 };
 
-// Info which is needed both for cooking and sampling from a texture set
-struct TextureSetDefinitionSharedInfo
+// Info which is provided by the definition modules, and is needed both for cooking and sampling from a texture set
+USTRUCT()
+struct FTextureSetDefinitionModuleInfo
 {
 	friend class UTextureSetDefinition;
+
+	GENERATED_BODY()
 public:
-	virtual ~TextureSetDefinitionSharedInfo() {}
+	virtual ~FTextureSetDefinitionModuleInfo() {}
 
-	void AddSourceTexture(const TextureSetSourceTextureDef& Texture);
-	void AddProcessedTexture(const TextureSetProcessedTextureDef& Texture);
+	void AddSourceTexture(const FTextureSetSourceTextureDef& Texture);
+	void AddProcessedTexture(const FTextureSetProcessedTextureDef& Texture);
 
-	const TArray<TextureSetSourceTextureDef> GetSourceTextures() const;
-	const TArray<TextureSetProcessedTextureDef> GetProcessedTextures() const;
-	const TextureSetProcessedTextureDef GetProcessedTextureByName(FName Name) const;
+	const TArray<FTextureSetSourceTextureDef> GetSourceTextures() const;
+	const TArray<FTextureSetProcessedTextureDef> GetProcessedTextures() const;
+	const FTextureSetProcessedTextureDef GetProcessedTextureByName(FName Name) const;
 	const bool HasProcessedTextureOfName(FName Name) const;
 
 private:
 	// Input texture maps which are to be processed
-	TArray<TextureSetSourceTextureDef> SourceTextures;
+	UPROPERTY(VisibleAnywhere)
+	TArray<FTextureSetSourceTextureDef> SourceTextures;
+
 	// Processed texture maps which are to be packed
-	TArray<TextureSetProcessedTextureDef> ProcessedTextures;
+	UPROPERTY(VisibleAnywhere)
+	TArray<FTextureSetProcessedTextureDef> ProcessedTextures;
+
+	UPROPERTY(VisibleAnywhere)
 	TMap<FName, int> ProcessedTextureIndicies;
 };
 
 // Info used for packing, not exposed to the modules
-struct TextureSetPackingInfo
+UENUM()
+enum class ETextureSetTextureChannelEncoding  : uint8
+{
+	Linear_Raw,
+	Linear_RangeCompressed,
+	SRGB
+};
+
+USTRUCT()
+struct FTextureSetPackedChannelInfo
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(VisibleAnywhere)
+	FName ProcessedTexture;
+
+	UPROPERTY(VisibleAnywhere)
+	int ProessedTextureChannel;
+
+	UPROPERTY(VisibleAnywhere)
+	ETextureSetTextureChannelEncoding ChannelEncoding;
+};
+
+USTRUCT()
+struct FTextureSetPackedTextureInfo
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(VisibleAnywhere)
+	FTextureSetPackedChannelInfo ChannelInfo[4];
+
+	UPROPERTY(VisibleAnywhere)
+	int ChannelCount;
+
+	UPROPERTY(VisibleAnywhere)
+	bool HardwareSRGB;
+
+	UPROPERTY(VisibleAnywhere)
+	FName RangeCompressMulName;
+
+	UPROPERTY(VisibleAnywhere)
+	FName RangeCompressAddName;
+};
+
+USTRUCT()
+struct FTextureSetPackingInfo
 {
 	friend class UTextureSetDefinition;
+
+	GENERATED_BODY()
 public:
-
-	enum class EChannelEncoding
-	{
-		Linear_Raw,
-		Linear_RangeCompressed,
-		SRGB
-	};
-
-	struct TextureSetPackedChannelInfo
-	{
-	public:
-		FName ProcessedTexture;
-		int ProessedTextureChannel;
-		EChannelEncoding ChannelEncoding;
-	};
-
-	struct TextureSetPackedTextureInfo
-	{
-	public:
-		TextureSetPackedChannelInfo ChannelInfo[4];
-		int ChannelCount;
-		bool HardwareSRGB;
-		FName RangeCompressMulName;
-		FName RangeCompressAddName;
-	};
 
 	const int NumPackedTextures() const { return PackedTextureDefs.Num(); }
 
 	const FTextureSetPackedTextureDef& GetPackedTextureDef(int Index) const { return PackedTextureDefs[Index]; }
-	const TextureSetPackedTextureInfo& GetPackedTextureInfo(int Index) const { return PackedTextureInfos[Index]; }
+	const FTextureSetPackedTextureInfo& GetPackedTextureInfo(int Index) const { return PackedTextureInfos[Index]; }
 
 private:
+	UPROPERTY(VisibleAnywhere)
 	TArray<FTextureSetPackedTextureDef> PackedTextureDefs;
-	TArray<TextureSetPackedTextureInfo> PackedTextureInfos;
+
+	UPROPERTY(VisibleAnywhere)
+	TArray<FTextureSetPackedTextureInfo> PackedTextureInfos;
 };
 
 // Info which is needed to generate the sampling graph for a texture set
-struct TextureSetDefinitionSamplingInfo
+USTRUCT()
+struct FTextureSetDefinitionSamplingInfo
 {
 	friend class UTextureSetDefinition;
+
+	GENERATED_BODY()
 public:
 	void AddMaterialParameter(FName Name, EMaterialValueType Type);
 	void AddSampleInput(FName Name, EMaterialValueType Type);

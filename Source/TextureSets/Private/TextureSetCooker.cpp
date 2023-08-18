@@ -75,7 +75,7 @@ bool TextureSetDerivedDataPlugin::Build(TArray<uint8>& OutData)
 }
 
 TextureSetCooker::TextureSetCooker(UTextureSet* TS)
-	: SharedInfo(TS->Definition->GetSharedInfo())
+	: ModuleInfo(TS->Definition->GetModuleInfo())
 	, PackingInfo(TS->Definition->GetPackingInfo())
 {
 	TextureSet = TS;
@@ -87,7 +87,7 @@ TextureSetCooker::TextureSetCooker(UTextureSet* TS)
 		PackedTextureKeys.Add(TS->ComputePackedTextureKey(i));
 
 	// Fill in source textures so the modules can define processing
-	for (TextureSetSourceTextureDef SourceTextureDef : SharedInfo.GetSourceTextures())
+	for (FTextureSetSourceTextureDef SourceTextureDef : ModuleInfo.GetSourceTextures())
 	{
 		const TObjectPtr<UTexture>* SourceTexturePtr = TextureSet->SourceTextures.Find(SourceTextureDef.Name);
 		if (SourceTexturePtr && SourceTexturePtr->Get())
@@ -158,7 +158,7 @@ void TextureSetCooker::BuildTextureData(int Index) const
 	Data.Id = IdBuilder.Build();
 
 	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
-	const TextureSetPackingInfo::TextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
+	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
 	int Width = 4;
 	int Height = 4;
 	float Ratio = 0;
@@ -252,7 +252,7 @@ void TextureSetCooker::BuildTextureData(int Index) const
 
 		for (int c = 0; c < TextureInfo.ChannelCount; c++)
 		{
-			if (TextureInfo.ChannelInfo[c].ChannelEncoding != TextureSetPackingInfo::EChannelEncoding::Linear_RangeCompressed)
+			if (TextureInfo.ChannelInfo[c].ChannelEncoding != ETextureSetTextureChannelEncoding::Linear_RangeCompressed)
 				continue;
 
 			const float Min = MinPixelValues[c];
@@ -286,7 +286,7 @@ void TextureSetCooker::BuildTextureData(int Index) const
 void TextureSetCooker::UpdateTexture(int Index) const
 {
 	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
-	const TextureSetPackingInfo::TextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
+	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
 	const FPackedTextureData& Data = TextureSet->DerivedData->PackedTextureData[Index];
 
 	UTexture* Texture = TextureSet->GetDerivedTexture(Index);

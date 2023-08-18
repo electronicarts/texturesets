@@ -128,7 +128,7 @@ void UTextureSet::FixupData()
 		// Source Textures
 		TMap<FName, TObjectPtr<UTexture>> NewSourceTextures;
 
-		for (auto& TextureInfo : Definition->GetSharedInfo().GetSourceTextures())
+		for (auto& TextureInfo : Definition->GetModuleInfo().GetSourceTextures())
 		{
 			TObjectPtr<UTexture>* OldTexture = SourceTextures.Find(TextureInfo.Name);
 			NewSourceTextures.Add(TextureInfo.Name, (OldTexture != nullptr) ? *OldTexture : nullptr);
@@ -171,11 +171,11 @@ FString UTextureSet::ComputePackedTextureKey(int PackedTextureIndex) const
 {
 	check(IsValid(Definition));
 
-	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
+	const FTextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
 	check(PackedTextureIndex < PackingInfo.NumPackedTextures());
 
 	// All data hash keys start with a global version tracking format changes
-	FString PackedTextureDataKey("PACKING_VER1_");
+	FString PackedTextureDataKey("PACKING_VER2_");
 
 	// Hash all the source data.
 	// We currently don't have a mechanism to know which specific source textures we depend on
@@ -186,15 +186,8 @@ FString UTextureSet::ComputePackedTextureKey(int PackedTextureIndex) const
 			PackedTextureDataKey += Name.ToString() + "<" + SourceTexture->Source.GetId().ToString() + ">_";
 	}
 	
-	// Hash the packing def
-	const FTextureSetPackedTextureDef& PackedTextureDef = PackingInfo.GetPackedTextureDef(PackedTextureIndex);
-	PackedTextureDataKey += PackedTextureDef.ComputeHashKey() + "_";
-
-	// Hash the modules
-	for (const UTextureSetModule* Module : Definition->GetModules())
-	{
-		PackedTextureDataKey += Module->GetName() + "<" + FString::FromInt(Module->ComputeProcessingHash()) + ">_";
-	}
+	// Hash the definition
+	PackedTextureDataKey += "Definition<" + FString::FromInt(Definition->ComputeProcessingHash(PackedTextureIndex)) + ">_";
 
 	// Key for debugging, easily force rebuild
 	if (!UserKey.IsEmpty())
@@ -214,9 +207,9 @@ FString UTextureSet::ComputeTextureSetDataKey() const
 		return "TEXTURE_SET_INVALID_DEFINITION";
 
 	// All data hash keys start with a global version tracking format changes
-	FString NewTextureSetDataKey("TEXTURE_SET_V1_");
+	FString NewTextureSetDataKey("TEXTURE_SET_V2_");
 
-	const TextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
+	const FTextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
 	for (int32 i = 0; i < PackingInfo.NumPackedTextures(); i++)
 	{
 		NewTextureSetDataKey += ComputePackedTextureKey(i);
@@ -241,7 +234,7 @@ void UTextureSet::UpdateDerivedData()
 	}
 
 	// Garbage collection will destroy the unused cooked textures when all references from material instance are removed
-	DerivedTextures.SetNum(Definition->GetNumPackedTexture());
+	DerivedTextures.SetNum(Definition->GetPackingInfo().NumPackedTextures());
 
 	for (int t = 0; t < DerivedTextures.Num(); t++)
 	{

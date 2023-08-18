@@ -33,49 +33,67 @@ public:
 #if WITH_EDITOR
 	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) override;
 	virtual bool CanEditChange(const FProperty* InProperty) const override;
-	virtual void PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext) override;
+	virtual void PreSave(FObjectPreSaveContext ObjectSaveContext) override;
 #endif
 	virtual void PostLoad() override;
 
+#if WITH_EDITOR
 	// Gets the list of channel names which have not yet been allocated a spot in the packing definitions.
 	UFUNCTION(CallInEditor)
-	TArray<FName> GetUnpackedChannelNames() const;
+	TArray<FName> EditGetUnpackedChannelNames() const;
+#endif
+	TArray<FName> GetUnpackedChannelNames(TArray<FTextureSetPackedTextureDef> Textures) const;
 
-	const TextureSetDefinitionSharedInfo GetSharedInfo() const;
-	const TextureSetDefinitionSamplingInfo GetSamplingInfo(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
-	const TextureSetPackingInfo GetPackingInfo() const;
+	const FTextureSetDefinitionModuleInfo GetModuleInfo() const;
+	const FTextureSetDefinitionSamplingInfo GetSamplingInfo(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
+	const FTextureSetPackingInfo GetPackingInfo() const;
 	const TArray<const UTextureSetModule*> GetModules() const;
 
 	TArray<TSubclassOf<UTextureSetAssetParams>> GetRequiredAssetParamClasses() const;
 	TArray<TSubclassOf<UTextureSetSampleParams>> GetRequiredSampleParamClasses() const;
 
 	// Get the default packed texture for a specific packed texture index
-	int GetNumPackedTexture() const { return PackedTextures.Num(); }
 	UTexture* GetDefaultPackedTexture(int Index);
 
-	int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
+	uint32 ComputeProcessingHash(int PackedTextureIndex);
+
+	uint32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
 #if WITH_EDITOR
 	void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression, FTextureSetMaterialGraphBuilder& Builder) const;
 #endif
-
-	virtual void PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext) override;
 
 	FGuid GetGuid() { return UniqueID; }
 
 private:
 
-	UPROPERTY(EditAnywhere)
-	TArray<UTextureSetModule*> Modules;
-
-	UPROPERTY(EditAnywhere, meta=(TitleProperty="CompressionSettings"))
-	TArray<FTextureSetPackedTextureDef> PackedTextures;
-
-	UPROPERTY(VisibleAnywhere)
-	UTextureSet* DefaultTextureSet;
-
-	// Created once on construction, and used to compare texture sets
+	// Created once on construction, and used to compare definitions
 	UPROPERTY(VisibleAnywhere)
 	FGuid UniqueID;
+
+#if WITH_EDITORONLY_DATA
+	// Modules and packing definitions are duplicated here in editor, so they can be freely edited by the user without causing excessive rebuilds.
+	// On load, ResetEdits() fills them in from the serialized data, and on pre-save, ApplyEdits() updates the serialized data.
+	UPROPERTY(Transient, EditAnywhere, DisplayName="Modules")
+	TArray<UTextureSetModule*> EditModules;
+
+	UPROPERTY(Transient, EditAnywhere, DisplayName="Packing", meta=(TitleProperty="CompressionSettings"))
+	TArray<FTextureSetPackedTextureDef> EditPackedTextures;
+#endif
+
+	UPROPERTY(VisibleAnywhere, Category="Debug")
+	UTextureSet* DefaultTextureSet;
+
+	UPROPERTY(VisibleAnywhere, Category="Debug")
+	FTextureSetDefinitionModuleInfo ModuleInfo;
+
+	UPROPERTY(VisibleAnywhere, Category="Debug")
+	FTextureSetPackingInfo PackingInfo;
+
+	UPROPERTY(VisibleAnywhere, Category="Debug")
+	TArray<const UTextureSetModule*> Modules;
+
+	void ApplyEdits();
+	void ResetEdits();
 
 #if WITH_EDITOR
 	void UpdateDefaultTextures();

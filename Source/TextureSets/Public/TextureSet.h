@@ -87,15 +87,15 @@ public:
 
 	// For debugging, allow the user to manually change a value that doesn't affect the logic,
 	// but is hashed. Forces a regeneration of the data when a new unique value is entered.
-	UPROPERTY(EditAnywhere, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, Category="Debug")
 	FString UserKey;
 
 private:
 
-	UPROPERTY(AdvancedDisplay, VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Debug")
 	TObjectPtr<UTextureSetDerivedData> DerivedData;
 
-	UPROPERTY(AdvancedDisplay, VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Debug")
 	TArray<TObjectPtr<UTexture>> DerivedTextures;
 
 

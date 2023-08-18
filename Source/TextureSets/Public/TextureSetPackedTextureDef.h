@@ -16,16 +16,16 @@ public:
 	TEnumAsByte<TextureCompressionSettings> CompressionSettings; // Not implemented
 
 	// Sources
-	UPROPERTY(EditAnywhere, meta=(GetOptions="GetUnpackedChannelNames"))
+	UPROPERTY(EditAnywhere, meta=(GetOptions="EditGetUnpackedChannelNames"))
 	FName SourceR;
 
-	UPROPERTY(EditAnywhere, meta=(GetOptions="GetUnpackedChannelNames"))
+	UPROPERTY(EditAnywhere, meta=(GetOptions="EditGetUnpackedChannelNames"))
 	FName SourceG;
 
-	UPROPERTY(EditAnywhere, meta=(GetOptions="GetUnpackedChannelNames"))
+	UPROPERTY(EditAnywhere, meta=(GetOptions="EditGetUnpackedChannelNames"))
 	FName SourceB;
 
-	UPROPERTY(EditAnywhere, meta=(GetOptions="GetUnpackedChannelNames"))
+	UPROPERTY(EditAnywhere, meta=(GetOptions="EditGetUnpackedChannelNames"))
 	FName SourceA;
 
 	UPROPERTY(EditAnywhere)

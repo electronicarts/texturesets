@@ -46,9 +46,9 @@ private:
 	TObjectPtr<UTextureSetDefinition> Definition;
 	TObjectPtr<UMaterialFunction> MaterialFunction;
 
-	const TextureSetDefinitionSharedInfo SharedInfo;
-	const TextureSetDefinitionSamplingInfo SamplingInfo;
-	const TextureSetPackingInfo PackingInfo;
+	const FTextureSetDefinitionModuleInfo ModuleInfo;
+	const FTextureSetDefinitionSamplingInfo SamplingInfo;
+	const FTextureSetPackingInfo PackingInfo;
 
 	TArray<TObjectPtr<UMaterialExpressionTextureObjectParameter>> PackedTextureObjects;
 	TArray<TObjectPtr<UMaterialExpression>> PackedTextureSamples;

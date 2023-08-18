@@ -45,7 +45,7 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 	}
 
 	// Packing validation
-	for (FName Name : GetUnpackedChannelNames())
+	for (FName Name : GetUnpackedChannelNames(PackingInfo.PackedTextureDefs))
 	{
 		if (Name.IsNone())
 			continue;
@@ -54,9 +54,9 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 		Result = EDataValidationResult::Invalid;
 	}
 
-	for (int i = 0; i < PackedTextures.Num(); i++)
+	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
 	{
-		const FTextureSetPackedTextureDef& PackedTexture = PackedTextures[i];
+		const FTextureSetPackedTextureDef& PackedTexture = PackingInfo.GetPackedTextureDef(i);
 
 		if (PackedTexture.UsedChannels() > PackedTexture.AvailableChannels())
 		{
@@ -108,28 +108,39 @@ bool UTextureSetDefinition::CanEditChange(const FProperty* InProperty) const
 #endif
 
 #if WITH_EDITOR
-void UTextureSetDefinition::PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext)
+void UTextureSetDefinition::PreSave(FObjectPreSaveContext ObjectSaveContext)
 {
-	Super::PreSaveRoot(ObjectSaveContext);
+	Super::PreSave(ObjectSaveContext);
 
-	UpdateDefaultTextures();
+	ApplyEdits();
 }
 #endif
+
 
 void UTextureSetDefinition::PostLoad()
 {
 	Super::PostLoad();
+
 #if WITH_EDITOR
-	UpdateDefaultTextures();
+	ResetEdits();
+	// Also re-apply edits, to account for any changes to module logic
+	ApplyEdits();
 #endif
 }
 
-TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames() const
+#if WITH_EDITOR
+TArray<FName> UTextureSetDefinition::EditGetUnpackedChannelNames() const
+{
+	return GetUnpackedChannelNames(EditPackedTextures);
+}
+#endif
+
+TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames(TArray<FTextureSetPackedTextureDef> Textures) const
 {
 	// Construct an array of all the channel names already used for packing
 	TArray<FName> PackedNames = TArray<FName>();
 
-	for (const FTextureSetPackedTextureDef& Tex : PackedTextures)
+	for (const FTextureSetPackedTextureDef& Tex : Textures)
 	{
 		if (!Tex.SourceR.IsNone())
 			PackedNames.Add(Tex.SourceR);
@@ -147,7 +158,7 @@ TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames() const
 	// Construct a list of channel names not yet used for packing (remaining choices)
 	TArray<FName> UnpackedNames = TArray<FName>{  FName() };
 
-	for (const TextureSetProcessedTextureDef& Tex : GetSharedInfo().GetProcessedTextures())
+	for (const FTextureSetProcessedTextureDef& Tex : GetModuleInfo().GetProcessedTextures())
 	{
 		for (int i = 0; i < Tex.ChannelCount; i++)
 		{
@@ -161,26 +172,16 @@ TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames() const
 	return UnpackedNames;
 }
 
-const TextureSetDefinitionSharedInfo UTextureSetDefinition::GetSharedInfo() const
+const FTextureSetDefinitionModuleInfo UTextureSetDefinition::GetModuleInfo() const
 {
-	TextureSetDefinitionSharedInfo Info;
-
-	for (UTextureSetModule* Module : Modules)
-	{
-		if (IsValid(Module))
-		{
-			Module->BuildSharedInfo(Info);
-		}
-	}
-
-	return Info;
+	return ModuleInfo;
 }
 
-const TextureSetDefinitionSamplingInfo UTextureSetDefinition::GetSamplingInfo(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+const FTextureSetDefinitionSamplingInfo UTextureSetDefinition::GetSamplingInfo(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
-	TextureSetDefinitionSamplingInfo Info;
+	FTextureSetDefinitionSamplingInfo Info;
 
-	for (UTextureSetModule* Module : Modules)
+	for (const UTextureSetModule* Module : GetModules())
 	{
 		if (IsValid(Module))
 		{
@@ -191,70 +192,8 @@ const TextureSetDefinitionSamplingInfo UTextureSetDefinition::GetSamplingInfo(co
 	return Info;
 }
 
-const TextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
+const FTextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
 {
-	TextureSetPackingInfo PackingInfo;
-	TextureSetDefinitionSharedInfo SharedInfo = GetSharedInfo();
-
-	for (int i = 0; i < PackedTextures.Num(); i++)
-	{
-		const FTextureSetPackedTextureDef& TextureDef = PackedTextures[i];
-		TextureSetPackingInfo::TextureSetPackedTextureInfo TextureInfo;
-
-		TArray<FName> SourceNames = TextureDef.GetSources();
-		TextureInfo.ChannelCount = SourceNames.Num();
-		TextureInfo.HardwareSRGB = TextureDef.GetHardwareSRGBEnabled();
-
-		for (int c = 0; c < TextureInfo.ChannelCount; c++)
-		{
-			if (SourceNames[c].IsNone())
-				continue;
-
-			FString SourceTexString;
-			FString SourceChannelString;
-			SourceNames[c].ToString().Split(".", &SourceTexString, &SourceChannelString);
-			const FName SourceTexName = FName(SourceTexString);
-
-			if (!SharedInfo.HasProcessedTextureOfName(SourceTexName))
-				continue;
-			
-			TextureSetProcessedTextureDef Processed = SharedInfo.GetProcessedTextureByName(SourceTexName);
-
-			static const TMap<FString, int> ChannelStringLookup = {
-				{"r", 0},
-				{"g", 1},
-				{"b", 2},
-				{"a", 3},
-			};
-
-			const int SourceChannel = ChannelStringLookup.FindChecked(SourceChannelString);
-
-			TextureInfo.ChannelInfo[c].ProcessedTexture = SourceTexName;
-			TextureInfo.ChannelInfo[c].ProessedTextureChannel = SourceChannel;
-
-			if (Processed.SRGB)
-			{
-				TextureInfo.ChannelInfo[c].ChannelEncoding = TextureSetPackingInfo::EChannelEncoding::SRGB;
-			}
-			else
-			{
-				if (c < 3)
-					TextureInfo.HardwareSRGB = false; // If we have any non-sRGB textures in R, G, or B, then we can't use hardware SRGB.
-
-				if (TextureDef.bDoRangeCompression)
-					TextureInfo.ChannelInfo[c].ChannelEncoding = TextureSetPackingInfo::EChannelEncoding::Linear_RangeCompressed;
-				else
-					TextureInfo.ChannelInfo[c].ChannelEncoding = TextureSetPackingInfo::EChannelEncoding::Linear_Raw;
-			}
-		}
-
-		TextureInfo.RangeCompressMulName = FName("RangeCompress_" + FString::FromInt(i) + "_Mul");
-		TextureInfo.RangeCompressAddName = FName("RangeCompress_" + FString::FromInt(i) + "_Add");
-
-		PackingInfo.PackedTextureDefs.Add(TextureDef);
-		PackingInfo.PackedTextureInfos.Add(TextureInfo);
-	}
-
 	return PackingInfo;
 }
 
@@ -274,7 +213,7 @@ const TArray<const UTextureSetModule*> UTextureSetDefinition::GetModules() const
 TArray<TSubclassOf<UTextureSetAssetParams>> UTextureSetDefinition::GetRequiredAssetParamClasses() const
 {
 	TArray<TSubclassOf<UTextureSetAssetParams>> RequiredTypes;
-	for (UTextureSetModule* Module : Modules)
+	for (const UTextureSetModule* Module : Modules)
 	{
 		if (IsValid(Module))
 		{
@@ -291,50 +230,43 @@ TArray<TSubclassOf<UTextureSetAssetParams>> UTextureSetDefinition::GetRequiredAs
 TArray<TSubclassOf<UTextureSetSampleParams>> UTextureSetDefinition::GetRequiredSampleParamClasses() const
 {
 	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredTypes;
-	for (UTextureSetModule* Module : Modules)
+	for (const UTextureSetModule* Module : GetModules())
 	{
-		if (IsValid(Module))
-		{
-			UClass* SampleParamClass = Module->GetSampleParamClass();
+		UClass* SampleParamClass = Module->GetSampleParamClass();
 
-			if (SampleParamClass != nullptr)
-				if (!RequiredTypes.Contains(SampleParamClass))
-					RequiredTypes.Add(SampleParamClass);
-		}
+		if (SampleParamClass != nullptr)
+			if (!RequiredTypes.Contains(SampleParamClass))
+				RequiredTypes.Add(SampleParamClass);
 	}
 	return RequiredTypes;
 }
 
-#if WITH_EDITOR
-void UTextureSetDefinition::UpdateDefaultTextures()
-{
-	TextureSetPackingInfo PackingInfo = GetPackingInfo();
-
-	if (!IsValid(DefaultTextureSet))
-	{
-		FName DefaultName = FName(GetName() + "_Default");
-		DefaultTextureSet = NewObject<UTextureSet>(this, DefaultName, RF_Transient);
-		DefaultTextureSet->Definition = this;
-	}
-
-	DefaultTextureSet->UpdateDerivedData();
-}
-#endif
-
 UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int Index)
 {
-#if WITH_EDITOR
-	UpdateDefaultTextures();
-#endif
 	return DefaultTextureSet->GetDerivedTexture(Index);
 }
 
-int32 UTextureSetDefinition::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+uint32 UTextureSetDefinition::ComputeProcessingHash(int PackedTextureIndex)
 {
 	uint32 Hash = 0;
 
 	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredTypes;
-	for (UTextureSetModule* Module : Modules)
+	for (const UTextureSetModule* Module : GetModules())
+	{
+		Hash = HashCombine(Hash, Module->ComputeProcessingHash());
+	}
+
+	Hash = HashCombine(Hash, GetTypeHash(PackingInfo.PackedTextureDefs[PackedTextureIndex].ComputeHashKey()));
+
+	return Hash;
+}
+
+uint32 UTextureSetDefinition::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
+{
+	uint32 Hash = 0;
+
+	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredTypes;
+	for (const UTextureSetModule* Module : GetModules())
 	{
 		Hash = HashCombine(Hash, Module->ComputeSamplingHash(SampleExpression));
 	}
@@ -347,17 +279,12 @@ void UTextureSetDefinition::GenerateSamplingGraph(const UMaterialExpressionTextu
 	FTextureSetMaterialGraphBuilder& Builder) const
 {
 	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredTypes;
-	for (UTextureSetModule* Module : Modules)
+	for (const UTextureSetModule* Module : GetModules())
 	{
 		Module->GenerateSamplingGraph(SampleExpression, Builder);
 	}
 }
 #endif
-
-void UTextureSetDefinition::PostSaveRoot(FObjectPostSaveRootContext ObjectSaveContext)
-{
-	UpdateDependentAssets(false);
-}
 
 void UTextureSetDefinition::UpdateDependentAssets(bool AutoLoad)
 {
@@ -396,6 +323,112 @@ void UTextureSetDefinition::UpdateDependentAssets(bool AutoLoad)
 			TextureSet->PostEditChange();
 		}
 	}
+}
+
+void UTextureSetDefinition::ResetEdits()
+{
+	// Modules
+	EditModules.Empty();
+
+	for (const UTextureSetModule* Module : Modules)
+	{
+		if (IsValid(Module))
+			EditModules.Add(DuplicateObject(Module, this));
+	}
+
+	// Packing
+	EditPackedTextures = PackingInfo.PackedTextureDefs;
+}
+
+void UTextureSetDefinition::ApplyEdits()
+{
+	// Update module info
+	Modules.Empty();
+	ModuleInfo = FTextureSetDefinitionModuleInfo();
+
+	for (const UTextureSetModule* EditModule : EditModules)
+	{
+		if (IsValid(EditModule))
+		{
+			EditModule->BuildModuleInfo(ModuleInfo);
+			Modules.Add(DuplicateObject(EditModule, this));
+		}
+	}
+
+	// Update packing info
+	PackingInfo = FTextureSetPackingInfo();
+
+	for (int i = 0; i < EditPackedTextures.Num(); i++)
+	{
+		const FTextureSetPackedTextureDef& TextureDef = EditPackedTextures[i];
+		FTextureSetPackedTextureInfo TextureInfo;
+
+		TArray<FName> SourceNames = TextureDef.GetSources();
+		TextureInfo.ChannelCount = SourceNames.Num();
+		TextureInfo.HardwareSRGB = TextureDef.GetHardwareSRGBEnabled();
+
+		for (int c = 0; c < TextureInfo.ChannelCount; c++)
+		{
+			if (SourceNames[c].IsNone())
+				continue;
+
+			FString SourceTexString;
+			FString SourceChannelString;
+			SourceNames[c].ToString().Split(".", &SourceTexString, &SourceChannelString);
+			const FName SourceTexName = FName(SourceTexString);
+
+			if (!ModuleInfo.HasProcessedTextureOfName(SourceTexName))
+				continue;
+
+			FTextureSetProcessedTextureDef Processed = ModuleInfo.GetProcessedTextureByName(SourceTexName);
+
+			static const TMap<FString, int> ChannelStringLookup = {
+				{"r", 0},
+				{"g", 1},
+				{"b", 2},
+				{"a", 3},
+			};
+
+			const int SourceChannel = ChannelStringLookup.FindChecked(SourceChannelString);
+
+			TextureInfo.ChannelInfo[c].ProcessedTexture = SourceTexName;
+			TextureInfo.ChannelInfo[c].ProessedTextureChannel = SourceChannel;
+
+			if (Processed.SRGB)
+			{
+				TextureInfo.ChannelInfo[c].ChannelEncoding = ETextureSetTextureChannelEncoding::SRGB;
+			}
+			else
+			{
+				if (c < 3)
+					TextureInfo.HardwareSRGB = false; // If we have any non-sRGB textures in R, G, or B, then we can't use hardware SRGB.
+
+				if (TextureDef.bDoRangeCompression)
+					TextureInfo.ChannelInfo[c].ChannelEncoding = ETextureSetTextureChannelEncoding::Linear_RangeCompressed;
+				else
+					TextureInfo.ChannelInfo[c].ChannelEncoding = ETextureSetTextureChannelEncoding::Linear_Raw;
+			}
+		}
+
+		TextureInfo.RangeCompressMulName = FName("RangeCompress_" + FString::FromInt(i) + "_Mul");
+		TextureInfo.RangeCompressAddName = FName("RangeCompress_" + FString::FromInt(i) + "_Add");
+
+		PackingInfo.PackedTextureDefs.Add(TextureDef);
+		PackingInfo.PackedTextureInfos.Add(TextureInfo);
+	}
+
+	// Update default texture set to reflect the new data
+	if (!IsValid(DefaultTextureSet))
+	{
+		FName DefaultName = FName(GetName() + "_Default");
+		DefaultTextureSet = NewObject<UTextureSet>(this, DefaultName, RF_Transient);
+		DefaultTextureSet->Definition = this;
+	}
+
+	DefaultTextureSet->UpdateDerivedData();
+
+	// TODO: Compare hashes before and after.
+	// If the hash has changed, send out a notification to other systems that needs to update.
 }
 
 #undef LOCTEXT_NAMESPACE

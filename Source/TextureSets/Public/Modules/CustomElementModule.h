@@ -15,10 +15,10 @@ public:
 	virtual bool AllowMultiple() const override { return true; }
 	virtual FString GetInstanceName() const override { return ElementName.ToString(); }
 
-	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const override;
+	virtual void BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const override;
 
 	virtual void BuildSamplingInfo(
-		TextureSetDefinitionSamplingInfo& SamplingInfo,
+		FTextureSetDefinitionSamplingInfo& SamplingInfo,
 		const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 
 	virtual void Process(FTextureSetProcessingContext& Context) const override;

@@ -5,14 +5,14 @@
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
-void UCustomElementModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const
+void UCustomElementModule::BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const
 {
-	TextureSetSourceTextureDef TextureDef = TextureSetSourceTextureDef{ ElementName, SRGB, ChannelCount, DefaultValue };
+	FTextureSetSourceTextureDef TextureDef = FTextureSetSourceTextureDef{ ElementName, SRGB, ChannelCount, DefaultValue };
 	Info.AddSourceTexture(TextureDef);
 	Info.AddProcessedTexture(TextureDef);
 }
 
-void UCustomElementModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+void UCustomElementModule::BuildSamplingInfo(FTextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const EMaterialValueType ValueTypeLookup[4] = { MCT_Float1, MCT_Float2, MCT_Float3, MCT_Float4 };
 	SamplingInfo.AddSampleOutput(ElementName, ValueTypeLookup[ChannelCount]);

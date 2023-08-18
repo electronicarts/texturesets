@@ -5,11 +5,11 @@
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
-void UTextureSetElementCollection::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const
+void UTextureSetElementCollection::BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const
 {
 	for (const FElementDefinition& Element: Elements)
 	{
-		TextureSetSourceTextureDef TextureDef;
+		FTextureSetSourceTextureDef TextureDef;
 		TextureDef.Name = Element.ElementName;
 		TextureDef.SRGB = Element.SRGB;
 		TextureDef.ChannelCount = Element.ChannelCount;
@@ -19,7 +19,7 @@ void UTextureSetElementCollection::BuildSharedInfo(TextureSetDefinitionSharedInf
 	}
 }
 
-void UTextureSetElementCollection::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+void UTextureSetElementCollection::BuildSamplingInfo(FTextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const EMaterialValueType ValueTypeLookup[4] = { MCT_Float1, MCT_Float2, MCT_Float3, MCT_Float4 };
 

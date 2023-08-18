@@ -6,15 +6,15 @@
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
-void UHeightModule::BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const
+void UHeightModule::BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const
 {
-	TextureSetSourceTextureDef HeightDef = {"Height", false, 1, FVector4(1, 0, 0, 0)};
+	FTextureSetSourceTextureDef HeightDef = {"Height", false, 1, FVector4(1, 0, 0, 0)};
 
 	Info.AddSourceTexture(HeightDef);
 	Info.AddProcessedTexture(HeightDef);
 }
 
-void UHeightModule::BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+void UHeightModule::BuildSamplingInfo(FTextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const UHeightSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UHeightSampleParams>();
 

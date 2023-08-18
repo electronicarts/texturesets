@@ -38,10 +38,10 @@ public:
 	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const { return UFlipbookAssetParams::StaticClass(); }
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UFlipbookSampleParams::StaticClass(); }
 	
-	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const;
+	virtual void BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const;
 
 	virtual void BuildSamplingInfo(
-		TextureSetDefinitionSamplingInfo& SamplingInfo,
+		FTextureSetDefinitionSamplingInfo& SamplingInfo,
 		const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;

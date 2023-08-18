@@ -61,11 +61,11 @@ public:
 	// Which class this module uses to attach parameters to the sampler material expression
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const { return nullptr; }
 
-	// Use in subclasses to add to the shared info
-	virtual void BuildSharedInfo(TextureSetDefinitionSharedInfo& Info) const {};
+	// Use in subclasses to add to the definition's module info
+	virtual void BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const {};
 
 	// Use in subclasses to add to the sampling info
-	virtual void BuildSamplingInfo(TextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const {};
+	virtual void BuildSamplingInfo(FTextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const {};
 
 	// Compute a hash for the module processing. If this hash changes, it triggers a texture-sets to be re-processed.
 	virtual int32 ComputeProcessingHash() const { return 0; }
