@@ -100,20 +100,3 @@ bool FTextureSetPackedTextureDef::GetHardwareSRGBEnabled() const
 
 	return bHardwareSRGB && SRGBSupportedFormats.Contains(CompressionSettings);
 }
-
-FString FTextureSetPackedTextureDef::ComputeHashKey() const
-{
-	FString Key;
-
-	Key += SourceR.ToString() + "_";
-	Key += SourceG.ToString() + "_";
-	Key += SourceB.ToString() + "_";
-	Key += SourceA.ToString() + "_";
-	Key += FString::FromInt(SkipMip) + "_";
-	Key += FString::FromInt(NumStreamedMips) + "_";
-	Key += FString::FromInt((int)Filter) + "_";
-	Key += FString::FromInt(bDoRangeCompression) + "_";
-	Key += FString::FromInt(bHardwareSRGB) + "_";
-
-	return Key;
-}

@@ -6,6 +6,8 @@
 #include "UObject/NoExportTypes.h"
 #include "TextureSetPackedTextureDef.generated.h"
 
+uint32 GetTypeHash(const struct FTextureSetPackedTextureDef& Value);
+
 USTRUCT(BlueprintType)
 struct TEXTURESETS_API FTextureSetPackedTextureDef
 {
@@ -56,6 +58,21 @@ public:
 	TArray<FString> GetSourcesWithoutChannel(bool RemoveDuplicate = true) const;
 
 	bool GetHardwareSRGBEnabled() const;
-
-	FString ComputeHashKey() const;
 };
+
+inline uint32 GetTypeHash(const FTextureSetPackedTextureDef& Value)
+{
+	uint32 Hash = 0;
+
+	Hash = HashCombine(Hash, GetTypeHash(Value.SourceR));
+	Hash = HashCombine(Hash, GetTypeHash(Value.SourceG));
+	Hash = HashCombine(Hash, GetTypeHash(Value.SourceB));
+	Hash = HashCombine(Hash, GetTypeHash(Value.SourceA));
+	Hash = HashCombine(Hash, GetTypeHash(Value.SkipMip));
+	Hash = HashCombine(Hash, GetTypeHash(Value.NumStreamedMips));
+	Hash = HashCombine(Hash, GetTypeHash((int)Value.Filter));
+	Hash = HashCombine(Hash, GetTypeHash(Value.bDoRangeCompression));
+	Hash = HashCombine(Hash, GetTypeHash(Value.bHardwareSRGB));
+
+	return Hash;
+}

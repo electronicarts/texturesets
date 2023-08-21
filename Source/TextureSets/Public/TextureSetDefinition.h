@@ -55,7 +55,8 @@ public:
 	// Get the default packed texture for a specific packed texture index
 	UTexture* GetDefaultPackedTexture(int Index);
 
-	uint32 ComputeProcessingHash(int PackedTextureIndex);
+	uint32 ComputeCookingHash(int PackedTextureIndex);
+	uint32 ComputeCookingHash();
 
 	uint32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
 #if WITH_EDITOR
@@ -91,13 +92,14 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category="Debug")
 	TArray<const UTextureSetModule*> Modules;
-
-	void ApplyEdits();
-	void ResetEdits();
+	
+	UPROPERTY(VisibleAnywhere, Category="Debug")
+	uint32 CookingHash;
 
 #if WITH_EDITOR
-	void UpdateDefaultTextures();
+	void ApplyEdits();
+	void ResetEdits();
+	void UpdateDependentAssets(bool bCookingHashChanged);
 #endif
 
-	void UpdateDependentAssets(bool AutoLoad = false);
 };

@@ -169,11 +169,6 @@ void UTextureSet::FixupData()
 
 FString UTextureSet::ComputePackedTextureKey(int PackedTextureIndex) const
 {
-	check(IsValid(Definition));
-
-	const FTextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
-	check(PackedTextureIndex < PackingInfo.NumPackedTextures());
-
 	// All data hash keys start with a global version tracking format changes
 	FString PackedTextureDataKey("PACKING_VER2_");
 
@@ -187,7 +182,11 @@ FString UTextureSet::ComputePackedTextureKey(int PackedTextureIndex) const
 	}
 	
 	// Hash the definition
-	PackedTextureDataKey += "Definition<" + FString::FromInt(Definition->ComputeProcessingHash(PackedTextureIndex)) + ">_";
+	check(IsValid(Definition));
+	const FTextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
+	check(PackedTextureIndex < PackingInfo.NumPackedTextures());
+
+	PackedTextureDataKey += "Definition<" + FString::FromInt(Definition->ComputeCookingHash(PackedTextureIndex)) + ">_";
 
 	// Key for debugging, easily force rebuild
 	if (!UserKey.IsEmpty())

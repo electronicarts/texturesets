@@ -246,20 +246,34 @@ UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int Index)
 	return DefaultTextureSet->GetDerivedTexture(Index);
 }
 
-uint32 UTextureSetDefinition::ComputeProcessingHash(int PackedTextureIndex)
+uint32 UTextureSetDefinition::ComputeCookingHash(int PackedTextureIndex)
 {
 	uint32 Hash = 0;
 
 	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredTypes;
+	// TODO: Only hash modules that contribute to this packed texture
 	for (const UTextureSetModule* Module : GetModules())
 	{
 		Hash = HashCombine(Hash, Module->ComputeProcessingHash());
 	}
 
-	Hash = HashCombine(Hash, GetTypeHash(PackingInfo.PackedTextureDefs[PackedTextureIndex].ComputeHashKey()));
+	Hash = HashCombine(Hash, GetTypeHash(PackingInfo.PackedTextureDefs[PackedTextureIndex]));
 
 	return Hash;
 }
+
+uint32 UTextureSetDefinition::ComputeCookingHash()
+{
+	uint32 Hash = 0;
+
+	for (int i = 0; i < PackingInfo.PackedTextureDefs.Num(); i++)
+	{
+		Hash = HashCombine(Hash, ComputeCookingHash(i));
+	}
+
+	return Hash;
+}
+
 
 uint32 UTextureSetDefinition::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
 {
@@ -286,45 +300,7 @@ void UTextureSetDefinition::GenerateSamplingGraph(const UMaterialExpressionTextu
 }
 #endif
 
-void UTextureSetDefinition::UpdateDependentAssets(bool AutoLoad)
-{
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
-
-	TArray<FAssetIdentifier> Referencers;
-	AssetRegistry.GetReferencers(GetOuter()->GetFName(), Referencers);
-
-	TArray<FAssetData> TextureSetAssetDatas;
-
-	for (auto AssetIdentifier : Referencers)
-	{
-		TArray<FAssetData> Assets;
-		AssetRegistry.GetAssetsByPackageName(AssetIdentifier.PackageName, Assets);
-
-		for (auto AssetData : Assets)
-		{
-			if (AssetData.IsInstanceOf(UTextureSet::StaticClass()))
-			{
-				TextureSetAssetDatas.AddUnique(AssetData);
-			}
-		}
-	}
-
-	for (auto AssetData : TextureSetAssetDatas)
-	{
-		UTextureSet* TextureSet = Cast<UTextureSet>(AssetData.FastGetAsset(AutoLoad));
-		if (TextureSet != nullptr)
-		{
-			// update texture set and create/destroy cooked textures
-			TextureSet->UpdateDerivedData();
-			// mark texture set as modified
-			TextureSet->Modify();
-			// broadcast the changes to other editor tabs
-			TextureSet->PostEditChange();
-		}
-	}
-}
-
+#if WITH_EDITOR
 void UTextureSetDefinition::ResetEdits()
 {
 	// Modules
@@ -339,7 +315,9 @@ void UTextureSetDefinition::ResetEdits()
 	// Packing
 	EditPackedTextures = PackingInfo.PackedTextureDefs;
 }
+#endif
 
+#if WITH_EDITOR
 void UTextureSetDefinition::ApplyEdits()
 {
 	// Update module info
@@ -427,8 +405,43 @@ void UTextureSetDefinition::ApplyEdits()
 
 	DefaultTextureSet->UpdateDerivedData();
 
-	// TODO: Compare hashes before and after.
-	// If the hash has changed, send out a notification to other systems that needs to update.
+	const uint32 NewHash = ComputeCookingHash();
+
+	if (NewHash != CookingHash)
+	{
+		CookingHash = NewHash;
+		UpdateDependentAssets(true);
+	}
 }
+#endif
+
+#if WITH_EDITOR
+void UTextureSetDefinition::UpdateDependentAssets(bool bCookingHashChanged)
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+	TArray<FAssetIdentifier> Referencers;
+	AssetRegistry.GetReferencers(GetOuter()->GetFName(), Referencers);
+
+	for (auto AssetIdentifier : Referencers)
+	{
+		TArray<FAssetData> Assets;
+		AssetRegistry.GetAssetsByPackageName(AssetIdentifier.PackageName, Assets);
+
+		for (auto AssetData : Assets)
+		{
+			if (AssetData.IsInstanceOf(UTextureSet::StaticClass()))
+			{
+				UTextureSet* TextureSet = Cast<UTextureSet>(AssetData.FastGetAsset(false));
+				if (TextureSet != nullptr && TextureSet->Definition == this)
+				{
+					TextureSet->UpdateDerivedData();
+				}
+			}
+		}
+	}
+}
+#endif
 
 #undef LOCTEXT_NAMESPACE
