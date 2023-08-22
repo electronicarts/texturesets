@@ -102,13 +102,18 @@ public:
 #endif
 
 	// UObject Interface
+	virtual void BeginDestroy();
 #if WITH_EDITOR
 	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) override;
 #endif
 
 private:
 #if WITH_EDITOR
-	void UpdateSampleParamArray();
-#endif
 
+	FDelegateHandle OnTextureSetDefinitionChangedHandle;
+
+	void UpdateSampleParamArray();
+
+	void OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition);
+#endif
 };

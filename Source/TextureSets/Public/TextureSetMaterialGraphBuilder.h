@@ -29,15 +29,10 @@ public:
 		return Cast<T>(Expression);
 	}
 
-	UMaterialExpression* GetProcessedTextureSample(FName Name)
-	{
-		return ProcessedTextureSamples.FindChecked(Name);
-	}
+	UMaterialExpression* GetProcessedTextureSample(FName Name);
 
-	UMaterialExpressionFunctionOutput* GetOutput(FName Name)
-	{
-		return SampleOutputs.FindChecked(Name);
-	}
+	UMaterialExpressionFunctionOutput* CreateOutput(FName Name);
+	UMaterialExpressionFunctionOutput* GetOutput(FName Name);
 
 	UMaterialExpression* MakeConstantParameter(FName Name, FVector4 Default);
 
@@ -47,7 +42,6 @@ private:
 	TObjectPtr<UMaterialFunction> MaterialFunction;
 
 	const FTextureSetDefinitionModuleInfo ModuleInfo;
-	const FTextureSetDefinitionSamplingInfo SamplingInfo;
 	const FTextureSetPackingInfo PackingInfo;
 
 	TArray<TObjectPtr<UMaterialExpressionTextureObjectParameter>> PackedTextureObjects;

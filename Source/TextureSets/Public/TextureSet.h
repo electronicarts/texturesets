@@ -68,6 +68,7 @@ public:
 	// UObject Interface
 	virtual void PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext) override;
 	virtual void PostLoad() override;
+	virtual void BeginDestroy() override;
 #if WITH_EDITOR
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -82,8 +83,6 @@ public:
 	void UpdateDerivedData();
 	UTextureSetDerivedData* GetDerivedData() { return DerivedData.Get(); }
 	UTexture* GetDerivedTexture(int Index) { return DerivedTextures[Index].Get(); }
-
-	void OnDefinitionChanged();
 
 	void FixupData();
 
@@ -100,5 +99,7 @@ private:
 	UPROPERTY(VisibleAnywhere, Category="Debug")
 	TArray<TObjectPtr<UTexture>> DerivedTextures;
 
+	FDelegateHandle OnTextureSetDefinitionChangedHandle;
 
+	void OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition);
 };

@@ -22,6 +22,8 @@
 
 const FString UTextureSetDefinition::ChannelSuffixes[4] = {".r", ".g", ".b", ".a"};
 
+FOnTextureSetDefinitionChanged UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent;
+
 UTextureSetDefinition::UTextureSetDefinition() : Super()
 {
 	if (!UniqueID.IsValid())
@@ -233,7 +235,9 @@ UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int Index)
 
 uint32 UTextureSetDefinition::ComputeCookingHash(int PackedTextureIndex)
 {
-	uint32 Hash = 1;
+	uint32 Hash = 2;
+
+	Hash = HashCombine(Hash, GetTypeHash(UserKey));
 
 	// TODO: Only hash modules that contribute to this packed texture
 	for (const UTextureSetModule* Module : GetModules())
@@ -391,53 +395,21 @@ void UTextureSetDefinition::ApplyEdits()
 		PackingInfo.PackedTextureInfos.Add(TextureInfo);
 	}
 
-	// Update default texture set to reflect the new data
+	// Ensure we have a default texture set instantiated
 	if (!IsValid(DefaultTextureSet))
 	{
 		FName DefaultName = FName(GetName() + "_Default");
+		// TODO: Make this non-transient (may have to be a soft reference to avoid a circular dependency)
 		DefaultTextureSet = NewObject<UTextureSet>(this, DefaultName, RF_Transient);
 		DefaultTextureSet->Definition = this;
 	}
-
-	DefaultTextureSet->UpdateDerivedData();
 
 	const uint32 NewHash = ComputeCookingHash();
 
 	if (NewHash != CookingHash)
 	{
 		CookingHash = NewHash;
-		UpdateDependentAssets(true);
-	}
-}
-#endif
-
-#if WITH_EDITOR
-void UTextureSetDefinition::UpdateDependentAssets(bool bCookingHashChanged)
-{
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
-
-	TArray<FAssetIdentifier> Referencers;
-	AssetRegistry.GetReferencers(GetOuter()->GetFName(), Referencers);
-
-	for (auto AssetIdentifier : Referencers)
-	{
-		TArray<FAssetData> Assets;
-		AssetRegistry.GetAssetsByPackageName(AssetIdentifier.PackageName, Assets);
-
-		for (auto AssetData : Assets)
-		{
-			if (AssetData.IsInstanceOf(UTextureSet::StaticClass()))
-			{
-				// GetAsset is called with false param, which means we don't load unloaded assets.
-				// They will be updated in their own PostLoad() so we don't need to notify them here.
-				UTextureSet* TextureSet = Cast<UTextureSet>(AssetData.FastGetAsset(false));
-				if (TextureSet != nullptr && TextureSet->Definition == this)
-				{
-					TextureSet->OnDefinitionChanged();
-				}
-			}
-		}
+		FOnTextureSetDefinitionChangedEvent.Broadcast(this);
 	}
 }
 #endif

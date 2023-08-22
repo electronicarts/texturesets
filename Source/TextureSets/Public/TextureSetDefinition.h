@@ -14,6 +14,9 @@ class UTextureSetAssetParams;
 class UTextureSetSampleParams;
 class FTextureSetMaterialGraphBuilder;
 
+#if WITH_EDITOR
+DECLARE_EVENT_OneParam(UTextureSetDefinition, FOnTextureSetDefinitionChanged, UTextureSetDefinition* /*Definition*/);
+#endif
 
 // The texture set definition. Definitions consist primarily of a list of modules, and a packing definition.
 // The definition is configurable, and drives most other aspects of the texture-set from import to packing to sampling.
@@ -25,6 +28,11 @@ class TEXTURESETS_API UTextureSetDefinition : public UDataAsset
 	UTextureSetDefinition();
 
 public:
+
+#if WITH_EDITOR
+	static FOnTextureSetDefinitionChanged FOnTextureSetDefinitionChangedEvent;
+#endif
+
 	// Suffixes used when addressing specific channels of a texture by name
 	// Defined as {".r", ".g", ".b", ".a"}
 	static const FString ChannelSuffixes[4];
@@ -44,9 +52,9 @@ public:
 #endif
 	TArray<FName> GetUnpackedChannelNames(TArray<FTextureSetPackedTextureDef> Textures) const;
 
-	const FTextureSetDefinitionModuleInfo GetModuleInfo() const;
+	const FTextureSetDefinitionModuleInfo& GetModuleInfo() const;
+	const FTextureSetPackingInfo& GetPackingInfo() const;
 	const FTextureSetDefinitionSamplingInfo GetSamplingInfo(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
-	const FTextureSetPackingInfo GetPackingInfo() const;
 	const TArray<const UTextureSetModule*> GetModules() const;
 
 	TArray<TSubclassOf<UTextureSetAssetParams>> GetRequiredAssetParamClasses() const;
@@ -80,6 +88,11 @@ private:
 	UPROPERTY(Transient, EditAnywhere, DisplayName="Packing", meta=(TitleProperty="CompressionSettings"))
 	TArray<FTextureSetPackedTextureDef> EditPackedTextures;
 #endif
+
+	// For debugging, allow the user to manually change a value that doesn't affect the logic,
+	// but is hashed. Forces a regeneration of the data when a new unique value is entered.
+	UPROPERTY(EditAnywhere, Category="Debug")
+	FString UserKey;
 
 	UPROPERTY(VisibleAnywhere, Category="Debug")
 	UTextureSet* DefaultTextureSet;

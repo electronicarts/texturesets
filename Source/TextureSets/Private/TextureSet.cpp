@@ -23,7 +23,11 @@
 
 UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
-{}
+{
+#if WITH_EDITOR
+	OnTextureSetDefinitionChangedHandle = UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent.AddUObject(this, &UTextureSet::OnDefinitionChanged);
+#endif
+}
 
 #if WITH_EDITOR
 EDataValidationResult UTextureSet::IsDataValid(FDataValidationContext& Context)
@@ -78,9 +82,9 @@ void UTextureSet::AugmentMaterialParameters(const FCustomParameterValue& CustomP
 	}
 }
 
-void UTextureSet::PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext)
+void UTextureSet::PreSave(FObjectPreSaveContext SaveContext)
 {
-	Super::PreSaveRoot(ObjectSaveContext);
+	Super::PreSave(SaveContext);
 
 	UpdateDerivedData();
 }
@@ -91,6 +95,13 @@ void UTextureSet::PostLoad()
 
 	FixupData();
 	UpdateDerivedData();
+}
+
+void UTextureSet::BeginDestroy()
+{
+#if WITH_EDITOR
+	UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent.Remove(OnTextureSetDefinitionChangedHandle);
+#endif
 }
 
 #if WITH_EDITOR
@@ -115,15 +126,18 @@ void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 	if (ChangedPropName == GET_MEMBER_NAME_CHECKED(UTextureSet, Definition)
 		&& PropertyChangedEvent.ChangeType == EPropertyChangeType::ValueSet)
 	{
-		OnDefinitionChanged();
+		OnDefinitionChanged(Definition);
 	}
 }
 #endif
 
-void UTextureSet::OnDefinitionChanged()
+void UTextureSet::OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition)
 {
-	FixupData();
-	UpdateDerivedData();
+	if (ChangedDefinition == Definition)
+	{
+		FixupData();
+		UpdateDerivedData();
+	}
 }
 
 void UTextureSet::FixupData()

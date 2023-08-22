@@ -82,6 +82,10 @@ UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampl
 
 	// Update parameter on construction if it's invalid
 	UpdateParameterGuid(false, true);
+
+#if WITH_EDITOR
+	OnTextureSetDefinitionChangedHandle = UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent.AddUObject(this, &UMaterialExpressionTextureSetSampleParameter::OnDefinitionChanged);
+#endif
 }
 
 FName UMaterialExpressionTextureSetSampleParameter::GetTextureParameterName(int TextureIndex) const
@@ -196,6 +200,13 @@ bool UMaterialExpressionTextureSetSampleParameter::SetParameterValue(const FName
 }
 #endif
 
+void UMaterialExpressionTextureSetSampleParameter::BeginDestroy()
+{
+#if WITH_EDITOR
+	UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent.Remove(OnTextureSetDefinitionChangedHandle);
+#endif
+}
+
 #if WITH_EDITOR
 EDataValidationResult UMaterialExpressionTextureSetSampleParameter::IsDataValid(FDataValidationContext& Context)
 {
@@ -238,6 +249,16 @@ void UMaterialExpressionTextureSetSampleParameter::UpdateSampleParamArray()
 	for (TSubclassOf<UTextureSetSampleParams> SampleParamClass : RequiredSampleParamClasses)
 	{
 		SampleParams.Add(NewObject<UTextureSetSampleParams>(this, SampleParamClass));
+	}
+}
+#endif
+
+#if WITH_EDITOR
+void UMaterialExpressionTextureSetSampleParameter::OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition)
+{
+	if (ChangedDefinition == Definition)
+	{
+		UpdateMaterialFunction();
 	}
 }
 #endif
