@@ -21,7 +21,6 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialExpres
 	: Node(Node)
 	, Definition(Node->Definition)
 	, ModuleInfo(Definition->GetModuleInfo())
-	, SamplingInfo(Definition->GetSamplingInfo(Node))
 	, PackingInfo(Definition->GetPackingInfo())
 {
 
@@ -87,9 +86,9 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialExpres
 	}
 
 	// Append vectors back into their equivalent processed map samples
-	for (const auto& ProcessedTexture : ModuleInfo.GetProcessedTextures())
+	for (const auto& [Name, ProcessedTexture] : ModuleInfo.GetProcessedTextures())
 	{
-		const FName TextureName = ProcessedTexture.Name;
+		const FName TextureName = Name;
 		const int TextureChannels = ProcessedTexture.ChannelCount;
 
 		// Only support 1-4 channels
@@ -119,19 +118,31 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialExpres
 			ProcessedTextureSamples.Add(TextureName, NamedNode);
 		}
 	}
-
-	// Create function outputs
-	for (const auto& Result : SamplingInfo.GetSampleOutputs())
-	{
-		TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = CreateExpression<UMaterialExpressionFunctionOutput>();
-		OutputExpression->OutputName = Result.Key;
-		SampleOutputs.Add(Result.Key, OutputExpression);
-	}
 }
 
 void FTextureSetMaterialGraphBuilder::Finalize()
 {
 	UMaterialEditingLibrary::LayoutMaterialFunctionExpressions(MaterialFunction);
+}
+
+UMaterialExpression* FTextureSetMaterialGraphBuilder::GetProcessedTextureSample(FName Name)
+{
+	return ProcessedTextureSamples.FindChecked(Name);
+}
+
+UMaterialExpressionFunctionOutput* FTextureSetMaterialGraphBuilder::CreateOutput(FName Name)
+{
+	check(!SampleOutputs.Contains(Name));
+
+	UMaterialExpressionFunctionOutput* NewOutput = CreateExpression<UMaterialExpressionFunctionOutput>();
+	NewOutput->OutputName = Name;
+	SampleOutputs.Add(Name, NewOutput);
+	return NewOutput;
+}
+
+UMaterialExpressionFunctionOutput* FTextureSetMaterialGraphBuilder::GetOutput(FName Name)
+{
+	return SampleOutputs.FindChecked(Name);
 }
 
 UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeConstantParameter(FName Name, FVector4 Default)

@@ -88,6 +88,7 @@ void UTextureSet::PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext)
 void UTextureSet::PostLoad()
 {
 	Super::PostLoad();
+
 	FixupData();
 	UpdateDerivedData();
 }
@@ -114,10 +115,16 @@ void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 	if (ChangedPropName == GET_MEMBER_NAME_CHECKED(UTextureSet, Definition)
 		&& PropertyChangedEvent.ChangeType == EPropertyChangeType::ValueSet)
 	{
-		FixupData();
+		OnDefinitionChanged();
 	}
 }
 #endif
+
+void UTextureSet::OnDefinitionChanged()
+{
+	FixupData();
+	UpdateDerivedData();
+}
 
 void UTextureSet::FixupData()
 {
@@ -128,10 +135,10 @@ void UTextureSet::FixupData()
 		// Source Textures
 		TMap<FName, TObjectPtr<UTexture>> NewSourceTextures;
 
-		for (auto& TextureInfo : Definition->GetModuleInfo().GetSourceTextures())
+		for (const auto& [Name, TextureInfo] : Definition->GetModuleInfo().GetSourceTextures())
 		{
-			TObjectPtr<UTexture>* OldTexture = SourceTextures.Find(TextureInfo.Name);
-			NewSourceTextures.Add(TextureInfo.Name, (OldTexture != nullptr) ? *OldTexture : nullptr);
+			TObjectPtr<UTexture>* OldTexture = SourceTextures.Find(Name);
+			NewSourceTextures.Add(Name, (OldTexture != nullptr) ? *OldTexture : nullptr);
 		}
 
 		SourceTextures = NewSourceTextures;

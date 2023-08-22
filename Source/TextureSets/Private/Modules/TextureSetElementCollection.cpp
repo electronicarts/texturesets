@@ -5,36 +5,17 @@
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
-void UTextureSetElementCollection::BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const
-{
-	for (const FElementDefinition& Element: Elements)
-	{
-		FTextureSetSourceTextureDef TextureDef;
-		TextureDef.Name = Element.ElementName;
-		TextureDef.SRGB = Element.SRGB;
-		TextureDef.ChannelCount = Element.ChannelCount;
-		TextureDef.DefaultValue = Element.DefaultValue;
-		Info.AddSourceTexture(TextureDef);
-		Info.AddProcessedTexture(TextureDef);
-	}
-}
-
-void UTextureSetElementCollection::BuildSamplingInfo(FTextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
-{
-	const EMaterialValueType ValueTypeLookup[4] = { MCT_Float1, MCT_Float2, MCT_Float3, MCT_Float4 };
-
-	for (const FElementDefinition& Element: Elements)
-	{
-		SamplingInfo.AddSampleOutput(Element.ElementName, ValueTypeLookup[Element.ChannelCount]);
-	}
-}
-
-void UTextureSetElementCollection::Process(FTextureSetProcessingContext& Context) const
+void UTextureSetElementCollection::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	// Just pass through source texture as processed texture
 	for (const FElementDefinition& Element: Elements)
 	{
-		Context.AddProcessedTexture(Element.ElementName, Context.GetSourceTexture(Element.ElementName));
+		FTextureSetSourceTextureDef TextureDef;
+		TextureDef.SRGB = Element.SRGB;
+		TextureDef.ChannelCount = Element.ChannelCount;
+		TextureDef.DefaultValue = Element.DefaultValue;
+
+		Graph.AddOutputTexture(Element.ElementName, Graph.AddInputTexture(Element.ElementName, TextureDef));
 	}
 }
 
@@ -57,7 +38,7 @@ void UTextureSetElementCollection::GenerateSamplingGraph(const UMaterialExpressi
 	{
 		// Simply connect texture sample to the matching output.
 		TObjectPtr<UMaterialExpression> TextureExpression = Builder.GetProcessedTextureSample(Element.ElementName);
-		TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = Builder.GetOutput(Element.ElementName);
+		TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = Builder.CreateOutput(Element.ElementName);
 		TextureExpression->ConnectExpression(OutputExpression->GetInput(0), 0);
 	}
 }

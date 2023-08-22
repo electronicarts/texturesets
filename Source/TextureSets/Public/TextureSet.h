@@ -36,8 +36,8 @@ public:
 	TObjectPtr<UTextureSetDefinition> Definition;
 
 #if WITH_EDITORONLY_DATA
-	UPROPERTY(EditAnywhere, EditFixedSize)
-	TMap<FName, TObjectPtr<class UTexture>> SourceTextures;
+	UPROPERTY(EditAnywhere, EditFixedSize, meta=(ReadOnlyKeys))
+	TMap<FName, TObjectPtr<UTexture>> SourceTextures;
 
 	UPROPERTY(EditAnywhere, EditFixedSize)
 	TArray<class UTextureSetAssetParams*> AssetParams;
@@ -82,6 +82,8 @@ public:
 	void UpdateDerivedData();
 	UTextureSetDerivedData* GetDerivedData() { return DerivedData.Get(); }
 	UTexture* GetDerivedTexture(int Index) { return DerivedTextures[Index].Get(); }
+
+	void OnDefinitionChanged();
 
 	void FixupData();
 

@@ -6,32 +6,11 @@
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
-void UHeightModule::BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const
+void UHeightModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
-	FTextureSetSourceTextureDef HeightDef = {"Height", false, 1, FVector4(1, 0, 0, 0)};
+	FTextureSetSourceTextureDef HeightDef = {false, 1, FVector4(1, 0, 0, 0)};
 
-	Info.AddSourceTexture(HeightDef);
-	Info.AddProcessedTexture(HeightDef);
-}
-
-void UHeightModule::BuildSamplingInfo(FTextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
-{
-	const UHeightSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UHeightSampleParams>();
-
-	if (HeightSampleParams->bEnableParallaxOcclusionMapping)
-	{
-		SamplingInfo.AddMaterialParameter("ParallaxReferencePlane", EMaterialValueType::MCT_Float1);
-		SamplingInfo.AddSampleInput("ParallaxStrength", EMaterialValueType::MCT_Float1);
-		SamplingInfo.AddSampleInput("ParallaxIterations", EMaterialValueType::MCT_Float1);
-		SamplingInfo.AddSampleOutput("ParallaxOffset", EMaterialValueType::MCT_Float2);
-	}
-
-	SamplingInfo.AddSampleOutput("Height", EMaterialValueType::MCT_Float1);
-}
-
-void UHeightModule::Process(FTextureSetProcessingContext& Context) const
-{
-	Context.AddProcessedTexture("Height", Context.GetSourceTexture("Height"));
+	Graph.AddOutputTexture("Height", Graph.AddInputTexture("Height", HeightDef));
 }
 
 int32 UHeightModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
@@ -49,8 +28,18 @@ int32 UHeightModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSamp
 void UHeightModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const
 {
+	//const UHeightSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UHeightSampleParams>();
+
+	//if (HeightSampleParams->bEnableParallaxOcclusionMapping)
+	//{
+	//	Builder.AddMaterialParameter("ParallaxReferencePlane", EMaterialValueType::MCT_Float1);
+	//	Builder.AddSampleInput("ParallaxStrength", EMaterialValueType::MCT_Float1);
+	//	Builder.AddSampleInput("ParallaxIterations", EMaterialValueType::MCT_Float1);
+	//	Builder.AddSampleOutput("ParallaxOffset", EMaterialValueType::MCT_Float2);
+	//}
+
 	TObjectPtr<UMaterialExpression> TextureExpression = Builder.GetProcessedTextureSample("Height");
-	TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = Builder.GetOutput("Height");
+	TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = Builder.CreateOutput("Height");
 	TextureExpression->ConnectExpression(OutputExpression->GetInput(0), 0);
 }
 #endif

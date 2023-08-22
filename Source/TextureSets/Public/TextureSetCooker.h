@@ -6,6 +6,7 @@
 #include "TextureSetInfo.h"
 #include "TextureSetModule.h"
 #include "TextureSetDerivedData.h"
+#include "TextureSetProcessingGraph.h"
 #if WITH_EDITOR
 #include "DerivedDataPluginInterface.h"
 #endif
@@ -17,7 +18,7 @@ class UTextureSet;
 class TextureSetDerivedDataPlugin : public FDerivedDataPluginInterface
 {
 public:
-	TextureSetDerivedDataPlugin(TSharedRef<TextureSetCooker> CookerRef);
+	TextureSetDerivedDataPlugin(TSharedRef<class TextureSetCooker> CookerRef);
 
 	// FDerivedDataPluginInterface
 	virtual const TCHAR* GetPluginName() const override;
@@ -29,7 +30,7 @@ public:
 	virtual bool Build(TArray<uint8>& OutData) override;
 
 private:
-	TSharedRef<TextureSetCooker> Cooker;
+	TSharedRef<class TextureSetCooker> Cooker;
 };
 
 class TextureSetCooker
@@ -54,6 +55,7 @@ private:
 	const UTextureSetDefinition* Definition;
 
 	FTextureSetProcessingContext Context;
+	FTextureSetProcessingGraph Graph;
 	
 	const FTextureSetDefinitionModuleInfo ModuleInfo;
 	const FTextureSetPackingInfo PackingInfo;

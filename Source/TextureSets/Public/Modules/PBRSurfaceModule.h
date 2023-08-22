@@ -71,13 +71,7 @@ public:
 	virtual bool AllowMultiple() const override { return false; }
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UPBRSampleParams::StaticClass(); }
 
-	virtual void BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const override;
-
-	virtual void BuildSamplingInfo(
-		FTextureSetDefinitionSamplingInfo& SamplingInfo,
-		const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
-
-	virtual void Process(FTextureSetProcessingContext& Context) const override;
+	virtual void GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 

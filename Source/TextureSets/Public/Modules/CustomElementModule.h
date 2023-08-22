@@ -15,13 +15,7 @@ public:
 	virtual bool AllowMultiple() const override { return true; }
 	virtual FString GetInstanceName() const override { return ElementName.ToString(); }
 
-	virtual void BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const override;
-
-	virtual void BuildSamplingInfo(
-		FTextureSetDefinitionSamplingInfo& SamplingInfo,
-		const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
-
-	virtual void Process(FTextureSetProcessingContext& Context) const override;
+	virtual void GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 

@@ -158,11 +158,11 @@ TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames(TArray<FTextureSetP
 	// Construct a list of channel names not yet used for packing (remaining choices)
 	TArray<FName> UnpackedNames = TArray<FName>{  FName() };
 
-	for (const FTextureSetProcessedTextureDef& Tex : GetModuleInfo().GetProcessedTextures())
+	for (const auto& [Name, Tex] : GetModuleInfo().GetProcessedTextures())
 	{
 		for (int i = 0; i < Tex.ChannelCount; i++)
 		{
-			FName ChannelName = FName(Tex.Name.ToString() + ChannelSuffixes[i]);
+			FName ChannelName = FName(Name.ToString() + ChannelSuffixes[i]);
 
 			if (!PackedNames.Contains(ChannelName))
 				UnpackedNames.Add(ChannelName);
@@ -172,27 +172,12 @@ TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames(TArray<FTextureSetP
 	return UnpackedNames;
 }
 
-const FTextureSetDefinitionModuleInfo UTextureSetDefinition::GetModuleInfo() const
+const FTextureSetDefinitionModuleInfo& UTextureSetDefinition::GetModuleInfo() const
 {
 	return ModuleInfo;
 }
 
-const FTextureSetDefinitionSamplingInfo UTextureSetDefinition::GetSamplingInfo(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
-{
-	FTextureSetDefinitionSamplingInfo Info;
-
-	for (const UTextureSetModule* Module : GetModules())
-	{
-		if (IsValid(Module))
-		{
-			Module->BuildSamplingInfo(Info, SampleExpression);
-		}
-	}
-
-	return Info;
-}
-
-const FTextureSetPackingInfo UTextureSetDefinition::GetPackingInfo() const
+const FTextureSetPackingInfo& UTextureSetDefinition::GetPackingInfo() const
 {
 	return PackingInfo;
 }
@@ -248,9 +233,8 @@ UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int Index)
 
 uint32 UTextureSetDefinition::ComputeCookingHash(int PackedTextureIndex)
 {
-	uint32 Hash = 0;
+	uint32 Hash = 1;
 
-	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredTypes;
 	// TODO: Only hash modules that contribute to this packed texture
 	for (const UTextureSetModule* Module : GetModules())
 	{
@@ -279,7 +263,6 @@ uint32 UTextureSetDefinition::ComputeSamplingHash(const UMaterialExpressionTextu
 {
 	uint32 Hash = 0;
 
-	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredTypes;
 	for (const UTextureSetModule* Module : GetModules())
 	{
 		Hash = HashCombine(Hash, Module->ComputeSamplingHash(SampleExpression));
@@ -292,7 +275,6 @@ uint32 UTextureSetDefinition::ComputeSamplingHash(const UMaterialExpressionTextu
 void UTextureSetDefinition::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const
 {
-	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredTypes;
 	for (const UTextureSetModule* Module : GetModules())
 	{
 		Module->GenerateSamplingGraph(SampleExpression, Builder);
@@ -324,13 +306,27 @@ void UTextureSetDefinition::ApplyEdits()
 	Modules.Empty();
 	ModuleInfo = FTextureSetDefinitionModuleInfo();
 
+	FTextureSetProcessingGraph ProcessingGraph = FTextureSetProcessingGraph();
+
 	for (const UTextureSetModule* EditModule : EditModules)
 	{
 		if (IsValid(EditModule))
 		{
-			EditModule->BuildModuleInfo(ModuleInfo);
 			Modules.Add(DuplicateObject(EditModule, this));
+			
+			EditModule->GenerateProcessingGraph(ProcessingGraph);
+			
 		}
+	}
+
+	for (const auto&[Name, Input] : ProcessingGraph.GetInputTextures())
+	{
+		ModuleInfo.SourceTextures.Add(Name, Input->GetTextureDef());
+	}
+
+	for (const auto&[Name, Output] : ProcessingGraph.GetOutputTextures())
+	{
+		ModuleInfo.ProcessedTextures.Add(Name, Output->GetTextureDef());
 	}
 
 	// Update packing info
@@ -355,10 +351,10 @@ void UTextureSetDefinition::ApplyEdits()
 			SourceNames[c].ToString().Split(".", &SourceTexString, &SourceChannelString);
 			const FName SourceTexName = FName(SourceTexString);
 
-			if (!ModuleInfo.HasProcessedTextureOfName(SourceTexName))
+			if (!ModuleInfo.GetProcessedTextures().Contains(SourceTexName))
 				continue;
 
-			FTextureSetProcessedTextureDef Processed = ModuleInfo.GetProcessedTextureByName(SourceTexName);
+			FTextureSetProcessedTextureDef Processed = ModuleInfo.GetProcessedTextures().FindChecked(SourceTexName);
 
 			static const TMap<FString, int> ChannelStringLookup = {
 				{"r", 0},
@@ -433,10 +429,12 @@ void UTextureSetDefinition::UpdateDependentAssets(bool bCookingHashChanged)
 		{
 			if (AssetData.IsInstanceOf(UTextureSet::StaticClass()))
 			{
+				// GetAsset is called with false param, which means we don't load unloaded assets.
+				// They will be updated in their own PostLoad() so we don't need to notify them here.
 				UTextureSet* TextureSet = Cast<UTextureSet>(AssetData.FastGetAsset(false));
 				if (TextureSet != nullptr && TextureSet->Definition == this)
 				{
-					TextureSet->UpdateDerivedData();
+					TextureSet->OnDefinitionChanged();
 				}
 			}
 		}

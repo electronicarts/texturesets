@@ -8,7 +8,7 @@
 class FTextureOperatorInvert : public FTextureOperator
 {
 public:
-	FTextureOperatorInvert(TSharedRef<ITextureSetTexture> I) : FTextureOperator(I)
+	FTextureOperatorInvert(TSharedRef<IProcessingNode> I) : FTextureOperator(I)
 	{}
 
 	virtual float GetPixel(int X, int Y, int Channel) const override

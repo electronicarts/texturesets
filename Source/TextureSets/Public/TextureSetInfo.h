@@ -14,8 +14,6 @@ struct FTextureSetProcessedTextureDef
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(VisibleAnywhere)
-	FName Name;
 
 	UPROPERTY(VisibleAnywhere)
 	bool SRGB; // Used for correct packing and sampling
@@ -45,25 +43,17 @@ struct FTextureSetDefinitionModuleInfo
 public:
 	virtual ~FTextureSetDefinitionModuleInfo() {}
 
-	void AddSourceTexture(const FTextureSetSourceTextureDef& Texture);
-	void AddProcessedTexture(const FTextureSetProcessedTextureDef& Texture);
-
-	const TArray<FTextureSetSourceTextureDef> GetSourceTextures() const;
-	const TArray<FTextureSetProcessedTextureDef> GetProcessedTextures() const;
-	const FTextureSetProcessedTextureDef GetProcessedTextureByName(FName Name) const;
-	const bool HasProcessedTextureOfName(FName Name) const;
+	const TMap<FName, FTextureSetProcessedTextureDef>& GetSourceTextures() const { return SourceTextures; }
+	const TMap<FName, FTextureSetProcessedTextureDef>& GetProcessedTextures() const { return ProcessedTextures; }
 
 private:
 	// Input texture maps which are to be processed
 	UPROPERTY(VisibleAnywhere)
-	TArray<FTextureSetSourceTextureDef> SourceTextures;
+	TMap<FName, FTextureSetProcessedTextureDef> SourceTextures;
 
 	// Processed texture maps which are to be packed
 	UPROPERTY(VisibleAnywhere)
-	TArray<FTextureSetProcessedTextureDef> ProcessedTextures;
-
-	UPROPERTY(VisibleAnywhere)
-	TMap<FName, int> ProcessedTextureIndicies;
+	TMap<FName, FTextureSetProcessedTextureDef> ProcessedTextures;
 };
 
 // Info used for packing, not exposed to the modules

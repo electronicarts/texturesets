@@ -2,38 +2,6 @@
 
 #include "TextureSetInfo.h"
 
-void FTextureSetDefinitionModuleInfo::AddSourceTexture(const FTextureSetSourceTextureDef& Texture)
-{
-	SourceTextures.Add(Texture);
-}
-
-void FTextureSetDefinitionModuleInfo::AddProcessedTexture(const FTextureSetProcessedTextureDef& Texture)
-{
-	checkf(!ProcessedTextureIndicies.Contains(Texture.Name), TEXT("Attempting to add processed texture %s twice"), Texture.Name);
-	ProcessedTextureIndicies.Add(Texture.Name, ProcessedTextures.Num());
-	ProcessedTextures.Add(Texture);
-}
-
-const TArray<FTextureSetSourceTextureDef> FTextureSetDefinitionModuleInfo::GetSourceTextures() const
-{
-	return SourceTextures;
-}
-
-const TArray<FTextureSetProcessedTextureDef> FTextureSetDefinitionModuleInfo::GetProcessedTextures() const
-{
-	return ProcessedTextures;
-}
-
-const FTextureSetProcessedTextureDef FTextureSetDefinitionModuleInfo::GetProcessedTextureByName(FName Name) const
-{
-	return ProcessedTextures[ProcessedTextureIndicies.FindChecked(Name)];
-}
-
-const bool FTextureSetDefinitionModuleInfo::HasProcessedTextureOfName(FName Name) const
-{
-	return ProcessedTextureIndicies.Contains(Name);
-}
-
 void FTextureSetDefinitionSamplingInfo::AddMaterialParameter(FName Name, EMaterialValueType Type)
 {
 	checkf(!MaterialParameters.Contains(Name), TEXT("Attempting to add shader constant %s twice"), Name);

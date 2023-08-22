@@ -4,9 +4,8 @@
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetModule.h"
-#include "Textures/TextureWrapper.h"
-#include "Textures/DefaultTexture.h"
-#include "Textures/TextureOperatorEnlarge.h"
+#include "ProcessingNodes/TextureInput.h"
+#include "ProcessingNodes/TextureOperatorEnlarge.h"
 #include "TextureSetDerivedData.h"
 #if WITH_EDITOR
 #include "DerivedDataBuildVersion.h"
@@ -75,7 +74,8 @@ bool TextureSetDerivedDataPlugin::Build(TArray<uint8>& OutData)
 }
 
 TextureSetCooker::TextureSetCooker(UTextureSet* TS)
-	: ModuleInfo(TS->Definition->GetModuleInfo())
+	: Context(TS)
+	, ModuleInfo(TS->Definition->GetModuleInfo())
 	, PackingInfo(TS->Definition->GetPackingInfo())
 {
 	TextureSet = TS;
@@ -86,27 +86,12 @@ TextureSetCooker::TextureSetCooker(UTextureSet* TS)
 	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
 		PackedTextureKeys.Add(TS->ComputePackedTextureKey(i));
 
-	// Fill in source textures so the modules can define processing
-	for (FTextureSetSourceTextureDef SourceTextureDef : ModuleInfo.GetSourceTextures())
-	{
-		const TObjectPtr<UTexture>* SourceTexturePtr = TextureSet->SourceTextures.Find(SourceTextureDef.Name);
-		if (SourceTexturePtr && SourceTexturePtr->Get())
-		{
-			TSharedRef<FImageWrapper> ImageWrapper = MakeShared<FImageWrapper>(SourceTexturePtr->Get());
-			Context.SourceTextures.Add(SourceTextureDef.Name, ImageWrapper);
-		}
-		else
-		{
-			// Sub in a default value if we don't have a source in our texture-set
-			TSharedRef<FDefaultTexture> DefaultTexture = MakeShared<FDefaultTexture>(SourceTextureDef.DefaultValue, SourceTextureDef.ChannelCount);
-			Context.SourceTextures.Add( SourceTextureDef.Name, DefaultTexture);
-		}
-	}
+	Graph = FTextureSetProcessingGraph();
 
-	// Modules fill in the processed textures
+	// Modules fill in the processing graph
 	for (const UTextureSetModule* Module : Definition->GetModules())
 	{
-		Module->Process(Context);
+		Module->GenerateProcessingGraph(Graph);
 	}
 }
 
@@ -163,19 +148,21 @@ void TextureSetCooker::BuildTextureData(int Index) const
 	int Height = 4;
 	float Ratio = 0;
 
+	const TMap<FName, TSharedRef<IProcessingNode>>& OutputTextures = Graph.GetOutputTextures();
+
 	for (int c = 0; c < TextureInfo.ChannelCount; c++)
 	{
 		const auto& ChanelInfo = TextureInfo.ChannelInfo[c];
 
-		if (!Context.ProcessedTextures.Contains(ChanelInfo.ProcessedTexture))
+		if (!OutputTextures.Contains(ChanelInfo.ProcessedTexture))
 			continue;
 
-		const TSharedRef<ITextureSetTexture> ProcessedTexture = Context.ProcessedTextures.FindChecked(ChanelInfo.ProcessedTexture);
+		const TSharedRef<IProcessingNode> OutputTexture = OutputTextures.FindChecked(ChanelInfo.ProcessedTexture);
 
-		ProcessedTexture->Initialize();
+		OutputTexture->Initialize(Context);
 
-		const int ChannelWidth = ProcessedTexture->GetWidth();
-		const int ChannelHeight = ProcessedTexture->GetHeight();
+		const int ChannelWidth = OutputTexture->GetWidth();
+		const int ChannelHeight = OutputTexture->GetHeight();
 		const float NewRatio = (float)Width / (float)Height;
 
 		// Calculate the maximum size of all of our processed textures. We'll use this as our packed texture size.
@@ -200,9 +187,9 @@ void TextureSetCooker::BuildTextureData(int Index) const
 		// Copy processed textures into packed textures
 		const auto& ChanelInfo = TextureInfo.ChannelInfo[c];
 
-		if (c < TextureInfo.ChannelCount && Context.ProcessedTextures.Contains(ChanelInfo.ProcessedTexture))
+		if (c < TextureInfo.ChannelCount && OutputTextures.Contains(ChanelInfo.ProcessedTexture))
 		{
-			TSharedRef<ITextureSetTexture> ProcessedTexture = Context.ProcessedTextures.FindChecked(ChanelInfo.ProcessedTexture);
+			TSharedRef<IProcessingNode> ProcessedTexture = OutputTextures.FindChecked(ChanelInfo.ProcessedTexture);
 
 			check(ProcessedTexture->GetWidth() <= Width);
 			check(ProcessedTexture->GetHeight() <= Height);

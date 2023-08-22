@@ -13,129 +13,35 @@
 #include "Materials/MaterialExpressionDeriveNormalZ.h"
 #include "Materials/MaterialExpressionAppendVector.h"
 #include "MaterialEditingLibrary.h"
-#include "Textures/TextureOperatorInvert.h"
+#include "ProcessingNodes/TextureOperatorInvert.h"
 #endif
 
-void UPBRSurfaceModule::BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const
-{
-	static const FTextureSetSourceTextureDef MetalDef {MetalName, false, 1, FVector4(0, 0, 0, 0)};
-	static const FTextureSetSourceTextureDef BaseColorDef {BaseColorName, true, 3, FVector4(0.5, 0.5, 0.5, 0)};
-	static const FTextureSetSourceTextureDef AlbedoDef {AlbedoName, true, 3, FVector4(0.5, 0.5, 0.5, 0)};
-	static const FTextureSetSourceTextureDef SpecularDef {SpecularName, true, 3, FVector4(0, 0, 0, 0)};
-	static const FTextureSetSourceTextureDef RoughnessDef {RoughnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)};
-	static const FTextureSetSourceTextureDef SmoothnessDef {SmoothnessName, false, 1, FVector4(0.5, 0.5, 0.5, 0)};
-	static const FTextureSetSourceTextureDef TangentNormalDef {TangentNormalName, false, 2, FVector4(0.5, 0.5, 1, 0)};
-
-	switch (Paramaterization)
-	{
-	case EPBRParamaterization::Basecolor_Metal:
-		Info.AddSourceTexture(MetalDef);
-		Info.AddProcessedTexture(MetalDef);
-		// Falls through
-	case EPBRParamaterization::Dielectric:
-		Info.AddSourceTexture(BaseColorDef);
-		Info.AddProcessedTexture(BaseColorDef);
-		break;
-	case EPBRParamaterization::Albedo_Spec:
-		Info.AddSourceTexture(AlbedoDef);
-		Info.AddProcessedTexture(AlbedoDef);
-		Info.AddSourceTexture(SpecularDef);
-		Info.AddProcessedTexture(SpecularDef);
-		break;
-	default:
-		unimplemented()
-		break;
-	}
-
-	switch (Microsurface)
-	{
-	case EPBRMicrosurface::Roughness:
-		Info.AddSourceTexture(RoughnessDef);
-		Info.AddProcessedTexture(RoughnessDef);
-		break;
-	case EPBRMicrosurface::Smoothness:
-		Info.AddSourceTexture(SmoothnessDef);
-		Info.AddProcessedTexture(SmoothnessDef);
-		break;
-	default:
-		unimplemented()
-		break;
-	}
-
-	switch (Normal)
-	{
-	case EPBRNormal::None:
-		break;
-	case EPBRNormal::Tangent:
-		Info.AddSourceTexture(TangentNormalDef);
-		Info.AddProcessedTexture(TangentNormalDef);
-		break;
-	default:
-		unimplemented()
-		break;
-	}
-}
-
-void UPBRSurfaceModule::BuildSamplingInfo(FTextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
-{
-	const UPBRSampleParams* PBRSampleParams = SampleExpression->GetSampleParams<UPBRSampleParams>();
-
-	switch (Paramaterization)
-	{
-	case EPBRParamaterization::Basecolor_Metal:
-		SamplingInfo.AddSampleOutput(MetalName, EMaterialValueType::MCT_Float1);
-		// Falls through
-	case EPBRParamaterization::Dielectric:
-		SamplingInfo.AddSampleOutput(BaseColorName, EMaterialValueType::MCT_Float3);
-		break;
-	case EPBRParamaterization::Albedo_Spec:
-		SamplingInfo.AddSampleOutput(AlbedoName, EMaterialValueType::MCT_Float3);
-		SamplingInfo.AddSampleOutput(SpecularName, EMaterialValueType::MCT_Float3);
-		break;
-	default:
-		unimplemented()
-		break;
-	}
-
-	switch (PBRSampleParams->MicrosurfaceOutput)
-	{
-	case EPBRMicrosurface::Roughness:
-		SamplingInfo.AddSampleOutput(RoughnessName, EMaterialValueType::MCT_Float1);
-		break;
-	case EPBRMicrosurface::Smoothness:
-		SamplingInfo.AddSampleOutput(SmoothnessName, EMaterialValueType::MCT_Float1);
-		break;
-	default:
-		unimplemented()
-		break;
-	}
-
-	switch (Normal)
-	{
-	case EPBRNormal::None:
-		break;
-	case EPBRNormal::Tangent:
-		SamplingInfo.AddSampleOutput(TangentNormalName, EMaterialValueType::MCT_Float3);
-		break;
-	default:
-		unimplemented()
-		break;
-	}
-}
-
-void UPBRSurfaceModule::Process(FTextureSetProcessingContext& Context) const
+void UPBRSurfaceModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	if (Paramaterization == EPBRParamaterization::Basecolor_Metal || Paramaterization == EPBRParamaterization::Dielectric)
 	{
-		Context.AddProcessedTexture(BaseColorName, Context.GetSourceTexture(BaseColorName));
+		// Base Color
+		{
+			static const FTextureSetSourceTextureDef BaseColorDef {true, 3, FVector4(0.5, 0.5, 0.5, 0)};
+			Graph.AddOutputTexture(BaseColorName, Graph.AddInputTexture(BaseColorName, BaseColorDef));
+		}
 
+		// Metal
 		if (Paramaterization == EPBRParamaterization::Basecolor_Metal)
-			Context.AddProcessedTexture(MetalName, Context.GetSourceTexture(MetalName));
+		{
+			static const FTextureSetSourceTextureDef MetalDef {false, 1, FVector4(0, 0, 0, 0)};
+			Graph.AddOutputTexture(MetalName, Graph.AddInputTexture(MetalName, MetalDef));
+		}
 	}
 	else if (Paramaterization == EPBRParamaterization::Albedo_Spec)
 	{
-		Context.AddProcessedTexture(AlbedoName, Context.GetSourceTexture(AlbedoName));
-		Context.AddProcessedTexture(SpecularName, Context.GetSourceTexture(SpecularName));
+		// Albedo
+		static const FTextureSetSourceTextureDef AlbedoDef {true, 3, FVector4(0.5, 0.5, 0.5, 0)};
+		Graph.AddOutputTexture(AlbedoName, Graph.AddInputTexture(AlbedoName, AlbedoDef));
+
+		// Spec
+		static const FTextureSetSourceTextureDef SpecularDef {true, 3, FVector4(0, 0, 0, 0)};
+		Graph.AddOutputTexture(SpecularName, Graph.AddInputTexture(SpecularName, SpecularDef));
 	}
 	else
 	{
@@ -143,18 +49,33 @@ void UPBRSurfaceModule::Process(FTextureSetProcessingContext& Context) const
 	}
 
 	if (Microsurface == EPBRMicrosurface::Roughness)
-		Context.AddProcessedTexture(RoughnessName, Context.GetSourceTexture(RoughnessName));
+	{
+		// Roughness
+		static const FTextureSetSourceTextureDef RoughnessDef {false, 1, FVector4(0.5, 0.5, 0.5, 0)};
+		Graph.AddOutputTexture(RoughnessName, Graph.AddInputTexture(RoughnessName, RoughnessDef));
+	}
 	else if (Microsurface == EPBRMicrosurface::Smoothness)
-		Context.AddProcessedTexture(SmoothnessName, Context.GetSourceTexture(SmoothnessName));
+	{
+		// Smoothness
+		static const FTextureSetSourceTextureDef SmoothnessDef {false, 1, FVector4(0.5, 0.5, 0.5, 0)};
+		Graph.AddOutputTexture(SmoothnessName, Graph.AddInputTexture(SmoothnessName, SmoothnessDef));
+	}
 	else
+	{
 		unimplemented()
+	}
 
 	if (Normal != EPBRNormal::None)
 	{
 		if (Normal == EPBRNormal::Tangent)
-			Context.AddProcessedTexture(TangentNormalName, Context.GetSourceTexture(TangentNormalName));
+		{
+			static const FTextureSetSourceTextureDef TangentNormalDef {false, 2, FVector4(0.5, 0.5, 1, 0)};
+			Graph.AddOutputTexture(TangentNormalName, Graph.AddInputTexture(TangentNormalName, TangentNormalDef));
+		}
 		else
+		{
 			unimplemented()
+		}
 	}
 }
 
@@ -185,14 +106,14 @@ void UPBRSurfaceModule::GenerateSamplingGraph(const UMaterialExpressionTextureSe
 		switch (Paramaterization)
 		{
 		case EPBRParamaterization::Basecolor_Metal:
-			Builder.GetProcessedTextureSample(MetalName)->ConnectExpression(Builder.GetOutput(MetalName)->GetInput(0), 0);
+			Builder.GetProcessedTextureSample(MetalName)->ConnectExpression(Builder.CreateOutput(MetalName)->GetInput(0), 0);
 			// Falls through
 		case EPBRParamaterization::Dielectric:
-			Builder.GetProcessedTextureSample(BaseColorName)->ConnectExpression(Builder.GetOutput(BaseColorName)->GetInput(0), 0);
+			Builder.GetProcessedTextureSample(BaseColorName)->ConnectExpression(Builder.CreateOutput(BaseColorName)->GetInput(0), 0);
 			break;
 		case EPBRParamaterization::Albedo_Spec:
-			Builder.GetProcessedTextureSample(AlbedoName)->ConnectExpression(Builder.GetOutput(AlbedoName)->GetInput(0), 0);
-			Builder.GetProcessedTextureSample(SpecularName)->ConnectExpression(Builder.GetOutput(SpecularName)->GetInput(0), 0);
+			Builder.GetProcessedTextureSample(AlbedoName)->ConnectExpression(Builder.CreateOutput(AlbedoName)->GetInput(0), 0);
+			Builder.GetProcessedTextureSample(SpecularName)->ConnectExpression(Builder.CreateOutput(SpecularName)->GetInput(0), 0);
 			break;
 		default:
 			unimplemented()
@@ -212,9 +133,9 @@ void UPBRSurfaceModule::GenerateSamplingGraph(const UMaterialExpressionTextureSe
 
 		TObjectPtr<UMaterialExpressionFunctionOutput> ResultNode;
 		if (PBRSampleParams->MicrosurfaceOutput == EPBRMicrosurface::Roughness)
-			ResultNode = Builder.GetOutput(RoughnessName);
+			ResultNode = Builder.CreateOutput(RoughnessName);
 		else if (PBRSampleParams->MicrosurfaceOutput == EPBRMicrosurface::Smoothness)
-			ResultNode = Builder.GetOutput(SmoothnessName);
+			ResultNode = Builder.CreateOutput(SmoothnessName);
 		else
 			unimplemented()
 
@@ -254,7 +175,7 @@ void UPBRSurfaceModule::GenerateSamplingGraph(const UMaterialExpressionTextureSe
 			// Now use this as our unpacked tangent normal
 			TangentNormal = DeriveZ;
 
-			TangentNormal->ConnectExpression(Builder.GetOutput(TangentNormalName)->GetInput(0), 0);
+			TangentNormal->ConnectExpression(Builder.CreateOutput(TangentNormalName)->GetInput(0), 0);
 		}
 		else
 			unimplemented();

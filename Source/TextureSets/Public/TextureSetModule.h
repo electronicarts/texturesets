@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Textures/ITextureSetTexture.h"
+#include "TextureSetProcessingGraph.h"
 #include "TextureSetInfo.h"
 #include "TextureSetMaterialGraphBuilder.h"
 
@@ -21,25 +21,6 @@ UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
 class UTextureSetSampleParams : public UObject
 {
 	GENERATED_BODY()
-};
-
-class FTextureSetProcessingContext
-{
-	friend class TextureSetCooker;
-
-public:
-	void AddProcessedTexture(FName Name, TSharedRef<ITextureSetTexture> Texture) { ProcessedTextures.Add(Name, Texture); }
-	bool HasSourceTexure(FName Name) { return SourceTextures.Contains(Name); }
-	const TSharedRef<ITextureSetTexture> GetSourceTexture(FName Name) const { return SourceTextures.FindChecked(Name); }
-
-	void AddMaterialParam(FName Name, FVector4 Value) { MaterialParams.Add(Name, Value); }
-	void AddMaterialParam(FName Name, FVector Value) { MaterialParams.Add(Name, FVector4(Value, 0.0f)); }
-	void AddMaterialParam(FName Name, FVector2D Value) { MaterialParams.Add(Name, FVector4(Value, FVector2D::Zero())); }
-	void AddMaterialParam(FName Name, float Value) { MaterialParams.Add(Name, FVector4(Value, 0.0f, 0.0f, 0.0f)); }
-private:
-	TMap<FName, TSharedRef<ITextureSetTexture>> SourceTextures;
-	TMap<FName, TSharedRef<ITextureSetTexture>> ProcessedTextures;
-	TMap<FName, FVector4> MaterialParams;
 };
 
 // Abstract class for texture set modules. Modules provide a mechanism for extending textures sets with additional functionality.
@@ -61,12 +42,6 @@ public:
 	// Which class this module uses to attach parameters to the sampler material expression
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const { return nullptr; }
 
-	// Use in subclasses to add to the definition's module info
-	virtual void BuildModuleInfo(FTextureSetDefinitionModuleInfo& Info) const {};
-
-	// Use in subclasses to add to the sampling info
-	virtual void BuildSamplingInfo(FTextureSetDefinitionSamplingInfo& SamplingInfo, const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const {};
-
 	// Compute a hash for the module processing. If this hash changes, it triggers a texture-sets to be re-processed.
 	virtual int32 ComputeProcessingHash() const { return 0; }
 
@@ -74,7 +49,7 @@ public:
 	// Process the source data into the intermediate results
 	// Transforms source elements into processed data
 	// Sets values of shader constants
-	virtual void Process(FTextureSetProcessingContext& Context) const {}
+	virtual void GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const {}
 #endif
 
 	// Compute a hash for the sampling graph. If this hash changes, it triggers the sampling graph to be re-generated.
