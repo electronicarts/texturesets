@@ -54,7 +54,6 @@ public:
 
 	const FTextureSetDefinitionModuleInfo& GetModuleInfo() const;
 	const FTextureSetPackingInfo& GetPackingInfo() const;
-	const FTextureSetDefinitionSamplingInfo GetSamplingInfo(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const;
 	const TArray<const UTextureSetModule*> GetModules() const;
 
 	TArray<TSubclassOf<UTextureSetAssetParams>> GetRequiredAssetParamClasses() const;
@@ -63,13 +62,9 @@ public:
 	// Get the default packed texture for a specific packed texture index
 	UTexture* GetDefaultPackedTexture(int Index);
 
-	uint32 ComputeCookingHash(int PackedTextureIndex);
 	uint32 ComputeCookingHash();
 
 	uint32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
-#if WITH_EDITOR
-	void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression, FTextureSetMaterialGraphBuilder& Builder) const;
-#endif
 
 	FGuid GetGuid() { return UniqueID; }
 

@@ -52,7 +52,6 @@ public:
 private:
 
 	UTextureSet* TextureSet;
-	const UTextureSetDefinition* Definition;
 
 	FTextureSetProcessingContext Context;
 	FTextureSetProcessingGraph Graph;
@@ -60,7 +59,7 @@ private:
 	const FTextureSetDefinitionModuleInfo ModuleInfo;
 	const FTextureSetPackingInfo PackingInfo;
 
-	FString TextureSetDataKey;
-	TArray<FString> PackedTextureKeys;
+	FGuid TextureSetDataId;
+	TArray<FGuid> PackedTextureIds;
 };
 #endif

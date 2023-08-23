@@ -124,9 +124,6 @@ UMaterialFunction* UMaterialExpressionTextureSetSampleParameter::CreateMaterialF
 
 	FTextureSetMaterialGraphBuilder GraphBuilder = FTextureSetMaterialGraphBuilder(this);
 
-	// Call out to modules to do the work of connecting processed texture samples to outputs
-	Definition->GenerateSamplingGraph(this, GraphBuilder);
-
 	return GraphBuilder.GetMaterialFunction();
 }
 #endif
@@ -202,6 +199,8 @@ bool UMaterialExpressionTextureSetSampleParameter::SetParameterValue(const FName
 
 void UMaterialExpressionTextureSetSampleParameter::BeginDestroy()
 {
+	Super::BeginDestroy();
+
 #if WITH_EDITOR
 	UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent.Remove(OnTextureSetDefinitionChangedHandle);
 #endif

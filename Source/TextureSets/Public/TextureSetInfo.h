@@ -22,6 +22,11 @@ public:
 	uint8 ChannelCount; // between 1 and 4
 };
 
+inline uint32 GetTypeHash(const FTextureSetProcessedTextureDef& Def)
+{
+	return HashCombine(GetTypeHash(Def.SRGB), GetTypeHash(Def.ChannelCount));
+}
+
 // A texture map input
 USTRUCT()
 struct FTextureSetSourceTextureDef : public FTextureSetProcessedTextureDef
@@ -32,6 +37,11 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	FVector4 DefaultValue; // Used as a fallback if this map is not provided
 };
+
+inline uint32 GetTypeHash(const FTextureSetSourceTextureDef& Def)
+{
+	return HashCombine(GetTypeHash((FTextureSetProcessedTextureDef)Def), GetTypeHash(Def.DefaultValue));
+}
 
 // Info which is provided by the definition modules, and is needed both for cooking and sampling from a texture set
 USTRUCT()

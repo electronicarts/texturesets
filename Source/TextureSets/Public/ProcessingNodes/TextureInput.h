@@ -12,7 +12,13 @@ class FTextureInput : public IProcessingNode
 public:
 	FTextureInput(FName SourceName, const FTextureSetSourceTextureDef& SourceDefinition);
 
+	virtual FName GetNodeTypeName() const  { return "TextureInput"; }
+
 	virtual void Initialize(const FTextureSetProcessingContext& Context);
+	virtual bool IsInitialized() { return bInitialized; }
+
+	virtual const uint32 ComputeGraphHash() const override;
+	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override;
 
 	virtual int GetWidth() const override { return Image.GetWidth(); }
 	virtual int GetHeight() const override { return Image.GetHeight(); }

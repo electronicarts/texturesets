@@ -54,6 +54,32 @@ void FTextureInput::Initialize(const FTextureSetProcessingContext& Context)
 	bInitialized = true;
 }
 
+const uint32 FTextureInput::ComputeGraphHash() const
+{
+	uint32 Hash = GetTypeHash(GetNodeTypeName().ToString());
+
+	Hash = HashCombine(Hash, GetTypeHash(SourceName.ToString()));
+	Hash = HashCombine(Hash, GetTypeHash(SourceDefinition));
+
+	return Hash;
+}
+
+const uint32 FTextureInput::ComputeDataHash(const FTextureSetProcessingContext& Context) const
+{
+	uint32 Hash = 0;
+
+	if(Context.HasSourceTexure(SourceName))
+	{
+		UTexture* Texture = Context.GetSourceTexture(SourceName);
+		if (IsValid(Texture))
+		{
+			Hash = HashCombine(Hash, GetTypeHash(Texture->Source.GetId()));
+		}
+	}
+
+	return Hash;
+}
+
 float FTextureInput::GetPixel(int X, int Y, int Channel) const
 {
 	check(bInitialized);

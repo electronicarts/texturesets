@@ -99,6 +99,8 @@ void UTextureSet::PostLoad()
 
 void UTextureSet::BeginDestroy()
 {
+	Super::BeginDestroy();
+
 #if WITH_EDITOR
 	UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent.Remove(OnTextureSetDefinitionChangedHandle);
 #endif
@@ -188,59 +190,50 @@ void UTextureSet::FixupData()
 #endif
 }
 
-FString UTextureSet::ComputePackedTextureKey(int PackedTextureIndex) const
+FGuid UTextureSet::ComputePackedTextureDataID(int PackedTextureIndex) const
 {
-	// All data hash keys start with a global version tracking format changes
-	FString PackedTextureDataKey("PACKING_VER2_");
-
-	// Hash all the source data.
-	// We currently don't have a mechanism to know which specific source textures we depend on
-	// TODO: Only hash on source textures that contribute to this packed texture
-	for (const auto& [Name, SourceTexture] : SourceTextures)
-	{
-		if (IsValid(SourceTexture))
-			PackedTextureDataKey += Name.ToString() + "<" + SourceTexture->Source.GetId().ToString() + ">_";
-	}
-	
-	// Hash the definition
 	check(IsValid(Definition));
-	const FTextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
-	check(PackedTextureIndex < PackingInfo.NumPackedTextures());
-
-	PackedTextureDataKey += "Definition<" + FString::FromInt(Definition->ComputeCookingHash(PackedTextureIndex)) + ">_";
-
-	// Key for debugging, easily force rebuild
-	if (!UserKey.IsEmpty())
-		PackedTextureDataKey += "UserKey<" + UserKey + ">";
+	check(PackedTextureIndex < Definition->GetPackingInfo().NumPackedTextures());
 
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
-	IdBuilder << PackedTextureDataKey;
 
-	const FGuid NewID = IdBuilder.Build();
+	IdBuilder << FString("TextureSetPackedTexture_V1");
 
-	return NewID.ToString();
+	// Key for debugging, easily force rebuild
+	IdBuilder << UserKey;
+
+	const FTextureSetProcessingGraph Graph = FTextureSetProcessingGraph(Definition->GetModules());
+	const FTextureSetProcessingContext Context = FTextureSetProcessingContext(this);
+
+	// We currently don't have a mechanism to know which specific source textures we depend on
+	// TODO: Only hash on source textures that contribute to this packed texture
+	for (const auto& [Name, Node] : Graph.GetOutputTextures())
+	{
+		IdBuilder << Node->ComputeGraphHash();
+		IdBuilder << Node->ComputeDataHash(Context);
+	}
+
+	IdBuilder << GetTypeHash(Definition->GetPackingInfo().GetPackedTextureDef(PackedTextureIndex));
+
+	return IdBuilder.Build();
 }
 
-FString UTextureSet::ComputeTextureSetDataKey() const
+FGuid UTextureSet::ComputeTextureSetDataId() const
 {
-	if (!IsValid(Definition))
-		return "TEXTURE_SET_INVALID_DEFINITION";
+	check(IsValid(Definition))
 
-	// All data hash keys start with a global version tracking format changes
-	FString NewTextureSetDataKey("TEXTURE_SET_V2_");
+	UE::DerivedData::FBuildVersionBuilder IdBuilder;
+
+	// Start with a global version tracking format changes
+	IdBuilder << FString("TextureSet_V1");
 
 	const FTextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
 	for (int32 i = 0; i < PackingInfo.NumPackedTextures(); i++)
 	{
-		NewTextureSetDataKey += ComputePackedTextureKey(i);
+		IdBuilder << ComputePackedTextureDataID(i);
 	}
 
-	UE::DerivedData::FBuildVersionBuilder IdBuilder;
-	IdBuilder << NewTextureSetDataKey;
-
-	const FGuid NewID = IdBuilder.Build();
-
-	return NewID.ToString();
+	return IdBuilder.Build();
 }
 
 void UTextureSet::UpdateDerivedData()
@@ -286,8 +279,8 @@ void UTextureSet::UpdateDerivedData()
 	bool bDataWasBuilt = false;
 
 	// Fetch or build derived data for the texture set
-	FString NewKey = ComputeTextureSetDataKey();
-	if (NewKey != DerivedData->Key)
+	FGuid NewID = ComputeTextureSetDataId();
+	if (NewID != DerivedData->Id)
 	{
 		Modify();
 

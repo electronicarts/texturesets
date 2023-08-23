@@ -42,9 +42,6 @@ public:
 	// Which class this module uses to attach parameters to the sampler material expression
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const { return nullptr; }
 
-	// Compute a hash for the module processing. If this hash changes, it triggers a texture-sets to be re-processed.
-	virtual int32 ComputeProcessingHash() const { return 0; }
-
 #if WITH_EDITOR
 	// Process the source data into the intermediate results
 	// Transforms source elements into processed data

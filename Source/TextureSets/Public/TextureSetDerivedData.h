@@ -16,10 +16,6 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	TMap<FName, FVector4> MaterialParameters;
 
-	// Hashed value computed when this texture was built
-	UPROPERTY(VisibleAnywhere)
-	FString Key;
-
 	// Guid generated from the key
 	UPROPERTY(VisibleAnywhere)
 	FGuid Id;
@@ -36,7 +32,7 @@ public:
 	TMap<FName, FVector4> MaterialParameters;
 
 	UPROPERTY(VisibleAnywhere)
-	FString Key;
+	FGuid Id;
 
 	UPROPERTY(VisibleAnywhere)
 	TArray<FPackedTextureData> PackedTextureData;

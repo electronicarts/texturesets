@@ -41,7 +41,7 @@ const TCHAR* TextureSetDerivedDataPlugin::GetVersionString() const
 
 FString TextureSetDerivedDataPlugin::GetPluginSpecificCacheKeySuffix() const
 {
-	return Cooker->TextureSetDataKey;
+	return Cooker->TextureSetDataId.ToString();
 }
 
 bool TextureSetDerivedDataPlugin::IsBuildThreadsafe() const
@@ -74,38 +74,29 @@ bool TextureSetDerivedDataPlugin::Build(TArray<uint8>& OutData)
 }
 
 TextureSetCooker::TextureSetCooker(UTextureSet* TS)
-	: Context(TS)
+	: TextureSet(TS)
+	, Context(TS)
+	, Graph(FTextureSetProcessingGraph(TS->Definition->GetModules()))
 	, ModuleInfo(TS->Definition->GetModuleInfo())
 	, PackingInfo(TS->Definition->GetPackingInfo())
 {
-	TextureSet = TS;
-	Definition = TS->Definition;
-
-	TextureSetDataKey = TS->ComputeTextureSetDataKey();
+	TextureSetDataId = TS->ComputeTextureSetDataId();
 
 	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
-		PackedTextureKeys.Add(TS->ComputePackedTextureKey(i));
-
-	Graph = FTextureSetProcessingGraph();
-
-	// Modules fill in the processing graph
-	for (const UTextureSetModule* Module : Definition->GetModules())
-	{
-		Module->GenerateProcessingGraph(Graph);
-	}
+		PackedTextureIds.Add(TS->ComputePackedTextureDataID(i));
 }
 
 bool TextureSetCooker::IsOutOfDate() const
 {
-	return TextureSet->ComputeTextureSetDataKey() != TextureSetDataKey;
+	return TextureSet->ComputeTextureSetDataId() != TextureSetDataId;
 }
 
 bool TextureSetCooker::IsOutOfDate(int PackedTextureIndex) const
 {
-	if (PackedTextureIndex >= PackedTextureKeys.Num())
+	if (PackedTextureIndex >= PackedTextureIds.Num())
 		return true;
 
-	return TextureSet->ComputePackedTextureKey(PackedTextureIndex) != PackedTextureKeys[PackedTextureIndex];
+	return TextureSet->ComputePackedTextureDataID(PackedTextureIndex) != PackedTextureIds[PackedTextureIndex];
 }
 
 void TextureSetCooker::Build() const
@@ -115,7 +106,7 @@ void TextureSetCooker::Build() const
 	check(IsValid(DerivedData))
 
 	// Update our derived data key
-	DerivedData->Key = TextureSetDataKey;
+	DerivedData->Id = TextureSetDataId;
 
 	DerivedData->PackedTextureData.SetNum(PackingInfo.NumPackedTextures());
 
@@ -135,12 +126,7 @@ void TextureSetCooker::BuildTextureData(int Index) const
 	FPackedTextureData& Data = TextureSet->DerivedData->PackedTextureData[Index];
 
 	Data.MaterialParameters.Empty();
-	Data.Key = PackedTextureKeys[Index];
-
-	UE::DerivedData::FBuildVersionBuilder IdBuilder;
-	IdBuilder << Data.Key;
-	// Setting a new ID should cause the texture's platform data to be invalidated due to the user data we attached to it.
-	Data.Id = IdBuilder.Build();
+	Data.Id = PackedTextureIds[Index];
 
 	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
 	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);

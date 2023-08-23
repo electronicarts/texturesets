@@ -66,7 +66,7 @@ public:
 	virtual void AugmentMaterialParameters(const FCustomParameterValue& CustomParameter, TArray<FVectorParameterValue>& VectorParameters, TArray<FTextureParameterValue>& TextureParameters) const override;
 
 	// UObject Interface
-	virtual void PreSaveRoot(FObjectPreSaveRootContext ObjectSaveContext) override;
+	virtual void PreSave(FObjectPreSaveContext SaveContext) override;
 	virtual void PostLoad() override;
 	virtual void BeginDestroy() override;
 #if WITH_EDITOR
@@ -74,11 +74,11 @@ public:
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 
-	// Compute the hash key for a specific hashed texture.
-	FString ComputePackedTextureKey(int PackedTextureDefIndex) const;
+	// Compute the hashed Guid for a specific hashed texture. Used by the DDC to cache the data.
+	FGuid ComputePackedTextureDataID(int PackedTextureDefIndex) const;
 
-	// Compute the hash key for the entire texture set (including all hashed textures)
-	FString ComputeTextureSetDataKey() const;
+	// Compute the hashed Guid for the entire texture set (including all hashed textures) Used by the DDC to cache the data.
+	FGuid ComputeTextureSetDataId() const;
 
 	void UpdateDerivedData();
 	UTextureSetDerivedData* GetDerivedData() { return DerivedData.Get(); }

@@ -13,6 +13,18 @@ public:
 		, Height(newHeight)
 	{}
 
+	virtual FName GetNodeTypeName() const  { return "Enlarge"; }
+
+	virtual const uint32 ComputeGraphHash() const override
+	{
+		uint32 Hash = FTextureOperator::ComputeGraphHash();
+
+		Hash = HashCombine(Hash, GetTypeHash(Width));
+		Hash = HashCombine(Hash, GetTypeHash(Height));
+
+		return Hash;
+	}
+
 	virtual int GetWidth() const override { return Width; }
 	virtual int GetHeight() const override { return Height; }
 

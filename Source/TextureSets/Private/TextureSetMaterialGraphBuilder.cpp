@@ -4,6 +4,7 @@
 
 #if WITH_EDITOR
 #include "TextureSetDefinition.h"
+#include "TextureSetModule.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "MaterialPropertyHelpers.h" // For access to FMaterialPropertyHelpers::TextureSetParamName only
 #include "Materials/MaterialExpressionTextureSample.h"
@@ -117,6 +118,12 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialExpres
 			WorkingNode->ConnectExpression(NamedNode->GetInput(0), 0);
 			ProcessedTextureSamples.Add(TextureName, NamedNode);
 		}
+	}
+
+	// Call out to modules to do the work of connecting processed texture samples to outputs
+	for (const UTextureSetModule* Module : Definition->GetModules())
+	{
+		Module->GenerateSamplingGraph(Node, *this);
 	}
 }
 

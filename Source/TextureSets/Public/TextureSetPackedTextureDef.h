@@ -64,10 +64,10 @@ inline uint32 GetTypeHash(const FTextureSetPackedTextureDef& Value)
 {
 	uint32 Hash = 0;
 
-	Hash = HashCombine(Hash, GetTypeHash(Value.SourceR));
-	Hash = HashCombine(Hash, GetTypeHash(Value.SourceG));
-	Hash = HashCombine(Hash, GetTypeHash(Value.SourceB));
-	Hash = HashCombine(Hash, GetTypeHash(Value.SourceA));
+	Hash = HashCombine(Hash, GetTypeHash(Value.SourceR.ToString()));
+	Hash = HashCombine(Hash, GetTypeHash(Value.SourceG.ToString()));
+	Hash = HashCombine(Hash, GetTypeHash(Value.SourceB.ToString()));
+	Hash = HashCombine(Hash, GetTypeHash(Value.SourceA.ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(Value.SkipMip));
 	Hash = HashCombine(Hash, GetTypeHash(Value.NumStreamedMips));
 	Hash = HashCombine(Hash, GetTypeHash((int)Value.Filter));

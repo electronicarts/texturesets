@@ -233,30 +233,23 @@ UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int Index)
 	return DefaultTextureSet->GetDerivedTexture(Index);
 }
 
-uint32 UTextureSetDefinition::ComputeCookingHash(int PackedTextureIndex)
-{
-	uint32 Hash = 2;
-
-	Hash = HashCombine(Hash, GetTypeHash(UserKey));
-
-	// TODO: Only hash modules that contribute to this packed texture
-	for (const UTextureSetModule* Module : GetModules())
-	{
-		Hash = HashCombine(Hash, Module->ComputeProcessingHash());
-	}
-
-	Hash = HashCombine(Hash, GetTypeHash(PackingInfo.PackedTextureDefs[PackedTextureIndex]));
-
-	return Hash;
-}
-
 uint32 UTextureSetDefinition::ComputeCookingHash()
 {
-	uint32 Hash = 0;
+	uint32 Hash = GetTypeHash(FString("TextureSetDefinition"));
+
+	// Key for debugging, easily force rebuild
+	Hash = HashCombine(Hash, GetTypeHash(UserKey));
+
+	// TODO: Only hash processing outputs that contribute to this packed texture
+	FTextureSetProcessingGraph Graph = FTextureSetProcessingGraph(GetModules());
+	for (const auto& [Name, Node] : Graph.GetOutputTextures())
+	{
+		Hash = HashCombine(Hash, Node->ComputeGraphHash());
+	}
 
 	for (int i = 0; i < PackingInfo.PackedTextureDefs.Num(); i++)
 	{
-		Hash = HashCombine(Hash, ComputeCookingHash(i));
+		Hash = HashCombine(Hash, GetTypeHash(PackingInfo.PackedTextureDefs[i]));
 	}
 
 	return Hash;
@@ -274,17 +267,6 @@ uint32 UTextureSetDefinition::ComputeSamplingHash(const UMaterialExpressionTextu
 
 	return Hash;
 }
-
-#if WITH_EDITOR
-void UTextureSetDefinition::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
-	FTextureSetMaterialGraphBuilder& Builder) const
-{
-	for (const UTextureSetModule* Module : GetModules())
-	{
-		Module->GenerateSamplingGraph(SampleExpression, Builder);
-	}
-}
-#endif
 
 #if WITH_EDITOR
 void UTextureSetDefinition::ResetEdits()
@@ -310,18 +292,15 @@ void UTextureSetDefinition::ApplyEdits()
 	Modules.Empty();
 	ModuleInfo = FTextureSetDefinitionModuleInfo();
 
-	FTextureSetProcessingGraph ProcessingGraph = FTextureSetProcessingGraph();
-
 	for (const UTextureSetModule* EditModule : EditModules)
 	{
 		if (IsValid(EditModule))
 		{
 			Modules.Add(DuplicateObject(EditModule, this));
-			
-			EditModule->GenerateProcessingGraph(ProcessingGraph);
-			
 		}
 	}
+
+	FTextureSetProcessingGraph ProcessingGraph = FTextureSetProcessingGraph(Modules);
 
 	for (const auto&[Name, Input] : ProcessingGraph.GetInputTextures())
 	{

@@ -9,6 +9,8 @@
 class FTextureSetProcessingGraph
 {
 public:
+	FTextureSetProcessingGraph(TArray<const class UTextureSetModule*> Modules);
+
 	TSharedRef<FTextureInput> AddInputTexture(FName Name, const FTextureSetSourceTextureDef& SourceDef)
 	{
 		TSharedRef<FTextureInput> NewInput(new FTextureInput(Name, SourceDef));
