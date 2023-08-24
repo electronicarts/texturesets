@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_EDITOR
+
 #include "CoreMinimal.h"
 #include "TextureSetProcessingContext.h"
 
@@ -31,3 +33,4 @@ public:
 	// Initialize must be called before calls to GetPixel
 	virtual float GetPixel(int X, int Y, int Channel) const = 0;
 };
+#endif

@@ -16,6 +16,7 @@
 #include "ProcessingNodes/TextureOperatorInvert.h"
 #endif
 
+#if WITH_EDITOR
 void UPBRSurfaceModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	if (Paramaterization == EPBRParamaterization::Basecolor_Metal || Paramaterization == EPBRParamaterization::Dielectric)
@@ -78,7 +79,9 @@ void UPBRSurfaceModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Grap
 		}
 	}
 }
+#endif
 
+#if WITH_EDITOR
 int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const UPBRSampleParams* SampleParams = SampleExpression->GetSampleParams<UPBRSampleParams>();
@@ -94,6 +97,7 @@ int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSet
 
 	return Hash;
 }
+#endif
 
 #if WITH_EDITOR
 void UPBRSurfaceModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,

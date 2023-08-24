@@ -7,12 +7,14 @@
 #include "TextureSetInfo.h"
 #include "TextureSetDefinition.generated.h"
 
-class UMaterialExpressionTextureSetSampleParameter;
 class UTextureSet;
 class UTextureSetModule;
 class UTextureSetAssetParams;
 class UTextureSetSampleParams;
+#if WITH_EDITOR
+class UMaterialExpressionTextureSetSampleParameter;
 class FTextureSetMaterialGraphBuilder;
+#endif
 
 #if WITH_EDITOR
 DECLARE_EVENT_OneParam(UTextureSetDefinition, FOnTextureSetDefinitionChanged, UTextureSetDefinition* /*Definition*/);
@@ -62,7 +64,9 @@ public:
 	// Get the default packed texture for a specific packed texture index
 	UTexture* GetDefaultPackedTexture(int Index) const;
 
+#if WITH_EDITOR
 	uint32 ComputeCookingHash();
+#endif
 
 	FGuid GetGuid() { return UniqueID; }
 

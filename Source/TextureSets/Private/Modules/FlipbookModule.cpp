@@ -4,7 +4,7 @@
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
 
-
+#if WITH_EDITOR
 void UFlipbookModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	if (bUseMotionVectors)
@@ -13,7 +13,9 @@ void UFlipbookModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph)
 		Graph.AddOutputTexture("MotionVector", Graph.AddInputTexture("MotionVector", MotionDef));
 	}
 }
+#endif
 
+#if WITH_EDITOR
 int32 UFlipbookModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const UFlipbookSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UFlipbookSampleParams>();
@@ -25,3 +27,4 @@ int32 UFlipbookModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSa
 
 	return Hash;
 }
+#endif

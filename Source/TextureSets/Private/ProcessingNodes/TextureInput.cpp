@@ -1,5 +1,7 @@
 // (c) Electronic Arts. All Rights Reserved.
 
+#if WITH_EDITOR
+
 #include "ProcessingNodes/TextureInput.h"
 #include "TextureSetProcessingGraph.h"
 #include "TextureSetDefinition.h"
@@ -96,3 +98,4 @@ float FTextureInput::GetPixel(int X, int Y, int Channel) const
 		return SourceDefinition.DefaultValue[Channel];
 	}
 }
+#endif

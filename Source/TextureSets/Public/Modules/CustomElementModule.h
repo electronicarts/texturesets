@@ -15,11 +15,11 @@ public:
 	virtual bool AllowMultiple() const override { return true; }
 	virtual FString GetInstanceName() const override { return ElementName.ToString(); }
 
+#if WITH_EDITOR
 	virtual void GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 
-#if WITH_EDITOR
 	virtual void GenerateSamplingGraph(
 		const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 		FTextureSetMaterialGraphBuilder& Builder) const override;

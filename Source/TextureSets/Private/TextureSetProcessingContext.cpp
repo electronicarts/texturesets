@@ -1,6 +1,6 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#pragma once
+#if WITH_EDITOR
 
 #include "TextureSetProcessingContext.h"
 #include "TextureSet.h"
@@ -9,3 +9,5 @@ FTextureSetProcessingContext::FTextureSetProcessingContext(const class UTextureS
 	: SourceTextures(TextureSet->SourceTextures)
 {
 }
+
+#endif

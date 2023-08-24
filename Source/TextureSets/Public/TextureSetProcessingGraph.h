@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_EDITOR
+
 #include "CoreMinimal.h"
 #include "ProcessingNodes/IProcessingNode.h"
 #include "ProcessingNodes/TextureInput.h"
@@ -26,3 +28,4 @@ private:
 	TMap<FName, TSharedRef<FTextureInput>> InputTextures;
 	TMap<FName, TSharedRef<IProcessingNode>> OutputTextures;
 };
+#endif

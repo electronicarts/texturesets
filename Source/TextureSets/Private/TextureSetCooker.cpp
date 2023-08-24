@@ -1,15 +1,16 @@
 // (c) Electronic Arts. All Rights Reserved.
 
 #include "TextureSetCooker.h"
+
+#if WITH_EDITOR
+
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetModule.h"
 #include "ProcessingNodes/TextureInput.h"
 #include "ProcessingNodes/TextureOperatorEnlarge.h"
 #include "TextureSetDerivedData.h"
-#if WITH_EDITOR
 #include "DerivedDataBuildVersion.h"
-#endif
 
 static TAutoConsoleVariable<int32> CVarTextureSetParallelCook(
 	TEXT("r.TextureSet.ParallelCook"),
@@ -293,3 +294,4 @@ void TextureSetCooker::UpdateTexture(int Index) const
 	Texture->Source.SetId(Data.Id, true);
 	Texture->bSourceBulkDataTransient = true;
 }
+#endif

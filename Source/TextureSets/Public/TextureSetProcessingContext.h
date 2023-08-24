@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_EDITOR
+
 #include "CoreMinimal.h"
 
 struct FTextureSetProcessingContext
@@ -14,3 +16,4 @@ public:
 private:
 	TMap<FName, TObjectPtr<UTexture>> SourceTextures;
 };
+#endif

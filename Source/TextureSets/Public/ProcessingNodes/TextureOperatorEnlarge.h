@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_EDITOR
+
 #include "CoreMinimal.h"
 #include "TextureOperator.h"
 
@@ -38,3 +40,4 @@ private:
 	const int Width;
 	const int Height;
 };
+#endif

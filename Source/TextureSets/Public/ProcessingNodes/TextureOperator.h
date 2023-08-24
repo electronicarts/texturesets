@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_EDITOR
+
 #include "CoreMinimal.h"
 #include "IProcessingNode.h"
 
@@ -24,3 +26,4 @@ public:
 
 	const TSharedRef<IProcessingNode> SourceImage;
 };
+#endif

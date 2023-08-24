@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_EDITOR
+
 #include "CoreMinimal.h"
 #include "TextureOperator.h"
 
@@ -18,3 +20,4 @@ public:
 		return 1.0f - SourceImage->GetPixel(X, Y, Channel);
 	}
 };
+#endif

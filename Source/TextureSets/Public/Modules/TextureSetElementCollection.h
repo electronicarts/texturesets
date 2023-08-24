@@ -29,7 +29,7 @@ public:
 FORCEINLINE uint32 GetTypeHash(const FElementDefinition& Def)
 {
 	uint32 Hash = 0;
-	Hash = HashCombine(Hash, GetTypeHash(Def.ElementName));
+	Hash = HashCombine(Hash, GetTypeHash(Def.ElementName.ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(Def.SRGB));
 	Hash = HashCombine(Hash, GetTypeHash(Def.ChannelCount));
 	Hash = HashCombine(Hash, GetTypeHash(Def.DefaultValue));
@@ -44,10 +44,11 @@ class UTextureSetElementCollection : public UTextureSetModule
 public:
 	virtual bool AllowMultiple() const override { return bAllowMultiple; }
 	
+#if WITH_EDITOR
 	virtual void GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
-#if WITH_EDITOR
+
 	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 		FTextureSetMaterialGraphBuilder& Builder) const override;
 #endif

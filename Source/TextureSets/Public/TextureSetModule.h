@@ -47,12 +47,10 @@ public:
 	// Transforms source elements into processed data
 	// Sets values of shader constants
 	virtual void GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const {}
-#endif
 
 	// Compute a hash for the sampling graph. If this hash changes, it triggers the sampling graph to be re-generated.
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const { return 0; }
 
-#if WITH_EDITOR
 	// Logic (material graph) for unpacking data
 	// Transforms processed data into desired output elements
 	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,

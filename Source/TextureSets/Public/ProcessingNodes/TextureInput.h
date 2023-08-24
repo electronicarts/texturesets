@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_EDITOR
+
 #include "CoreMinimal.h"
 #include "ImageCore.h"
 #include "IProcessingNode.h"
@@ -37,3 +39,4 @@ private:
 	uint8 ValidChannels;
 	FImage Image;
 };
+#endif

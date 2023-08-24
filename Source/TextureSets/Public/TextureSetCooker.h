@@ -2,18 +2,15 @@
 
 #pragma once
 
+#if WITH_EDITOR
 #include "CoreMinimal.h"
 #include "TextureSetInfo.h"
 #include "TextureSetModule.h"
 #include "TextureSetDerivedData.h"
 #include "TextureSetProcessingGraph.h"
-#if WITH_EDITOR
 #include "DerivedDataPluginInterface.h"
-#endif
 
 class UTextureSet;
-
-#if WITH_EDITOR
 
 class TextureSetDerivedDataPlugin : public FDerivedDataPluginInterface
 {

@@ -74,17 +74,20 @@ public:
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 
+#if WITH_EDITOR
 	// Compute the hashed Guid for a specific hashed texture. Used by the DDC to cache the data.
 	FGuid ComputePackedTextureDataID(int PackedTextureDefIndex) const;
 
 	// Compute the hashed Guid for the entire texture set (including all hashed textures) Used by the DDC to cache the data.
 	FGuid ComputeTextureSetDataId() const;
 
+	void FixupData();
 	void UpdateDerivedData();
+#endif
 	UTextureSetDerivedData* GetDerivedData() { return DerivedData.Get(); }
 	UTexture* GetDerivedTexture(int Index) { return DerivedTextures[Index].Get(); }
 
-	void FixupData();
+
 
 	// For debugging, allow the user to manually change a value that doesn't affect the logic,
 	// but is hashed. Forces a regeneration of the data when a new unique value is entered.

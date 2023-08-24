@@ -22,7 +22,9 @@
 
 const FString UTextureSetDefinition::ChannelSuffixes[4] = {".r", ".g", ".b", ".a"};
 
+#if WITH_EDITOR
 FOnTextureSetDefinitionChanged UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent;
+#endif
 
 UTextureSetDefinition::UTextureSetDefinition() : Super()
 {
@@ -234,12 +236,10 @@ TArray<TSubclassOf<UTextureSetSampleParams>> UTextureSetDefinition::GetRequiredS
 
 UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int Index) const
 {
-	if (IsValid(DefaultTextureSet))
-		return DefaultTextureSet->GetDerivedTexture(Index);
-	else
-		return nullptr;
+	return IsValid(DefaultTextureSet) ? DefaultTextureSet->GetDerivedTexture(Index) : nullptr;
 }
 
+#if WITH_EDITOR
 uint32 UTextureSetDefinition::ComputeCookingHash()
 {
 	uint32 Hash = GetTypeHash(FString("TextureSetDefinition"));
@@ -261,6 +261,7 @@ uint32 UTextureSetDefinition::ComputeCookingHash()
 
 	return Hash;
 }
+#endif
 
 #if WITH_EDITOR
 void UTextureSetDefinition::ResetEdits()

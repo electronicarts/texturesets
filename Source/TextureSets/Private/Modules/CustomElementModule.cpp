@@ -5,6 +5,7 @@
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
+#if WITH_EDITOR
 void UCustomElementModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	// Just pass through source texture as processed texture
@@ -12,18 +13,21 @@ void UCustomElementModule::GenerateProcessingGraph(FTextureSetProcessingGraph& G
 
 	Graph.AddOutputTexture(ElementName, Graph.AddInputTexture(ElementName, TextureDef));
 }
+#endif
 
+#if WITH_EDITOR
 int32 UCustomElementModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
 
-	Hash = HashCombine(Hash, GetTypeHash(ElementName));
+	Hash = HashCombine(Hash, GetTypeHash(ElementName.ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(SRGB));
 	Hash = HashCombine(Hash, GetTypeHash(ChannelCount));
 	Hash = HashCombine(Hash, GetTypeHash(DefaultValue));
 
 	return Hash;
 }
+#endif
 
 #if WITH_EDITOR
 void UCustomElementModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,

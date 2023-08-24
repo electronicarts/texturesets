@@ -6,13 +6,16 @@
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
+#if WITH_EDITOR
 void UHeightModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	FTextureSetSourceTextureDef HeightDef = {false, 1, FVector4(1, 0, 0, 0)};
 
 	Graph.AddOutputTexture("Height", Graph.AddInputTexture("Height", HeightDef));
 }
+#endif
 
+#if WITH_EDITOR
 int32 UHeightModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const UHeightSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UHeightSampleParams>();
@@ -23,6 +26,7 @@ int32 UHeightModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSamp
 
 	return Hash;
 }
+#endif
 
 #if WITH_EDITOR
 void UHeightModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,

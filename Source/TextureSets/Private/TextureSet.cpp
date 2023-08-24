@@ -9,12 +9,12 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "UObject/ObjectSaveContext.h"
 #include "Engine/TextureDefines.h"
+#include "Serialization/MemoryReader.h"
+#if WITH_EDITOR
 #include "ImageUtils.h"
 #include "Misc/ScopedSlowTask.h"
 #include "ProfilingDebugging/CookStats.h"
 #include "DerivedDataCacheInterface.h"
-#include "Serialization/MemoryReader.h"
-#if WITH_EDITOR
 #include "Misc/DataValidation.h"
 #include "DerivedDataBuildVersion.h"
 #endif
@@ -86,15 +86,19 @@ void UTextureSet::PreSave(FObjectPreSaveContext SaveContext)
 {
 	Super::PreSave(SaveContext);
 
+#if WITH_EDITOR
 	UpdateDerivedData();
+#endif
 }
 
 void UTextureSet::PostLoad()
 {
 	Super::PostLoad();
 
+#if WITH_EDITOR
 	FixupData();
 	UpdateDerivedData();
+#endif
 }
 
 void UTextureSet::BeginDestroy()
@@ -133,6 +137,7 @@ void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 }
 #endif
 
+#if WITH_EDITOR
 void UTextureSet::OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition)
 {
 	if (ChangedDefinition == Definition)
@@ -141,55 +146,9 @@ void UTextureSet::OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition)
 		UpdateDerivedData();
 	}
 }
-
-void UTextureSet::FixupData()
-{
-#if WITH_EDITOR
-	// Only fixup the data if we have a valid definition. Otherwise leave it as-is so it's there for when we do.
-	if (IsValid(Definition))
-	{
-		// Source Textures
-		TMap<FName, TObjectPtr<UTexture>> NewSourceTextures;
-
-		for (const auto& [Name, TextureInfo] : Definition->GetModuleInfo().GetSourceTextures())
-		{
-			TObjectPtr<UTexture>* OldTexture = SourceTextures.Find(Name);
-			NewSourceTextures.Add(Name, (OldTexture != nullptr) ? *OldTexture : nullptr);
-		}
-
-		SourceTextures = NewSourceTextures;
-
-		// Asset Params
-		TArray<TSubclassOf<UTextureSetAssetParams>> RequiredAssetParamClasses = Definition->GetRequiredAssetParamClasses();
-		TArray<TSubclassOf<UTextureSetAssetParams>> ExistingAssetParamClasses;
-		
-		// Remove un-needed asset params
-		for (int i = 0; i < AssetParams.Num(); i++)
-		{
-			UTextureSetAssetParams* AssetParam = AssetParams[i];
-			if (!RequiredAssetParamClasses.Contains(AssetParam->StaticClass()))
-			{
-				AssetParams.RemoveAt(i);
-				i--;
-			}
-			else
-			{
-				ExistingAssetParamClasses.Add(AssetParam->StaticClass());
-			}
-		}
-		
-		// Add missing asset params
-		for (TSubclassOf<UTextureSetAssetParams> SampleParamClass : RequiredAssetParamClasses)
-		{
-			if (!ExistingAssetParamClasses.Contains(SampleParamClass))
-			{
-				AssetParams.Add(NewObject<UTextureSetAssetParams>(this, SampleParamClass));
-			}
-		}
-	}
 #endif
-}
 
+#if WITH_EDITOR
 FGuid UTextureSet::ComputePackedTextureDataID(int PackedTextureIndex) const
 {
 	check(IsValid(Definition));
@@ -217,7 +176,9 @@ FGuid UTextureSet::ComputePackedTextureDataID(int PackedTextureIndex) const
 
 	return IdBuilder.Build();
 }
+#endif
 
+#if WITH_EDITOR
 FGuid UTextureSet::ComputeTextureSetDataId() const
 {
 	check(IsValid(Definition))
@@ -235,7 +196,57 @@ FGuid UTextureSet::ComputeTextureSetDataId() const
 
 	return IdBuilder.Build();
 }
+#endif
 
+#if WITH_EDITOR
+void UTextureSet::FixupData()
+{
+	// Only fixup the data if we have a valid definition. Otherwise leave it as-is so it's there for when we do.
+	if (IsValid(Definition))
+	{
+		// Source Textures
+		TMap<FName, TObjectPtr<UTexture>> NewSourceTextures;
+
+		for (const auto& [Name, TextureInfo] : Definition->GetModuleInfo().GetSourceTextures())
+		{
+			TObjectPtr<UTexture>* OldTexture = SourceTextures.Find(Name);
+			NewSourceTextures.Add(Name, (OldTexture != nullptr) ? *OldTexture : nullptr);
+		}
+
+		SourceTextures = NewSourceTextures;
+
+		// Asset Params
+		TArray<TSubclassOf<UTextureSetAssetParams>> RequiredAssetParamClasses = Definition->GetRequiredAssetParamClasses();
+		TArray<TSubclassOf<UTextureSetAssetParams>> ExistingAssetParamClasses;
+
+		// Remove un-needed asset params
+		for (int i = 0; i < AssetParams.Num(); i++)
+		{
+			UTextureSetAssetParams* AssetParam = AssetParams[i];
+			if (!RequiredAssetParamClasses.Contains(AssetParam->StaticClass()))
+			{
+				AssetParams.RemoveAt(i);
+				i--;
+			}
+			else
+			{
+				ExistingAssetParamClasses.Add(AssetParam->StaticClass());
+			}
+		}
+
+		// Add missing asset params
+		for (TSubclassOf<UTextureSetAssetParams> SampleParamClass : RequiredAssetParamClasses)
+		{
+			if (!ExistingAssetParamClasses.Contains(SampleParamClass))
+			{
+				AssetParams.Add(NewObject<UTextureSetAssetParams>(this, SampleParamClass));
+			}
+		}
+	}
+}
+#endif
+
+#if WITH_EDITOR
 void UTextureSet::UpdateDerivedData()
 {
 	if (!IsValid(Definition))
@@ -333,5 +344,6 @@ void UTextureSet::UpdateDerivedData()
 
 	// TODO: Trigger an update of the material instances
 }
+#endif
 
 #undef LOCTEXT_NAMESPACE

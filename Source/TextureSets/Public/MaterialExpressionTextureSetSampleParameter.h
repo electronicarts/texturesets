@@ -8,31 +8,12 @@
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionTextureObjectParameter.h"
 #include "ProceduralMaterialFunction.h"
-#if WITH_EDITOR
-#include "MaterialEditor/DEditorCustomParameterValue.h"
-#endif
 
 #include "MaterialExpressionTextureSetSampleParameter.generated.h"
 
 class UTextureSet;
 class FObjectInitializer;
 class FArguments;
-
-#if WITH_EDITORONLY_DATA
-UCLASS()
-class TEXTURESETS_API UDEditorTextureSetParameterValue : public UDEditorCustomParameterValue
-{
-	GENERATED_UCLASS_BODY()
-
-	UPROPERTY(EditAnywhere, Category=DEditorTextureParameterValue)
-	TObjectPtr<UTextureSet> ParameterValue;
-
-	virtual FName GetDefaultGroupName() const override { return TEXT("Texture Set Parameter Values"); }
-
-	virtual bool GetValue(FMaterialParameterMetadata& OutResult) const override;
-	virtual bool SetValue(const FMaterialParameterValue& Value) override;
-};
-#endif
 
 UCLASS(HideCategories = (MaterialExpressionMaterialFunctionCall))
 class TEXTURESETS_API UMaterialExpressionTextureSetSampleParameter : public UProceduralMaterialFunction
@@ -92,13 +73,13 @@ public:
 #endif
 
 	// UMaterialExpression Interface
-	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual FGuid& GetParameterExpressionId() override;
 #if WITH_EDITOR
 	virtual FName GetParameterName() const override;
 	virtual void SetParameterName(const FName& Name) override;
 	virtual bool GetParameterValue(FMaterialParameterMetadata& OutMeta) const override;
 	virtual bool SetParameterValue(const FName& Name, const FMaterialParameterMetadata& Meta, EMaterialExpressionSetParameterValueFlags Flags = EMaterialExpressionSetParameterValueFlags::None) override;
+	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 #endif
 
 	// UObject Interface
