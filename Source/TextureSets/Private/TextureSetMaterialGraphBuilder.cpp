@@ -18,17 +18,13 @@
 #include "MaterialEditingLibrary.h"
 #include "MaterialExpressionTextureStreamingDef.h"
 
-FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialExpressionTextureSetSampleParameter* Node)
+FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFunction* MaterialFunction, const UMaterialExpressionTextureSetSampleParameter* Node)
 	: Node(Node)
 	, Definition(Node->Definition)
+	, MaterialFunction(MaterialFunction)
 	, ModuleInfo(Definition->GetModuleInfo())
 	, PackingInfo(Definition->GetPackingInfo())
 {
-
-	FName FunctionName = MakeUniqueObjectName(Node, UMaterialFunction::StaticClass(), Node->ParameterName, EUniqueObjectNameOptions::GloballyUnique);
-	EObjectFlags Flags = RF_Transient; // Ensure it's never saved
-	MaterialFunction = NewObject<UMaterialFunction>(Node, FunctionName, Flags);
-
 	TObjectPtr<UMaterialExpressionFunctionInput> UVExpression = CreateExpression<UMaterialExpressionFunctionInput>();
 	UVExpression->InputType = EFunctionInputType::FunctionInput_Vector2;
 	UVExpression->InputName = TEXT("UV");
@@ -125,11 +121,6 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialExpres
 	{
 		Module->GenerateSamplingGraph(Node, *this);
 	}
-}
-
-void FTextureSetMaterialGraphBuilder::Finalize()
-{
-	UMaterialEditingLibrary::LayoutMaterialFunctionExpressions(MaterialFunction);
 }
 
 UMaterialExpression* FTextureSetMaterialGraphBuilder::GetProcessedTextureSample(FName Name)

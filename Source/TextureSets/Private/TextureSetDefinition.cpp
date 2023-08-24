@@ -123,6 +123,10 @@ void UTextureSetDefinition::PostLoad()
 {
 	Super::PostLoad();
 
+	// Temp because this was being set previously. Should be able to remove it when we have fresh data.
+	if (IsValid(DefaultTextureSet))
+		DefaultTextureSet->ClearFlags(RF_Standalone);
+
 #if WITH_EDITOR
 	ResetEdits();
 	// Also re-apply edits, to account for any changes to module logic
@@ -228,9 +232,12 @@ TArray<TSubclassOf<UTextureSetSampleParams>> UTextureSetDefinition::GetRequiredS
 	return RequiredTypes;
 }
 
-UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int Index)
+UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int Index) const
 {
-	return DefaultTextureSet->GetDerivedTexture(Index);
+	if (IsValid(DefaultTextureSet))
+		return DefaultTextureSet->GetDerivedTexture(Index);
+	else
+		return nullptr;
 }
 
 uint32 UTextureSetDefinition::ComputeCookingHash()
@@ -250,19 +257,6 @@ uint32 UTextureSetDefinition::ComputeCookingHash()
 	for (int i = 0; i < PackingInfo.PackedTextureDefs.Num(); i++)
 	{
 		Hash = HashCombine(Hash, GetTypeHash(PackingInfo.PackedTextureDefs[i]));
-	}
-
-	return Hash;
-}
-
-
-uint32 UTextureSetDefinition::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression)
-{
-	uint32 Hash = 0;
-
-	for (const UTextureSetModule* Module : GetModules())
-	{
-		Hash = HashCombine(Hash, Module->ComputeSamplingHash(SampleExpression));
 	}
 
 	return Hash;
@@ -378,8 +372,7 @@ void UTextureSetDefinition::ApplyEdits()
 	if (!IsValid(DefaultTextureSet))
 	{
 		FName DefaultName = FName(GetName() + "_Default");
-		// TODO: Make this non-transient (may have to be a soft reference to avoid a circular dependency)
-		DefaultTextureSet = NewObject<UTextureSet>(this, DefaultName, RF_Transient);
+		DefaultTextureSet = NewObject<UTextureSet>(this, DefaultName, RF_Public);
 		DefaultTextureSet->Definition = this;
 	}
 

@@ -114,17 +114,43 @@ bool UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(FNa
 }
 
 #if WITH_EDITOR
-UMaterialFunction* UMaterialExpressionTextureSetSampleParameter::CreateMaterialFunction()
+uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash()
 {
 	if (!IsValid(Definition))
-		return nullptr;
+		return 0;
+
+	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0"));
+
+	Hash = HashCombine(Hash, GetTypeHash(ParameterName.ToString()));
+	Hash = HashCombine(Hash, GetTypeHash(Group.ToString()));
+	Hash = HashCombine(Hash, GetTypeHash(SortPriority));
+
+	for (const UTextureSetModule* Module : Definition->GetModules())
+	{
+		Hash = HashCombine(Hash, Module->ComputeSamplingHash(this));
+	}
+
+	return Hash;
+}
+#endif
+
+#if WITH_EDITOR
+void UMaterialExpressionTextureSetSampleParameter::ConstructMaterialFunction(class UMaterialFunction* NewMaterialFunction)
+{
+	if (!IsValid(Definition))
+		return;
 
 	// Make sure our samping parameters are up to date before generating the sampling graph
 	UpdateSampleParamArray();
 
-	FTextureSetMaterialGraphBuilder GraphBuilder = FTextureSetMaterialGraphBuilder(this);
+	FTextureSetMaterialGraphBuilder(NewMaterialFunction, this);
+}
+#endif
 
-	return GraphBuilder.GetMaterialFunction();
+#if WITH_EDITOR
+void UMaterialExpressionTextureSetSampleParameter::GetCaption(TArray<FString>& OutCaptions) const
+{
+	OutCaptions.Add(ParameterName.ToString());
 }
 #endif
 

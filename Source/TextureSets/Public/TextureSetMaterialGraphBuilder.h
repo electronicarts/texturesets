@@ -16,17 +16,11 @@ class UMaterialExpressionTextureObjectParameter;
 class FTextureSetMaterialGraphBuilder
 {
 public:
-	FTextureSetMaterialGraphBuilder(UMaterialExpressionTextureSetSampleParameter* Node);
-
-	UMaterialFunction* GetMaterialFunction() { return MaterialFunction; }
-
-	void Finalize();
+	FTextureSetMaterialGraphBuilder(UMaterialFunction* MaterialFunction, const UMaterialExpressionTextureSetSampleParameter* Node);
 
 	template <class T> T* CreateExpression()
 	{
-		UMaterialExpression* Expression = UMaterialEditingLibrary::CreateMaterialExpressionInFunction(MaterialFunction, T::StaticClass());
-		Expression->SetFlags(Expression->GetFlags() | RF_Transient); // Ensure these expressions are never saved
-		return Cast<T>(Expression);
+		return Cast<T>(UMaterialEditingLibrary::CreateMaterialExpressionInFunction(MaterialFunction, T::StaticClass()));
 	}
 
 	UMaterialExpression* GetProcessedTextureSample(FName Name);
@@ -37,8 +31,8 @@ public:
 	UMaterialExpression* MakeConstantParameter(FName Name, FVector4 Default);
 
 private:
-	TObjectPtr<UMaterialExpressionTextureSetSampleParameter> Node;
-	TObjectPtr<UTextureSetDefinition> Definition;
+	TObjectPtr<const UMaterialExpressionTextureSetSampleParameter> Node;
+	TObjectPtr<const UTextureSetDefinition> Definition;
 	TObjectPtr<UMaterialFunction> MaterialFunction;
 
 	const FTextureSetDefinitionModuleInfo ModuleInfo;

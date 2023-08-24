@@ -54,8 +54,6 @@ public:
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionParameter)
 	int32 SortPriority = 32;
 
-	static FName ParameterDefaultName;
-
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<class UTextureSet> DefaultTextureSet;
 
@@ -89,10 +87,12 @@ public:
 
 	// UProceduralMaterialFunction Interface
 #if WITH_EDITOR
-	virtual class UMaterialFunction* CreateMaterialFunction() override;
+	virtual uint32 ComputeMaterialFunctionHash() override;
+	virtual void ConstructMaterialFunction(class UMaterialFunction* NewMaterialFunction) override;
 #endif
 
 	// UMaterialExpression Interface
+	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual FGuid& GetParameterExpressionId() override;
 #if WITH_EDITOR
 	virtual FName GetParameterName() const override;

@@ -60,11 +60,9 @@ public:
 	TArray<TSubclassOf<UTextureSetSampleParams>> GetRequiredSampleParamClasses() const;
 
 	// Get the default packed texture for a specific packed texture index
-	UTexture* GetDefaultPackedTexture(int Index);
+	UTexture* GetDefaultPackedTexture(int Index) const;
 
 	uint32 ComputeCookingHash();
-
-	uint32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression);
 
 	FGuid GetGuid() { return UniqueID; }
 
@@ -90,7 +88,7 @@ private:
 	FString UserKey;
 
 	UPROPERTY(VisibleAnywhere, Category="Debug")
-	UTextureSet* DefaultTextureSet;
+	TObjectPtr<UTextureSet> DefaultTextureSet;
 
 	UPROPERTY(VisibleAnywhere, Category="Debug")
 	FTextureSetDefinitionModuleInfo ModuleInfo;
@@ -107,7 +105,6 @@ private:
 #if WITH_EDITOR
 	void ApplyEdits();
 	void ResetEdits();
-	void UpdateDependentAssets(bool bCookingHashChanged);
 #endif
 
 };

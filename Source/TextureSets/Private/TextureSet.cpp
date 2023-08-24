@@ -256,15 +256,19 @@ void UTextureSet::UpdateDerivedData()
 		if (!IsValid(DerivedTextures[t]))
 		{
 			// Try to find an existing texture stored in our package that may have become unreferenced, but still exists.
+			// This can hapen if the number of derived textures was higher, became lower, and then was set higher again,
+			// before the previous texture was garbage-collected.
 			DerivedTextures[t] = static_cast<UTexture*>(FindObjectWithOuter(this, nullptr, TextureName));
+
+			// No existing texture, create a new one
+			if (!IsValid(DerivedTextures[t]))
+			{
+				DerivedTextures[t] = NewObject<UTexture2D>(this, TextureName, RF_Public);
+			}
 		}
 
-		if (!IsValid(DerivedTextures[t]) || !DerivedTextures[t]->IsInOuter(this) || DerivedTextures[t]->GetFName() != TextureName)
-		{
-			// Create a new texture if none exists
-			DerivedTextures[t] = NewObject<UTexture2D>(this, TextureName, RF_NoFlags);
-		}
-		DerivedTextures[t]->SetFlags(RF_Public); // TODO: Remove this flag when we can clear references to these textures from the material instances in serialized data
+		check(DerivedTextures[t]->IsInOuter(this));
+		check(DerivedTextures[t]->GetFName() == TextureName);
 	}
 
 	// Create a new derived data if ours is missing
