@@ -125,6 +125,12 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 	Hash = HashCombine(Hash, GetTypeHash(Group.ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(SortPriority));
 
+	FTextureSetPackingInfo PackingInfo = Definition->GetPackingInfo();
+	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
+	{
+		Hash = HashCombine(Hash, GetTypeHash(PackingInfo.GetPackedTextureDef(i)));
+	}
+
 	for (const UTextureSetModule* Module : Definition->GetModules())
 	{
 		Hash = HashCombine(Hash, Module->ComputeSamplingHash(this));
