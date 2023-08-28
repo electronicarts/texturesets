@@ -9,8 +9,7 @@
 
 class UTextureSet;
 
-
-#if WITH_EDITORONLY_DATA
+// NOTE: If this class is moved or renamed, the reference to it in UMaterialExpressionTextureSetSampleParameter::GetParameterValue must be updated!
 UCLASS()
 class UDEditorTextureSetParameterValue : public UDEditorCustomParameterValue
 {
@@ -24,4 +23,3 @@ class UDEditorTextureSetParameterValue : public UDEditorCustomParameterValue
 	virtual bool GetValue(FMaterialParameterMetadata& OutResult) const override;
 	virtual bool SetValue(const FMaterialParameterValue& Value) override;
 };
-#endif

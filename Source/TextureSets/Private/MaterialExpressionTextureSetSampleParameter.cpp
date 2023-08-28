@@ -124,8 +124,8 @@ bool UMaterialExpressionTextureSetSampleParameter::GetParameterValue(FMaterialPa
 	OutMeta.Group = Group;
 	OutMeta.SortPriority = SortPriority;
 	OutMeta.AssetPath = GetAssetPathName();
+	// Parameter class will be null when executable is compiled with editor, but run standalone, as the TextureSetsEditor module will not be loaded.
 	OutMeta.CustomParameterClass = FindObject<UClass>(FTopLevelAssetPath("/Script/TextureSetsEditor.DEditorTextureSetParameterValue"));
-	checkf(IsValid(OutMeta.CustomParameterClass), TEXT("Could not resolve custom parameter class. Was it moved or renamed?"));
 	return true;
 }
 #endif
