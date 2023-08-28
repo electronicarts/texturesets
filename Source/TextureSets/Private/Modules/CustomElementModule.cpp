@@ -9,7 +9,7 @@
 void UCustomElementModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	// Just pass through source texture as processed texture
-	FTextureSetSourceTextureDef TextureDef = FTextureSetSourceTextureDef{ SRGB, ChannelCount, DefaultValue };
+	FTextureSetSourceTextureDef TextureDef(ChannelCount, SRGB, DefaultValue);
 
 	Graph.AddOutputTexture(ElementName, Graph.AddInputTexture(ElementName, TextureDef));
 }

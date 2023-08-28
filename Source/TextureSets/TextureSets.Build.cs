@@ -68,8 +68,8 @@ public class TextureSets : ModuleRules
 				}
 				);
 		}
-		
-		
+
+
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{

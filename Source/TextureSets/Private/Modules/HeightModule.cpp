@@ -9,7 +9,7 @@
 #if WITH_EDITOR
 void UHeightModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
-	FTextureSetSourceTextureDef HeightDef = {false, 1, FVector4(1, 0, 0, 0)};
+	const FTextureSetSourceTextureDef HeightDef(1, false, FVector4(1, 0, 0, 0));
 
 	Graph.AddOutputTexture("Height", Graph.AddInputTexture("Height", HeightDef));
 }

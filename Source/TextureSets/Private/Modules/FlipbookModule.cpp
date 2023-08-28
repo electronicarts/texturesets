@@ -9,7 +9,7 @@ void UFlipbookModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph)
 {
 	if (bUseMotionVectors)
 	{
-		FTextureSetSourceTextureDef MotionDef = FTextureSetSourceTextureDef{false, 2, FVector4(0.5, 0.5, 0, 0)};
+		FTextureSetSourceTextureDef MotionDef = FTextureSetSourceTextureDef(2, false, FVector4(0.5, 0.5, 0, 0));
 		Graph.AddOutputTexture("MotionVector", Graph.AddInputTexture("MotionVector", MotionDef));
 	}
 }

@@ -10,6 +10,11 @@ struct FElementDefinition
 {
 	GENERATED_BODY()
 public:
+	FElementDefinition()
+		: SRGB(false)
+		, ChannelCount(0)
+	{}
+
 	UPROPERTY(EditAnywhere)
 	FName ElementName;
 

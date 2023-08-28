@@ -14,12 +14,18 @@ struct FTextureSetProcessedTextureDef
 	GENERATED_BODY()
 
 public:
+	FTextureSetProcessedTextureDef() : FTextureSetProcessedTextureDef(0, false) {}
 
-	UPROPERTY(VisibleAnywhere)
-	bool SRGB; // Used for correct packing and sampling
+	FTextureSetProcessedTextureDef(int ChannelCount, bool SRGB)
+		: ChannelCount(ChannelCount)
+		, SRGB(SRGB)
+	{}
 
 	UPROPERTY(VisibleAnywhere)
 	uint8 ChannelCount; // between 1 and 4
+
+	UPROPERTY(VisibleAnywhere)
+	bool SRGB; // Used for correct packing and sampling
 };
 
 inline uint32 GetTypeHash(const FTextureSetProcessedTextureDef& Def)
@@ -34,6 +40,13 @@ struct FTextureSetSourceTextureDef : public FTextureSetProcessedTextureDef
 	GENERATED_BODY()
 
 public:
+	FTextureSetSourceTextureDef() : FTextureSetSourceTextureDef(0, false, FVector4::Zero()) {}
+
+	FTextureSetSourceTextureDef(int ChannelCount, bool SRGB, FVector4 DefaultValue)
+		: Super(ChannelCount, SRGB)
+		, DefaultValue(DefaultValue)
+	{}
+
 	UPROPERTY(VisibleAnywhere)
 	FVector4 DefaultValue; // Used as a fallback if this map is not provided
 };
@@ -81,6 +94,11 @@ struct FTextureSetPackedChannelInfo
 	GENERATED_BODY()
 
 public:
+	FTextureSetPackedChannelInfo()
+		: ProessedTextureChannel(0)
+		, ChannelEncoding(ETextureSetTextureChannelEncoding::Linear_Raw)
+	{}
+
 	UPROPERTY(VisibleAnywhere)
 	FName ProcessedTexture;
 
@@ -97,6 +115,11 @@ struct FTextureSetPackedTextureInfo
 	GENERATED_BODY()
 
 public:
+	FTextureSetPackedTextureInfo()
+		: ChannelCount(0)
+		, HardwareSRGB(false)
+	{}
+
 	UPROPERTY(VisibleAnywhere)
 	FTextureSetPackedChannelInfo ChannelInfo[4];
 

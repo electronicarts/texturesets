@@ -13,6 +13,14 @@ struct TEXTURESETS_API FTextureSetPackedTextureDef
 {
 	GENERATED_BODY()
 public:
+	FTextureSetPackedTextureDef()
+		: SkipMip(0)
+		, NumStreamedMips(-1)
+		, Filter(ETextureSamplerFilter::AnisotropicLinear)
+		, bDoRangeCompression(false)
+		, bHardwareSRGB(false)
+	{}
+
 	// Texture Format
 	UPROPERTY(EditAnywhere)
 	TEnumAsByte<TextureCompressionSettings> CompressionSettings; // Not implemented
