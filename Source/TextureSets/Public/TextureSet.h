@@ -16,15 +16,6 @@
 class UTexture;
 class UTextureSetDefinition;
 
-class FSharedImage : public FImage, public FRefCountBase
-{
-public:
-	FSharedImage(int32 InSizeX, int32 InSizeY, int32 InNumSlices, ERawImageFormat::Type InFormat, EGammaSpace InGammaSpace)
-		: FImage(InSizeX, InSizeY, InNumSlices, InFormat, InGammaSpace)
-	{
-	}
-};
-
 UCLASS(BlueprintType, hidecategories = (Object))
 class TEXTURESETS_API UTextureSet : public UObject, public ICustomMaterialParameterInterface
 {
