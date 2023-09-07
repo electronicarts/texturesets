@@ -28,7 +28,6 @@ public class TextureSets : ModuleRules
 				"Core",
 				// ... add other public dependencies that you statically link with here ...
 				"Engine",
-				"RHI",
 				"ImageCore",
 			}
 			);
