@@ -11,11 +11,12 @@
 #include "DerivedDataPluginInterface.h"
 
 class UTextureSet;
+class TextureSetCooker;
 
 class TextureSetDerivedDataPlugin : public FDerivedDataPluginInterface
 {
 public:
-	TextureSetDerivedDataPlugin(TSharedRef<class TextureSetCooker> CookerRef);
+	TextureSetDerivedDataPlugin(TextureSetCooker* Cooker);
 
 	// FDerivedDataPluginInterface
 	virtual const TCHAR* GetPluginName() const override;
@@ -27,12 +28,31 @@ public:
 	virtual bool Build(TArray<uint8>& OutData) override;
 
 private:
-	TSharedRef<class TextureSetCooker> Cooker;
+	TextureSetCooker* Cooker;
+};
+
+class FTextureSetCookerTaskWorker : public FNonAbandonableTask
+{
+public:
+	FTextureSetCookerTaskWorker (TextureSetCooker* Cooker)
+		: Cooker(Cooker)
+	{}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FTextureSetCookerTaskWorker, STATGROUP_ThreadPoolAsyncTasks);
+	}
+
+	void DoWork();
+
+private:
+	TextureSetCooker* Cooker;
 };
 
 class TextureSetCooker
 {
 	friend class TextureSetDerivedDataPlugin;
+	friend class FTextureSetCookerTaskWorker;
 public:
 
 	TextureSetCooker(UTextureSet* TS);
@@ -40,14 +60,14 @@ public:
 	bool IsOutOfDate() const;
 	bool IsOutOfDate(int PackedTextureIndex) const;
 
-	void Build() const;
-	// Called for each packed texture of a texture set, can execute in parallel.
-	void BuildTextureData(int Index) const;
+	void Execute();
+	void ExecuteAsync();
 
-	void UpdateTexture(int Index) const;
+	bool IsAsyncJobInProgress();
+	bool TryCancel();
+	//EQueuedWorkPriority GetPriority() const { unimplemented(); return EQueuedWorkPriority::Normal; }
 
 private:
-
 	UTextureSet* TextureSet;
 
 	FTextureSetProcessingContext Context;
@@ -58,5 +78,15 @@ private:
 
 	FGuid TextureSetDataId;
 	TArray<FGuid> PackedTextureIds;
+
+	TUniquePtr<FAsyncTask<FTextureSetCookerTaskWorker>> AsyncTask;
+
+	void ExecuteInternal();
+
+	void Build() const;
+	// Called for each packed texture of a texture set, can execute in parallel.
+	void BuildTextureData(int Index) const;
+
+	void UpdateTexture(int Index) const;
 };
 #endif

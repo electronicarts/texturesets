@@ -14,9 +14,9 @@
 #include "ImageUtils.h"
 #include "Misc/ScopedSlowTask.h"
 #include "ProfilingDebugging/CookStats.h"
-#include "DerivedDataCacheInterface.h"
 #include "Misc/DataValidation.h"
 #include "DerivedDataBuildVersion.h"
+#include "TextureSetCompilingManager.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "TextureSets"
@@ -25,29 +25,40 @@ UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 #if WITH_EDITOR
+	bIsDerivedDataReady = false;
+
 	OnTextureSetDefinitionChangedHandle = UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent.AddUObject(this, &UTextureSet::OnDefinitionChanged);
 #endif
 }
 
 #if WITH_EDITOR
-EDataValidationResult UTextureSet::IsDataValid(FDataValidationContext& Context)
+bool UTextureSet::IsCompiling() const
 {
-	EDataValidationResult Result = EDataValidationResult::Valid;
-
-	if (!IsValid(Definition))
-	{
-		Context.AddError(LOCTEXT("MissingDefinition","A texture set must reference a valid definition."));
-		Result = EDataValidationResult::Invalid;
-	}
-
-	return CombineDataValidationResults(Result, Super::IsDataValid(Context));
+	return ActiveCooker.IsValid() && !bIsDerivedDataReady;
 }
 #endif
 
 void UTextureSet::AugmentMaterialParameters(const FCustomParameterValue& CustomParameter, TArray<FVectorParameterValue>& VectorParameters, TArray<FTextureParameterValue>& TextureParameters) const
 {
+	if (!IsValid(Definition))
+		return;
+
+	const UTextureSet* TS = this;
+
+#if WITH_EDITOR
+	if (!bIsDerivedDataReady)
+	{
+		checkf(IsValid(Definition->GetDefaultTextureSet()), TEXT("Definition has no default texture set"));
+		checkf(Definition->GetDefaultTextureSet() != this, TEXT("Attempting to use default texture set before derived data is ready"));
+		checkf(Definition->GetDefaultTextureSet()->bIsDerivedDataReady, TEXT("Attempting to use default texture set before derived data is ready"));
+
+		// Fall back to using the definition's default texture set if our derived data isn't ready yet
+		TS = bIsDerivedDataReady ? this : Definition->GetDefaultTextureSet();
+	}
+#endif
+
 	// Set any constant parameters what we have
-	for (auto& [ParameterName, Value] : DerivedData->MaterialParameters)
+	for (auto& [ParameterName, Value] : TS->DerivedData->MaterialParameters)
 	{
 		FVectorParameterValue Parameter;
 		Parameter.ParameterValue = FLinearColor(Value);
@@ -57,13 +68,13 @@ void UTextureSet::AugmentMaterialParameters(const FCustomParameterValue& CustomP
 		VectorParameters.Add(Parameter);
 	}
 
-	for (int i = 0; i < DerivedData->PackedTextureData.Num(); i++)
+	for (int i = 0; i < TS->DerivedData->PackedTextureData.Num(); i++)
 	{
-		const FPackedTextureData& PackedTextureData = DerivedData->PackedTextureData[i];
+		const FPackedTextureData& PackedTextureData = TS->DerivedData->PackedTextureData[i];
 
 		// Set the texture parameter for each packed texture
 		FTextureParameterValue TextureParameter;
-		TextureParameter.ParameterValue = DerivedTextures[i].Get();
+		TextureParameter.ParameterValue = TS->DerivedTextures[i].Get();
 		TextureParameter.ParameterInfo.Name = UMaterialExpressionTextureSetSampleParameter::MakeTextureParameterName(CustomParameter.ParameterInfo.Name, i);
 		TextureParameter.ParameterInfo.Association = CustomParameter.ParameterInfo.Association;
 		TextureParameter.ParameterInfo.Index = CustomParameter.ParameterInfo.Index;
@@ -111,6 +122,21 @@ void UTextureSet::BeginDestroy()
 }
 
 #if WITH_EDITOR
+EDataValidationResult UTextureSet::IsDataValid(FDataValidationContext& Context)
+{
+	EDataValidationResult Result = EDataValidationResult::Valid;
+
+	if (!IsValid(Definition))
+	{
+		Context.AddError(LOCTEXT("MissingDefinition","A texture set must reference a valid definition."));
+		Result = EDataValidationResult::Invalid;
+	}
+
+	return CombineDataValidationResults(Result, Super::IsDataValid(Context));
+}
+#endif
+
+#if WITH_EDITOR
 void UTextureSet::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 {
 	if (IsValid(Definition))
@@ -133,17 +159,6 @@ void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 		&& PropertyChangedEvent.ChangeType == EPropertyChangeType::ValueSet)
 	{
 		OnDefinitionChanged(Definition);
-	}
-}
-#endif
-
-#if WITH_EDITOR
-void UTextureSet::OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition)
-{
-	if (ChangedDefinition == Definition)
-	{
-		FixupData();
-		UpdateDerivedData();
 	}
 }
 #endif
@@ -239,7 +254,8 @@ void UTextureSet::FixupData()
 		{
 			if (!ExistingAssetParamClasses.Contains(SampleParamClass))
 			{
-				AssetParams.Add(NewObject<UTextureSetAssetParams>(this, SampleParamClass));
+				FName AssetParamsName = MakeUniqueObjectName(this, SampleParamClass, SampleParamClass->GetFName());
+				AssetParams.Add(NewObject<UTextureSetAssetParams>(this, SampleParamClass, AssetParamsName, RF_NoFlags));
 			}
 		}
 	}
@@ -249,6 +265,8 @@ void UTextureSet::FixupData()
 #if WITH_EDITOR
 void UTextureSet::UpdateDerivedData()
 {
+	bIsDerivedDataReady = false;
+
 	if (!IsValid(Definition))
 	{
 		// If we have no definition, clear our derived data
@@ -257,12 +275,15 @@ void UTextureSet::UpdateDerivedData()
 		return;
 	}
 
+	check(IsValid(Definition));
+	check(!ActiveCooker.IsValid());
+
 	// Garbage collection will destroy the unused cooked textures when all references from material instance are removed
 	DerivedTextures.SetNum(Definition->GetPackingInfo().NumPackedTextures());
 
 	for (int t = 0; t < DerivedTextures.Num(); t++)
 	{
-		FName TextureName = FName(GetName() + "_CookedTexture_" + FString::FromInt(t));
+		FName TextureName = FName(GetName() + "_DerivedTexture_" + FString::FromInt(t));
 
 		if (!IsValid(DerivedTextures[t]))
 		{
@@ -277,9 +298,15 @@ void UTextureSet::UpdateDerivedData()
 				DerivedTextures[t] = NewObject<UTexture2D>(this, TextureName, RF_Public);
 			}
 		}
+		
+		// Usually happens if the outer texture set is renamed
+		if (DerivedTextures[t]->GetFName() != TextureName)
+		{
+			DerivedTextures[t]->Rename(*TextureName.ToString());
+		}
 
-		check(DerivedTextures[t]->IsInOuter(this));
 		check(DerivedTextures[t]->GetFName() == TextureName);
+		check(DerivedTextures[t]->IsInOuter(this));
 	}
 
 	// Create a new derived data if ours is missing
@@ -289,60 +316,122 @@ void UTextureSet::UpdateDerivedData()
 		DerivedData = NewObject<UTextureSetDerivedData>(this, DerivedDataName, RF_NoFlags);
 	}
 
-	TSharedRef<TextureSetCooker> Cooker = MakeShared<TextureSetCooker>(this);
+	bool bCookRequired = false;
 
-	bool bDataWasBuilt = false;
+	if (ComputeTextureSetDataId() != DerivedData->Id)
+		bCookRequired = true;
 
-	// Fetch or build derived data for the texture set
-	FGuid NewID = ComputeTextureSetDataId();
-	if (NewID != DerivedData->Id)
+	for (int t = 0; !bCookRequired && t < DerivedTextures.Num(); t++)
 	{
-		Modify();
+		if (!DerivedTextures[t]->PlatformDataExistsInCache())
+			bCookRequired = true;
+	}
 
-		// Keys to current derived data don't match
-		// Retreive derived data from the DDC, or cook new data
-		TArray<uint8> Data;
-		FDerivedDataCacheInterface& DDC = GetDerivedDataCacheRef();
-		//COOK_STAT(auto Timer = NavCollisionCookStats::UsageStats.TimeSyncWork());
-		if (DDC.GetSynchronous(new TextureSetDerivedDataPlugin(Cooker), Data, &bDataWasBuilt))
+	if (!bCookRequired)
+	{
+		bIsDerivedDataReady = true;
+	}
+	else
+	{
+		ActiveCooker = MakeShared<TextureSetCooker>(this);
+
+		if (FTextureSetCompilingManager::Get().IsAsyncCompilationAllowed(this))
 		{
-			//COOK_STAT(Timer.AddHitOrMiss(bDataWasBuilt ? FCookStats::CallStats::EHitOrMiss::Miss : FCookStats::CallStats::EHitOrMiss::Hit, OutData.Num()));
-			if (bDataWasBuilt)
+			// Will swap out material instances with default values until cooking has finished
+			NotifyMaterialInstances();
+
+			FTextureSetCompilingManager::Get().AddTextureSets({this});
+			ActiveCooker->ExecuteAsync();
+		}
+		else
+		{
+			ActiveCooker->Execute();
+			OnFinishCook();
+		}
+	}
+}
+#endif
+
+#if WITH_EDITOR
+bool UTextureSet::IsAsyncCookComplete() const
+{
+	if (ActiveCooker.IsValid())
+	{
+		if (ActiveCooker->IsAsyncJobInProgress())
+			return false;
+		else
+			return true;
+	}
+
+	return false;
+}
+#endif
+
+#if WITH_EDITOR
+bool UTextureSet::TryCancelCook()
+{
+	if (ActiveCooker.IsValid() && ActiveCooker->TryCancel())
+	{
+		ActiveCooker = nullptr;
+		return true;
+	}
+
+	return false;
+}
+#endif
+
+#if WITH_EDITOR
+void UTextureSet::NotifyMaterialInstances()
+{
+	for (TObjectIterator<UMaterialInstance> It; It; ++It)
+	{
+		for (FCustomParameterValue& Param : It->CustomParameterValues)
+		{
+			if (Param.ParameterValue == this)
 			{
-				// If data was built, the cooker has already configured our derived data for us.
-				// Update the texture resource so we see it reflected in the editor right away
-				for (int t = 0; t < DerivedTextures.Num(); t++)
-				{
-					DerivedTextures[t]->UpdateResource();
-				}
-			}
-			else
-			{
-				// If data was retreived from the cache, de-serialized it.
-				FMemoryReader MemoryReaderDerivedData(Data);
-				DerivedData->Serialize(MemoryReaderDerivedData);
+				FPropertyChangedEvent Event(nullptr);
+				It->PostEditChangeProperty(Event);
+				break;
 			}
 		}
 	}
+}
+#endif
 
-	// Ensure our textures are up to date
-	if (!bDataWasBuilt)
+#if WITH_EDITOR
+void UTextureSet::OnFinishCook()
+{
+	check(IsValid(Definition));
+
+	// TODO: Make sure this doesn't get called multiple times
+	//check(ActiveCooker.IsValid());
+	if (!ActiveCooker.IsValid())
+		return;
+
+	check(!ActiveCooker->IsAsyncJobInProgress());
+
+	for (int t = 0; t < DerivedTextures.Num(); t++)
 	{
-		for (int t = 0; t < DerivedTextures.Num(); t++)
-		{
-			Cooker->UpdateTexture(t);
-
-			// This can happen if a texture build gets interrupted after a texture-set cook.
-			if (!DerivedTextures[t]->PlatformDataExistsInCache())
-			{
-				// Build this texture to regenerate the source data, so it can be cached.
-				Cooker->BuildTextureData(t);
-			}
-			DerivedTextures[t]->UpdateResource();
-		}
+		DerivedTextures[t]->UpdateResource();
+		DerivedTextures[t]->UpdateCachedLODBias();
 	}
 
-	// TODO: Trigger an update of the material instances
+	ActiveCooker = nullptr;
+	bIsDerivedDataReady = true;
+
+	// Update loaded material instances that use this texture set
+	NotifyMaterialInstances();
+}
+#endif
+
+#if WITH_EDITOR
+void UTextureSet::OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition)
+{
+	if (ChangedDefinition == Definition)
+	{
+		FixupData();
+		UpdateDerivedData();
+	}
 }
 #endif
 

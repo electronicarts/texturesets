@@ -10,6 +10,7 @@
 #include "TextureSetCooker.h"
 #include "TextureSetDerivedData.h"
 #include "Materials/MaterialInstance.h"
+#include "Interfaces/Interface_AsyncCompilation.h"
 
 #include "TextureSet.generated.h"
 
@@ -17,11 +18,12 @@ class UTexture;
 class UTextureSetDefinition;
 
 UCLASS(BlueprintType, hidecategories = (Object))
-class TEXTURESETS_API UTextureSet : public UObject, public ICustomMaterialParameterInterface
+class TEXTURESETS_API UTextureSet : public UObject, public ICustomMaterialParameterInterface, public IInterface_AsyncCompilation
 {
 	GENERATED_UCLASS_BODY()
 
 	friend class TextureSetCooker;
+	friend class FTextureSetCompilingManager;
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TObjectPtr<UTextureSetDefinition> Definition;
@@ -49,8 +51,9 @@ public:
 	}
 #endif
 
+	// IInterface_AsyncCompilation Interface
 #if WITH_EDITOR
-	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) override;
+	virtual bool IsCompiling() const override;
 #endif
 
 	// ICustomMaterialParameterInterface
@@ -61,6 +64,7 @@ public:
 	virtual void PostLoad() override;
 	virtual void BeginDestroy() override;
 #if WITH_EDITOR
+	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
@@ -74,9 +78,13 @@ public:
 
 	void FixupData();
 	void UpdateDerivedData();
+
+	bool IsAsyncCookComplete() const;
+
+	bool TryCancelCook();
 #endif
-	UTextureSetDerivedData* GetDerivedData() { return DerivedData.Get(); }
-	UTexture* GetDerivedTexture(int Index) { return DerivedTextures[Index].Get(); }
+	UTextureSetDerivedData* GetDerivedData() const { return DerivedData.Get(); }
+	UTexture* GetDerivedTexture(int Index) const { return DerivedTextures[Index].Get(); }
 
 	// For debugging, allow the user to manually change a value that doesn't affect the logic,
 	// but is hashed. Forces a regeneration of the data when a new unique value is entered.
@@ -84,6 +92,13 @@ public:
 	FString UserKey;
 
 private:
+#if WITH_EDITOR
+	bool bIsDerivedDataReady;
+#endif
+
+#if WITH_EDITOR
+	TSharedPtr<TextureSetCooker> ActiveCooker;
+#endif
 
 	UPROPERTY(VisibleAnywhere, Category="Debug")
 	TObjectPtr<UTextureSetDerivedData> DerivedData;
@@ -93,5 +108,10 @@ private:
 
 	FDelegateHandle OnTextureSetDefinitionChangedHandle;
 
+	void NotifyMaterialInstances();
+
+#if WITH_EDITOR
+	void OnFinishCook();
 	void OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition);
+#endif
 };

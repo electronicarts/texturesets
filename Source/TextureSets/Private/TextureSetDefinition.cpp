@@ -234,9 +234,10 @@ TArray<TSubclassOf<UTextureSetSampleParams>> UTextureSetDefinition::GetRequiredS
 	return RequiredTypes;
 }
 
-UTexture* UTextureSetDefinition::GetDefaultPackedTexture(int Index) const
+const UTextureSet* UTextureSetDefinition::GetDefaultTextureSet() const
 {
-	return IsValid(DefaultTextureSet) ? DefaultTextureSet->GetDerivedTexture(Index) : nullptr;
+	check(IsValid(DefaultTextureSet));
+	return DefaultTextureSet;
 }
 
 #if WITH_EDITOR
@@ -378,6 +379,9 @@ void UTextureSetDefinition::ApplyEdits()
 	}
 
 	const uint32 NewHash = ComputeCookingHash();
+
+	// Ensure texture set always has up to date derived data available immediately
+	DefaultTextureSet->UpdateDerivedData();
 
 	if (NewHash != CookingHash)
 	{

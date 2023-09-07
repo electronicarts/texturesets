@@ -3,6 +3,7 @@
 #include "TextureSetMaterialGraphBuilder.h"
 
 #if WITH_EDITOR
+#include "TextureSet.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetModule.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
@@ -29,6 +30,8 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 	UVExpression->InputType = EFunctionInputType::FunctionInput_Vector2;
 	UVExpression->InputName = TEXT("UV");
 
+	const UTextureSet* DefaultTextureSet = Definition->GetDefaultTextureSet();
+
 	// Create Texture Parameters for each packed texture
 	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
 	{
@@ -37,7 +40,7 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 		const FName PackedTextureName = Node->GetTextureParameterName(i);
 
 		TObjectPtr<UMaterialExpressionTextureObjectParameter> TextureObject = CreateExpression<UMaterialExpressionTextureObjectParameter>();
-		UTexture* DefaultTexture = Definition->GetDefaultPackedTexture(i);
+		UTexture* DefaultTexture = DefaultTextureSet->GetDerivedTexture(i);
 		TextureObject->SamplerType = UMaterialExpressionTextureBase::GetSamplerTypeForTexture(DefaultTexture);
 		TextureObject->SamplerSource = ESamplerSourceMode::SSM_Wrap_WorldGroupSettings; // So we don't allocate a sampler
 

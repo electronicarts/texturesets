@@ -11,6 +11,8 @@
 #include "ProcessingNodes/TextureOperatorEnlarge.h"
 #include "TextureSetDerivedData.h"
 #include "DerivedDataBuildVersion.h"
+#include "DerivedDataCacheInterface.h"
+#include "Async/Async.h"
 
 static TAutoConsoleVariable<int32> CVarTextureSetParallelCook(
 	TEXT("r.TextureSet.ParallelCook"),
@@ -25,8 +27,13 @@ int GetPixelIndex(int X, int Y, int Channel, int Width, int Height)
 		+ Channel;
 }
 
-TextureSetDerivedDataPlugin::TextureSetDerivedDataPlugin(TSharedRef<TextureSetCooker> CookerRef)
-	: Cooker(CookerRef)
+void FTextureSetCookerTaskWorker::DoWork()
+{
+	Cooker->ExecuteInternal();
+}
+
+TextureSetDerivedDataPlugin::TextureSetDerivedDataPlugin(TextureSetCooker* CookerPtr)
+	: Cooker(CookerPtr)
 {
 }
 
@@ -80,7 +87,10 @@ TextureSetCooker::TextureSetCooker(UTextureSet* TS)
 	, Graph(FTextureSetProcessingGraph(TS->Definition->GetModules()))
 	, ModuleInfo(TS->Definition->GetModuleInfo())
 	, PackingInfo(TS->Definition->GetPackingInfo())
+	, AsyncTask(nullptr)
 {
+	check(IsValid(TextureSet->Definition));
+
 	TextureSetDataId = TS->ComputeTextureSetDataId();
 
 	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
@@ -98,6 +108,78 @@ bool TextureSetCooker::IsOutOfDate(int PackedTextureIndex) const
 		return true;
 
 	return TextureSet->ComputePackedTextureDataID(PackedTextureIndex) != PackedTextureIds[PackedTextureIndex];
+}
+
+void TextureSetCooker::Execute()
+{
+	check(!IsAsyncJobInProgress());
+
+	ExecuteInternal();
+}
+
+void TextureSetCooker::ExecuteAsync()
+{
+	check(!IsAsyncJobInProgress());
+
+	AsyncTask = MakeUnique<FAsyncTask<FTextureSetCookerTaskWorker>>(this);
+	AsyncTask->StartBackgroundTask();
+}
+
+bool TextureSetCooker::IsAsyncJobInProgress()
+{
+	return AsyncTask.IsValid() && !AsyncTask->IsDone();
+}
+
+bool TextureSetCooker::TryCancel()
+{
+	if (IsAsyncJobInProgress())
+		return AsyncTask->Cancel();
+	else
+		return true;
+}
+
+void TextureSetCooker::ExecuteInternal()
+{
+	check(TextureSet->ActiveCooker.Get() == this);
+
+	bool bDataWasBuilt = false;
+
+	// Fetch or build derived data for the texture set
+	FGuid NewID = TextureSet->ComputeTextureSetDataId();
+	if (NewID != TextureSet->DerivedData->Id)
+	{
+		// Keys to current derived data don't match
+		// Retreive derived data from the DDC, or cook new data
+		TArray<uint8> Data;
+		FDerivedDataCacheInterface& DDC = GetDerivedDataCacheRef();
+		//COOK_STAT(auto Timer = NavCollisionCookStats::UsageStats.TimeSyncWork());
+		if (DDC.GetSynchronous(new TextureSetDerivedDataPlugin(this), Data, &bDataWasBuilt))
+		{
+			//COOK_STAT(Timer.AddHitOrMiss(bDataWasBuilt ? FCookStats::CallStats::EHitOrMiss::Miss : FCookStats::CallStats::EHitOrMiss::Hit, OutData.Num()));
+			if (!bDataWasBuilt)
+			{
+				// If data was not built, it was retreived from the cache; de-serialized it.
+				FMemoryReader MemoryReaderDerivedData(Data);
+				TextureSet->DerivedData->Serialize(MemoryReaderDerivedData);
+			}
+		}
+	}
+
+	// Ensure our textures are up to date
+	if (!bDataWasBuilt)
+	{
+		for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
+		{
+			UpdateTexture(t);
+
+			// This can happen if a texture build gets interrupted after a texture-set cook.
+			if (!TextureSet->DerivedTextures[t]->PlatformDataExistsInCache())
+			{
+				// Build this texture to regenerate the source data, so it can be cached.
+				BuildTextureData(t);
+			}
+		}
+	}
 }
 
 void TextureSetCooker::Build() const
