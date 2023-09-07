@@ -11,6 +11,8 @@
 #include "Materials/MaterialExpressionTextureSampleParameter2D.h"
 #if WITH_EDITOR
 #include "Misc/DataValidation.h"
+#include "MaterialEditingLibrary.h"
+#include "Editor.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "TextureSets"
@@ -231,7 +233,10 @@ void UMaterialExpressionTextureSetSampleParameter::OnDefinitionChanged(UTextureS
 {
 	if (ChangedDefinition == Definition)
 	{
-		UpdateMaterialFunction();
+		if (UpdateMaterialFunction())
+		{
+			UMaterialEditingLibrary::RecompileMaterial(Material);
+		}
 	}
 }
 #endif
