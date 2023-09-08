@@ -117,12 +117,12 @@ void TextureSetCooker::Execute()
 	ExecuteInternal();
 }
 
-void TextureSetCooker::ExecuteAsync()
+void TextureSetCooker::ExecuteAsync(FQueuedThreadPool* InQueuedPool, EQueuedWorkPriority InQueuedWorkPriority)
 {
 	check(!IsAsyncJobInProgress());
 
 	AsyncTask = MakeUnique<FAsyncTask<FTextureSetCookerTaskWorker>>(this);
-	AsyncTask->StartBackgroundTask();
+	AsyncTask->StartBackgroundTask(InQueuedPool, InQueuedWorkPriority);
 }
 
 bool TextureSetCooker::IsAsyncJobInProgress()

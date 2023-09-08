@@ -68,29 +68,6 @@ FName FTextureSetCompilingManager::GetStaticAssetTypeName()
 	return TEXT("UE-TextureSet");
 }
 
-
-bool FTextureSetCompilingManager::IsCompilingTextureSet(UTextureSet* InTextureSet) const
-{
-	check(IsInGameThread());
-
-	if (!InTextureSet)
-	{
-		return false;
-	}
-
-	const TWeakObjectPtr<UTextureSet> InWeakTextureSetPtr = InTextureSet;
-	uint32 Hash = GetTypeHash(InWeakTextureSetPtr);
-	for (const TSet<TWeakObjectPtr<UTextureSet>>& Bucket : RegisteredTextureSetBuckets)
-	{
-		if (Bucket.ContainsByHash(Hash, InWeakTextureSetPtr))
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
 FName FTextureSetCompilingManager::GetAssetTypeName() const
 {
 	return GetStaticAssetTypeName();
@@ -130,23 +107,20 @@ FQueuedThreadPool* FTextureSetCompilingManager::GetThreadPool() const
 void FTextureSetCompilingManager::Shutdown()
 {
 	bHasShutdown = true;
-	if (GetNumRemainingTextureSets())
+	if (RegisteredTextureSets.Num() > 0)
 	{
 		TArray<UTextureSet*> PendingTextureSets;
-		PendingTextureSets.Reserve(GetNumRemainingTextureSets());
+		PendingTextureSets.Reserve(RegisteredTextureSets.Num());
 
-		for (TSet<TWeakObjectPtr<UTextureSet>>& Bucket : RegisteredTextureSetBuckets)
+		for (TWeakObjectPtr<UTextureSet>& WeakTexture : RegisteredTextureSets)
 		{
-			for (TWeakObjectPtr<UTextureSet>& WeakTexture : Bucket)
+			if (WeakTexture.IsValid())
 			{
-				if (WeakTexture.IsValid())
-				{
-					UTextureSet* TextureSet = WeakTexture.Get();
+				UTextureSet* TextureSet = WeakTexture.Get();
 
-					if (!TextureSet->TryCancelCook())
-					{
-						PendingTextureSets.Add(TextureSet);
-					}
+				if (!TextureSet->TryCancelCook())
+				{
+					PendingTextureSets.Add(TextureSet);
 				}
 			}
 		}
@@ -167,8 +141,8 @@ bool FTextureSetCompilingManager::IsAsyncTextureSetCompilationEnabled() const
 TRACE_DECLARE_INT_COUNTER(QueuedTextureSetCompilation, TEXT("AsyncCompilation/QueuedTextureSets"));
 void FTextureSetCompilingManager::UpdateCompilationNotification()
 {
-	TRACE_COUNTER_SET(QueuedTextureSetCompilation, GetNumRemainingTextureSets());
-	Notification.Update(GetNumRemainingTextureSets());
+	TRACE_COUNTER_SET(QueuedTextureSetCompilation, GetNumRemainingAssets());
+	Notification.Update(GetNumRemainingAssets());
 }
 
 bool FTextureSetCompilingManager::IsAsyncCompilationAllowed(UTextureSet* TextureSet) const
@@ -187,39 +161,26 @@ FTextureSetCompilingManager& FTextureSetCompilingManager::Get()
 	return Singleton;
 }
 
-int32 FTextureSetCompilingManager::GetNumRemainingTextureSets() const
-{
-	int32 Num = 0;
-	for (const TSet<TWeakObjectPtr<UTextureSet>>& Bucket : RegisteredTextureSetBuckets)
-	{
-		Num += Bucket.Num();
-	}
-
-	return Num;
-}
-
 int32 FTextureSetCompilingManager::GetNumRemainingAssets() const
 {
-	return GetNumRemainingTextureSets();
+	return RegisteredTextureSets.Num();
 }
 
-void FTextureSetCompilingManager::AddTextureSets(TArrayView<UTextureSet* const> InTextureSets)
+void FTextureSetCompilingManager::StartCompilation(TArrayView<UTextureSet* const> InTextureSets)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(FTextureSetCompilingManager::AddTextures)
 	check(IsInGameThread());
 
 	for (UTextureSet* TextureSet : InTextureSets)
 	{
-		int32 TexturePriority = 0;
+		check(TextureSet->ActiveCooker.IsValid());
+		check(!TextureSet->ActiveCooker->IsAsyncJobInProgress());
 
-		if (RegisteredTextureSetBuckets.Num() <= TexturePriority)
-		{
-			RegisteredTextureSetBuckets.SetNum(TexturePriority + 1);
-		}
-		RegisteredTextureSetBuckets[TexturePriority].Emplace(TextureSet);
+		RegisteredTextureSets.Emplace(TextureSet);
+		TextureSet->ActiveCooker->ExecuteAsync();
 	}
 
-	TRACE_COUNTER_SET(QueuedTextureSetCompilation, GetNumRemainingTextureSets());
+	TRACE_COUNTER_SET(QueuedTextureSetCompilation, GetNumRemainingAssets());
 }
 
 void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* const> InTextureSets)
@@ -234,12 +195,9 @@ void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* cons
 	int32 TextureIndex = 0;
 	for (UTextureSet* TextureSet : InTextureSets)
 	{
-		for (TSet<TWeakObjectPtr<UTextureSet>>& Bucket : RegisteredTextureSetBuckets)
+		if (RegisteredTextureSets.Contains(TextureSet))
 		{
-			if (Bucket.Contains(TextureSet))
-			{
-				PendingTextureSets.Add(TextureSet);
-			}
+			PendingTextureSets.Add(TextureSet);
 		}
 	}
 
@@ -253,14 +211,26 @@ void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* cons
 			{
 			}
 
+			FAsyncTaskBase* GetAsyncTask()
+			{
+				if (TextureSet->ActiveCooker.IsValid())
+					return TextureSet->ActiveCooker->GetAsyncTask();
+				else
+					return nullptr;
+			}
+
 			void Reschedule(FQueuedThreadPool* InThreadPool, EQueuedWorkPriority InPriority) final
 			{
-
+				if (FAsyncTaskBase* AsyncTask = GetAsyncTask())
+					AsyncTask->SetPriority(InPriority);
 			}
 
 			bool WaitCompletionWithTimeout(float TimeLimitSeconds) final
 			{
-				return false;
+				if (FAsyncTaskBase* AsyncTask = GetAsyncTask())
+					return AsyncTask->WaitCompletionWithTimeout(TimeLimitSeconds);
+				else
+					return true;
 			}
 
 			FName GetName() override { return TextureSet->GetOutermost()->GetFName(); }
@@ -268,8 +238,7 @@ void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* cons
 			TStrongObjectPtr<UTextureSet> TextureSet;
 		};
 
-		TArray<UTextureSet*> UniqueTextures(PendingTextureSets.Array());
-		TArray<FCompilableTextureSet> CompilableTextures(UniqueTextures);
+		TArray<FCompilableTextureSet> CompilableTextures(PendingTextureSets.Array());
 
 		using namespace AsyncCompilationHelpers;
 		FObjectCacheContextScope ObjectCacheScope;
@@ -282,15 +251,9 @@ void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* cons
 			{
 				UTextureSet* TextureSet = static_cast<FCompilableTextureSet*>(Object)->TextureSet.Get();
 				PostCompilation(TextureSet);
-
-				for (TSet<TWeakObjectPtr<UTextureSet>>& Bucket : RegisteredTextureSetBuckets)
-				{
-					Bucket.Remove(TextureSet);
-				}
+				RegisteredTextureSets.Remove(TextureSet);
 			}
 		);
-
-		PostCompilation(UniqueTextures);
 	}
 }
 
@@ -304,14 +267,6 @@ void FTextureSetCompilingManager::PostCompilation(UTextureSet* TextureSet)
 	UE_LOG(LogTexture, Verbose, TEXT("Texture set %s is ready"), *TextureSet->GetName());
 }
 
-void FTextureSetCompilingManager::PostCompilation(TArrayView<UTextureSet* const> InCompiledTextures)
-{
-	for (UTextureSet* TextureSet : InCompiledTextures)
-	{
-		PostCompilation(TextureSet);
-	}
-}
-
 void FTextureSetCompilingManager::FinishAllCompilation()
 {
 	UE_SCOPED_ENGINE_ACTIVITY(TEXT("Finish TextureSet Compilation"));
@@ -319,19 +274,16 @@ void FTextureSetCompilingManager::FinishAllCompilation()
 	check(IsInGameThread());
 	TRACE_CPUPROFILER_EVENT_SCOPE(FTextureSetCompilingManager::FinishAllCompilation)
 
-	if (GetNumRemainingTextureSets())
+	if (RegisteredTextureSets.Num() > 0)
 	{
 		TArray<UTextureSet*> PendingTextureSets;
-		PendingTextureSets.Reserve(GetNumRemainingTextureSets());
+		PendingTextureSets.Reserve(RegisteredTextureSets.Num());
 
-		for (TSet<TWeakObjectPtr<UTextureSet>>& Bucket : RegisteredTextureSetBuckets)
+		for (TWeakObjectPtr<UTextureSet>& TextureSet : RegisteredTextureSets)
 		{
-			for (TWeakObjectPtr<UTextureSet>& TextureSet : Bucket)
+			if (TextureSet.IsValid())
 			{
-				if (TextureSet.IsValid())
-				{
-					PendingTextureSets.Add(TextureSet.Get());
-				}
+				PendingTextureSets.Add(TextureSet.Get());
 			}
 		}
 
@@ -339,18 +291,13 @@ void FTextureSetCompilingManager::FinishAllCompilation()
 	}
 }
 
-bool FTextureSetCompilingManager::RequestPriorityChange(UTextureSet* InTexture, EQueuedWorkPriority InPriority)
-{
-	return false;
-}
-
-void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime, int32 MaximumPriority)
+void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 {
 	using namespace TextureSetCompilingManagerImpl;
 	TRACE_CPUPROFILER_EVENT_SCOPE(FTextureSetCompilingManager::ProcessTextures);
 	const double MaxSecondsPerFrame = 0.016;
 
-	if (GetNumRemainingTextureSets())
+	if (RegisteredTextureSets.Num() > 0)
 	{
 		FObjectCacheContextScope ObjectCacheScope;
 		TArray<UTextureSet*> ProcessedTextures;
@@ -359,42 +306,28 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime, i
 
 			double TickStartTime = FPlatformTime::Seconds();
 
-			if (MaximumPriority == -1 || MaximumPriority > RegisteredTextureSetBuckets.Num())
+			TSet<TWeakObjectPtr<UTextureSet>> TextureSetsToPostpone;
+			for (TWeakObjectPtr<UTextureSet>& TextureSet : RegisteredTextureSets)
 			{
-				MaximumPriority = RegisteredTextureSetBuckets.Num();
-			}
-
-			for (int32 PriorityIndex = 0; PriorityIndex < MaximumPriority; ++PriorityIndex)
-			{
-				TSet<TWeakObjectPtr<UTextureSet>>& TextureSetsToProcess = RegisteredTextureSetBuckets[PriorityIndex];
-				if (TextureSetsToProcess.Num())
+				if (TextureSet.IsValid())
 				{
-					const bool bIsHighestPrio = PriorityIndex == 0;
+					// Ensures we don't stall the editor if too many texture sets finish at the same time
+					const bool bHasTimeLeft = bLimitExecutionTime ? ((FPlatformTime::Seconds() - TickStartTime) < MaxSecondsPerFrame) : true;
 
-					TSet<TWeakObjectPtr<UTextureSet>> TextureSetsToPostpone;
-					for (TWeakObjectPtr<UTextureSet>& TextureSet : TextureSetsToProcess)
+					if (bHasTimeLeft && TextureSet->IsAsyncCookComplete())
 					{
-						if (TextureSet.IsValid())
-						{
-							const bool bHasTimeLeft = bLimitExecutionTime ? ((FPlatformTime::Seconds() - TickStartTime) < MaxSecondsPerFrame) : true;
-							if ((bIsHighestPrio || bHasTimeLeft) && TextureSet->IsAsyncCookComplete())
-							{
-								PostCompilation(TextureSet.Get());
-								ProcessedTextures.Add(TextureSet.Get());
-							}
-							else
-							{
-								TextureSetsToPostpone.Emplace(MoveTemp(TextureSet));
-							}
-						}
+						PostCompilation(TextureSet.Get());
+						ProcessedTextures.Add(TextureSet.Get());
 					}
-
-					RegisteredTextureSetBuckets[PriorityIndex] = MoveTemp(TextureSetsToPostpone);
+					else
+					{
+						TextureSetsToPostpone.Emplace(MoveTemp(TextureSet));
+					}
 				}
 			}
-		}
 
-		PostCompilation(ProcessedTextures);
+			RegisteredTextureSets = MoveTemp(TextureSetsToPostpone);
+		}
 	}
 }
 

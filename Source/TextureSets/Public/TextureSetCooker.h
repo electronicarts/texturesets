@@ -61,11 +61,12 @@ public:
 	bool IsOutOfDate(int PackedTextureIndex) const;
 
 	void Execute();
-	void ExecuteAsync();
+	void ExecuteAsync(FQueuedThreadPool* InQueuedPool = GThreadPool, EQueuedWorkPriority InQueuedWorkPriority = EQueuedWorkPriority::Normal);
 
 	bool IsAsyncJobInProgress();
 	bool TryCancel();
-	//EQueuedWorkPriority GetPriority() const { unimplemented(); return EQueuedWorkPriority::Normal; }
+
+	FAsyncTaskBase* GetAsyncTask() { return AsyncTask.Get(); }
 
 private:
 	UTextureSet* TextureSet;

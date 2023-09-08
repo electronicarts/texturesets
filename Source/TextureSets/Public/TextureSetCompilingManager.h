@@ -27,14 +27,9 @@ public:
 	bool IsAsyncTextureSetCompilationEnabled() const;
 
 	/** 
-	* Returns the number of outstanding texture compilations.
+	* Adds textures compiled asynchronously
 	*/
-	int32 GetNumRemainingTextureSets() const;
-
-	/** 
-	* Adds textures compiled asynchronously so they are monitored. 
-	*/
-	void AddTextureSets(TArrayView<UTextureSet* const> InTextures);
+	void StartCompilation(TArrayView<UTextureSet* const> InTextures);
 
 	/** 
 	* Blocks until completion of the requested textures.
@@ -52,11 +47,6 @@ public:
 	bool IsAsyncCompilationAllowed(UTextureSet* InTexture) const;
 
 	/**
-	* Request that the texture be processed at the specified priority.
-	*/
-	bool RequestPriorityChange(UTextureSet* InTexture, EQueuedWorkPriority Priority);
-
-	/**
 	* Returns the threadpool where texture compilation should be scheduled.
 	*/
 	FQueuedThreadPool* GetThreadPool() const;
@@ -68,9 +58,6 @@ public:
 
 	/** Get the name of the asset type this compiler handles */
 	static FName GetStaticAssetTypeName();
-
-	/** Return true if the texture is currently compiled */
-	bool IsCompilingTextureSet(UTextureSet* InTexture) const;
 
 	FTextureSetPostCompileEvent& OnTextureSetPostCompileEvent() { return TextureSetPostCompileEvent; }
 
@@ -86,15 +73,14 @@ private:
 	int32 GetNumRemainingAssets() const override;
 	void ProcessAsyncTasks(bool bLimitExecutionTime = false) override;
 
-	void ProcessTextureSets(bool bLimitExecutionTime, int32 MaximumPriority = -1);
+	void ProcessTextureSets(bool bLimitExecutionTime);
 	void UpdateCompilationNotification();
 
 	void PostCompilation(UTextureSet* TextureSet);
-	void PostCompilation(TArrayView<UTextureSet* const> InCompiledTextureSets);
 
 	double LastReschedule = 0.0f;
 	bool bHasShutdown = false;
-	TArray<TSet<TWeakObjectPtr<UTextureSet>>> RegisteredTextureSetBuckets;
+	TSet<TWeakObjectPtr<UTextureSet>> RegisteredTextureSets;
 	FAsyncCompilationNotification Notification;
 
 	/** Event issued at the end of the compile process */

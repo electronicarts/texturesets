@@ -340,8 +340,7 @@ void UTextureSet::UpdateDerivedData()
 			// Will swap out material instances with default values until cooking has finished
 			NotifyMaterialInstances();
 
-			FTextureSetCompilingManager::Get().AddTextureSets({this});
-			ActiveCooker->ExecuteAsync();
+			FTextureSetCompilingManager::Get().StartCompilation({this});
 		}
 		else
 		{
@@ -402,11 +401,7 @@ void UTextureSet::NotifyMaterialInstances()
 void UTextureSet::OnFinishCook()
 {
 	check(IsValid(Definition));
-
-	// TODO: Make sure this doesn't get called multiple times
-	//check(ActiveCooker.IsValid());
-	if (!ActiveCooker.IsValid())
-		return;
+	check(ActiveCooker.IsValid());
 
 	check(!ActiveCooker->IsAsyncJobInProgress());
 
