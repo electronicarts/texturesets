@@ -110,6 +110,29 @@ bool TextureSetCooker::IsOutOfDate(int PackedTextureIndex) const
 	return TextureSet->ComputePackedTextureDataID(PackedTextureIndex) != PackedTextureIds[PackedTextureIndex];
 }
 
+void TextureSetCooker::ConfigureTexture(int Index) const
+{
+	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
+	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
+	const FPackedTextureData& Data = TextureSet->DerivedData->PackedTextureData[Index];
+
+	UTexture* Texture = TextureSet->GetDerivedTexture(Index);
+
+	// sRGB if possible
+	Texture->SRGB = TextureInfo.HardwareSRGB;
+
+	// Make sure the texture's compression settings are correct
+	Texture->CompressionSettings = TextureDef.CompressionSettings;
+
+	// Let the texture compression know if we don't need the alpha channel
+	Texture->CompressionNoAlpha = TextureInfo.ChannelCount <= 3;
+
+	// Set the ID of the generated source to match the hash ID of this texture.
+	// This will be used to recover the cooked texture data from the DDC if possible.
+	Texture->Source.SetId(Data.Id, true);
+	Texture->bSourceBulkDataTransient = true;
+}
+
 void TextureSetCooker::Execute()
 {
 	check(!IsAsyncJobInProgress());
@@ -170,7 +193,7 @@ void TextureSetCooker::ExecuteInternal()
 	{
 		for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
 		{
-			UpdateTexture(t);
+			ConfigureTexture(t);
 
 			// This can happen if a texture build gets interrupted after a texture-set cook.
 			if (!TextureSet->DerivedTextures[t]->PlatformDataExistsInCache())
@@ -351,29 +374,7 @@ void TextureSetCooker::BuildTextureData(int Index) const
 
 	Texture->Source.UnlockMip(0);
 
-	UpdateTexture(Index);
+	ConfigureTexture(Index);
 }
 
-void TextureSetCooker::UpdateTexture(int Index) const
-{
-	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
-	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
-	const FPackedTextureData& Data = TextureSet->DerivedData->PackedTextureData[Index];
-
-	UTexture* Texture = TextureSet->GetDerivedTexture(Index);
-
-	// sRGB if possible
-	Texture->SRGB = TextureInfo.HardwareSRGB;
-
-	// Make sure the texture's compression settings are correct
-	Texture->CompressionSettings = TextureDef.CompressionSettings;
-
-	// Let the texture compression know if we don't need the alpha channel
-	Texture->CompressionNoAlpha = TextureInfo.ChannelCount <= 3;
-
-	// Set the ID of the generated source to match the hash ID of this texture.
-	// This will be used to recover the cooked texture data from the DDC if possible.
-	Texture->Source.SetId(Data.Id, true);
-	Texture->bSourceBulkDataTransient = true;
-}
 #endif

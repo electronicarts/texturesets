@@ -60,6 +60,8 @@ public:
 	bool IsOutOfDate() const;
 	bool IsOutOfDate(int PackedTextureIndex) const;
 
+	void ConfigureTexture(int Index) const;
+
 	void Execute();
 	void ExecuteAsync(FQueuedThreadPool* InQueuedPool = GThreadPool, EQueuedWorkPriority InQueuedWorkPriority = EQueuedWorkPriority::Normal);
 
@@ -87,7 +89,5 @@ private:
 	void Build() const;
 	// Called for each packed texture of a texture set, can execute in parallel.
 	void BuildTextureData(int Index) const;
-
-	void UpdateTexture(int Index) const;
 };
 #endif

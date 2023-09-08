@@ -318,11 +318,16 @@ void UTextureSet::UpdateDerivedData()
 
 	bool bCookRequired = false;
 
+	ActiveCooker = MakeShared<TextureSetCooker>(this);
+
 	if (ComputeTextureSetDataId() != DerivedData->Id)
 		bCookRequired = true;
 
 	for (int t = 0; !bCookRequired && t < DerivedTextures.Num(); t++)
 	{
+		// Make sure the texture is using the right key before checking if it's cached
+		ActiveCooker->ConfigureTexture(t);
+
 		if (!DerivedTextures[t]->PlatformDataExistsInCache())
 			bCookRequired = true;
 	}
@@ -330,11 +335,10 @@ void UTextureSet::UpdateDerivedData()
 	if (!bCookRequired)
 	{
 		bIsDerivedDataReady = true;
+		ActiveCooker = nullptr;
 	}
 	else
 	{
-		ActiveCooker = MakeShared<TextureSetCooker>(this);
-
 		if (FTextureSetCompilingManager::Get().IsAsyncCompilationAllowed(this))
 		{
 			// Will swap out material instances with default values until cooking has finished
