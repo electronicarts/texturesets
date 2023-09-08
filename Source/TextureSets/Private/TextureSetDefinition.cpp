@@ -49,7 +49,7 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 	}
 
 	// Packing validation
-	for (FName Name : GetUnpackedChannelNames(PackingInfo.PackedTextureDefs))
+	for (FName Name : GetUnpackedChannelNames())
 	{
 		if (Name.IsNone())
 			continue;
@@ -62,7 +62,7 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 	{
 		const FTextureSetPackedTextureDef& PackedTexture = PackingInfo.GetPackedTextureDef(i);
 
-		if (PackedTexture.UsedChannels() > PackedTexture.AvailableChannels())
+		if (PackedTexture.GetUsedChannels() > PackedTexture.GetAvailableChannels())
 		{
 			Context.AddError(FText::Format(LOCTEXT("OverpackedTexture","Packed texture {0} is specifying more packed channels than are provided by the chosen compression format."), i));
 			Result = EDataValidationResult::Invalid;
@@ -74,40 +74,16 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 #endif
 
 #if WITH_EDITOR
-bool UTextureSetDefinition::CanEditChange(const FProperty* InProperty) const
+void UTextureSetDefinition::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	// If other logic prevents editing, we want to respect that
-	const bool SuperValue = Super::CanEditChange(InProperty);
-
-	if (InProperty->GetOwnerStruct() == FTextureSetPackedTextureDef::StaticStruct())
+	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(FTextureSetPackedTextureDef, CompressionSettings) &&
+		PropertyChangedEvent.GetMemberPropertyName() == GET_MEMBER_NAME_CHECKED(UTextureSetDefinition, EditPackedTextures))
 	{
-		const FTextureSetPackedTextureDef* TextureDef = nullptr; // TODO: Have to get this from the property somehow
-
-		if (TextureDef)
+		for (FTextureSetPackedTextureDef& PackedTextureDef : EditPackedTextures)
 		{
-			if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(FTextureSetPackedTextureDef, SourceR))
-			{
-				return SuperValue && TextureDef->AvailableChannels() > 0;
-			}
-
-			if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(FTextureSetPackedTextureDef, SourceG))
-			{
-				return SuperValue && TextureDef->AvailableChannels() > 1;
-			}
-
-			if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(FTextureSetPackedTextureDef, SourceB))
-			{
-				return SuperValue && TextureDef->AvailableChannels() > 2;
-			}
-
-			if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(FTextureSetPackedTextureDef, SourceA))
-			{
-				return SuperValue && TextureDef->AvailableChannels() > 3;
-			}
+			PackedTextureDef.UpdateAvailableChannels();
 		}
 	}
-
-	return SuperValue;
 }
 #endif
 
@@ -136,19 +112,12 @@ void UTextureSetDefinition::PostLoad()
 #endif
 }
 
-#if WITH_EDITOR
-TArray<FName> UTextureSetDefinition::EditGetUnpackedChannelNames() const
-{
-	return GetUnpackedChannelNames(EditPackedTextures);
-}
-#endif
-
-TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames(TArray<FTextureSetPackedTextureDef> Textures) const
+static TArray<FName> StaticGetUnpackedChannelNames(const TArray<FTextureSetPackedTextureDef>& PackedTextures, const TMap<FName, FTextureSetProcessedTextureDef>& ProcessedTextures)
 {
 	// Construct an array of all the channel names already used for packing
 	TArray<FName> PackedNames = TArray<FName>();
 
-	for (const FTextureSetPackedTextureDef& Tex : Textures)
+	for (const FTextureSetPackedTextureDef& Tex : PackedTextures)
 	{
 		if (!Tex.SourceR.IsNone())
 			PackedNames.Add(Tex.SourceR);
@@ -166,11 +135,11 @@ TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames(TArray<FTextureSetP
 	// Construct a list of channel names not yet used for packing (remaining choices)
 	TArray<FName> UnpackedNames = TArray<FName>{  FName() };
 
-	for (const auto& [Name, Tex] : GetModuleInfo().GetProcessedTextures())
+	for (const auto& [Name, Tex] : ProcessedTextures)
 	{
 		for (int i = 0; i < Tex.ChannelCount; i++)
 		{
-			FName ChannelName = FName(Name.ToString() + ChannelSuffixes[i]);
+			FName ChannelName = FName(Name.ToString() + UTextureSetDefinition::ChannelSuffixes[i]);
 
 			if (!PackedNames.Contains(ChannelName))
 				UnpackedNames.Add(ChannelName);
@@ -178,6 +147,25 @@ TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames(TArray<FTextureSetP
 	}
 
 	return UnpackedNames;
+}
+
+#if WITH_EDITOR
+TArray<FName> UTextureSetDefinition::EditGetUnpackedChannelNames() const
+{
+	FTextureSetProcessingGraph ProcessingGraph = FTextureSetProcessingGraph(TArray<const UTextureSetModule*>(EditModules));
+	TMap<FName, FTextureSetProcessedTextureDef> ProcessedTextures;
+	for (const auto&[Name, Output] : ProcessingGraph.GetOutputTextures())
+	{
+		ProcessedTextures.Add(Name, Output->GetTextureDef());
+	}
+
+	return StaticGetUnpackedChannelNames(EditPackedTextures, ProcessedTextures);
+}
+#endif
+
+TArray<FName> UTextureSetDefinition::GetUnpackedChannelNames() const
+{
+	return StaticGetUnpackedChannelNames(GetPackingInfo().PackedTextureDefs, GetModuleInfo().GetProcessedTextures());
 }
 
 const FTextureSetDefinitionModuleInfo& UTextureSetDefinition::GetModuleInfo() const
@@ -278,6 +266,11 @@ void UTextureSetDefinition::ResetEdits()
 
 	// Packing
 	EditPackedTextures = PackingInfo.PackedTextureDefs;
+
+	for (FTextureSetPackedTextureDef& PackedTextureDef : EditPackedTextures)
+	{
+		PackedTextureDef.UpdateAvailableChannels();
+	}
 }
 #endif
 

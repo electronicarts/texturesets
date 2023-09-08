@@ -71,6 +71,9 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 		const TArray<FName> SourceChannels = TextureDef.GetSources();
 		for (int c = 0; c < SourceChannels.Num(); c++)
 		{
+			if (SourceChannels[c].IsNone())
+				continue;
+
 			UMaterialExpression* ChannelNode = TextureSample;
 			int ChannelNodeOutput = c + 1;
 
@@ -94,7 +97,11 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 		// Only support 1-4 channels
 		check(TextureChannels >= 1 && TextureChannels <= 4);
 
-		UMaterialExpression* WorkingNode = ProcessedTextureSamples.FindChecked(FName(TextureName.ToString() + UTextureSetDefinition::ChannelSuffixes[0]));
+		FName TextureSampleName = FName(TextureName.ToString() + UTextureSetDefinition::ChannelSuffixes[0]);
+
+		checkf(ProcessedTextureSamples.Contains(TextureSampleName), TEXT("Processed texture sample not found. This can happen if the texture was not packed into a valid channel."));
+
+		UMaterialExpression* WorkingNode = ProcessedTextureSamples.FindChecked(TextureSampleName);
 
 		if (TextureChannels == 1)
 		{

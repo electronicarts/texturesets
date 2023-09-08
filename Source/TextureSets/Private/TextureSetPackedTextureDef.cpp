@@ -4,7 +4,7 @@
 
 #include "TextureSetDefinition.h"
 
-int FTextureSetPackedTextureDef::AvailableChannels() const
+int FTextureSetPackedTextureDef::GetAvailableChannels() const
 {
 	switch (CompressionSettings)
 	{
@@ -33,7 +33,7 @@ int FTextureSetPackedTextureDef::AvailableChannels() const
 	}
 }
 
-int FTextureSetPackedTextureDef::UsedChannels() const
+int FTextureSetPackedTextureDef::GetUsedChannels() const
 {
 	if (!SourceA.IsNone())
 		return 4;
@@ -50,7 +50,7 @@ int FTextureSetPackedTextureDef::UsedChannels() const
 TArray<FName> FTextureSetPackedTextureDef::GetSources() const
 {
 	TArray<FName> ReturnValue;
-	const int Channels = FMath::Min(UsedChannels(), AvailableChannels());
+	const int Channels = FMath::Min(GetUsedChannels(), GetAvailableChannels());
 
 	if (Channels >= 1)
 		ReturnValue.Add(SourceR);
@@ -99,4 +99,28 @@ bool FTextureSetPackedTextureDef::GetHardwareSRGBEnabled() const
 	};
 
 	return bHardwareSRGB && SRGBSupportedFormats.Contains(CompressionSettings);
+}
+
+void FTextureSetPackedTextureDef::UpdateAvailableChannels()
+{
+	AvailableChannels = GetAvailableChannels();
+	
+	// Clear any data in invalid channels
+	switch (AvailableChannels)
+	{
+	case 0:
+		SourceR = FName();
+		// Falls through
+	case 1:
+		SourceG = FName();
+		// Falls through
+	case 2:
+		SourceB = FName();
+		// Falls through
+	case 3:
+		SourceA = FName();
+		break;
+	default:
+		break;
+	}
 }

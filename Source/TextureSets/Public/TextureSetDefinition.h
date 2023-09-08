@@ -42,7 +42,7 @@ public:
 	// UObject Overrides
 #if WITH_EDITOR
 	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) override;
-	virtual bool CanEditChange(const FProperty* InProperty) const override;
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PreSave(FObjectPreSaveContext ObjectSaveContext) override;
 #endif
 	virtual void PostLoad() override;
@@ -52,7 +52,7 @@ public:
 	UFUNCTION(CallInEditor)
 	TArray<FName> EditGetUnpackedChannelNames() const;
 #endif
-	TArray<FName> GetUnpackedChannelNames(TArray<FTextureSetPackedTextureDef> Textures) const;
+	TArray<FName> GetUnpackedChannelNames() const;
 
 	const FTextureSetDefinitionModuleInfo& GetModuleInfo() const;
 	const FTextureSetPackingInfo& GetPackingInfo() const;
@@ -97,10 +97,10 @@ private:
 	UPROPERTY(VisibleAnywhere, Category="Debug")
 	FTextureSetDefinitionModuleInfo ModuleInfo;
 
-	UPROPERTY(VisibleAnywhere, Category="Debug")
+	UPROPERTY()
 	FTextureSetPackingInfo PackingInfo;
 
-	UPROPERTY(VisibleAnywhere, Category="Debug")
+	UPROPERTY()
 	TArray<const UTextureSetModule*> Modules;
 	
 	UPROPERTY(VisibleAnywhere, Category="Debug")
