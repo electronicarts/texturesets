@@ -11,12 +11,7 @@ void UTextureSetElementCollection::GenerateProcessingGraph(FTextureSetProcessing
 	// Just pass through source texture as processed texture
 	for (const FElementDefinition& Element: Elements)
 	{
-		FTextureSetSourceTextureDef TextureDef;
-		TextureDef.SRGB = Element.SRGB;
-		TextureDef.ChannelCount = Element.ChannelCount;
-		TextureDef.DefaultValue = Element.DefaultValue;
-
-		Graph.AddOutputTexture(Element.ElementName, Graph.AddInputTexture(Element.ElementName, TextureDef));
+		Graph.AddOutputTexture(Element.ElementName, Graph.AddInputTexture(Element.ElementName, Element.ElementDef));
 	}
 }
 #endif

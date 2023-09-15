@@ -10,7 +10,8 @@ FTextureSetProcessingGraph::FTextureSetProcessingGraph(TArray<const UTextureSetM
 {
 	for (const UTextureSetModule* Module : Modules)
 	{
-		Module->GenerateProcessingGraph(*this);
+		if (IsValid(Module))
+			Module->GenerateProcessingGraph(*this);
 	}
 }
 #endif

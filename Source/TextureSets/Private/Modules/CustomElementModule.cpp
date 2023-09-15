@@ -8,10 +8,7 @@
 #if WITH_EDITOR
 void UCustomElementModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
-	// Just pass through source texture as processed texture
-	FTextureSetSourceTextureDef TextureDef(ChannelCount, SRGB, DefaultValue);
-
-	Graph.AddOutputTexture(ElementName, Graph.AddInputTexture(ElementName, TextureDef));
+	Graph.AddOutputTexture(ElementName, Graph.AddInputTexture(ElementName, ElementDef));
 }
 #endif
 
@@ -21,9 +18,7 @@ int32 UCustomElementModule::ComputeSamplingHash(const UMaterialExpressionTexture
 	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
 
 	Hash = HashCombine(Hash, GetTypeHash(ElementName.ToString()));
-	Hash = HashCombine(Hash, GetTypeHash(SRGB));
-	Hash = HashCombine(Hash, GetTypeHash(ChannelCount));
-	Hash = HashCombine(Hash, GetTypeHash(DefaultValue));
+	Hash = HashCombine(Hash, GetTypeHash(ElementDef));
 
 	return Hash;
 }

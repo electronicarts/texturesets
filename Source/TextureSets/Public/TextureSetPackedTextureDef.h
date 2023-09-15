@@ -62,6 +62,7 @@ public:
 	int GetUsedChannels() const;
 
 	TArray<FName> GetSources() const;
+	void SetSource(int Index, FName Value);
 
 	TArray<FString> GetSourcesWithoutChannel(bool RemoveDuplicate = true) const;
 

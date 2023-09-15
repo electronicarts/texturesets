@@ -29,16 +29,7 @@ private:
 	UPROPERTY(EditAnywhere)
 	FName ElementName;
 
-	// Used for correct packing and unpacking
-	UPROPERTY(EditAnywhere)
-	bool SRGB;
-
-	// between 1 and 4
-	UPROPERTY(EditAnywhere)
-	uint8 ChannelCount;
-
-	// Used as a fallback if this map is not provided
-	UPROPERTY(EditAnywhere)
-	FVector4 DefaultValue;
+	UPROPERTY(EditAnywhere, meta=(ShowOnlyInnerProperties))
+	FTextureSetSourceTextureDef ElementDef;
 
 };

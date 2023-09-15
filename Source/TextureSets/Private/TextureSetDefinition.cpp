@@ -20,7 +20,7 @@
 
 #define LOCTEXT_NAMESPACE "TextureSets"
 
-const FString UTextureSetDefinition::ChannelSuffixes[4] = {".r", ".g", ".b", ".a"};
+const TArray<FString> UTextureSetDefinition::ChannelSuffixes = {".r", ".g", ".b", ".a"};
 
 #if WITH_EDITOR
 FOnTextureSetDefinitionChanged UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent;
@@ -62,6 +62,8 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 		Result = EDataValidationResult::Invalid;
 	}
 
+	TArray<FName> PackedChannels;
+
 	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
 	{
 		const FTextureSetPackedTextureDef& PackedTexture = PackingInfo.GetPackedTextureDef(i);
@@ -70,6 +72,19 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 		{
 			Context.AddError(FText::Format(LOCTEXT("OverpackedTexture","Packed texture {0} is specifying more packed channels than are provided by the chosen compression format."), i));
 			Result = EDataValidationResult::Invalid;
+		}
+
+		for (FName PackedChannel : PackedTexture.GetSources())
+		{
+			if (PackedChannels.Contains(PackedChannel))
+			{
+				Context.AddError(FText::Format(LOCTEXT("ChannelDuplicated","Packed texture channel {0} appears more than once in the packing definition."), FText::FromName(PackedChannel)));
+				Result = EDataValidationResult::Invalid;
+			}
+			else
+			{
+				PackedChannels.Add(PackedChannel);
+			}
 		}
 	}
 
@@ -80,7 +95,7 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 #if WITH_EDITOR
 void UTextureSetDefinition::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(FTextureSetPackedTextureDef, CompressionSettings) &&
+	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(FTextureSetPackedTextureDef, CompressionSettings) ||
 		PropertyChangedEvent.GetMemberPropertyName() == GET_MEMBER_NAME_CHECKED(UTextureSetDefinition, EditPackedTextures))
 	{
 		for (FTextureSetPackedTextureDef& PackedTextureDef : EditPackedTextures)
@@ -306,36 +321,42 @@ void UTextureSetDefinition::ApplyEdits()
 
 	for (int i = 0; i < EditPackedTextures.Num(); i++)
 	{
-		const FTextureSetPackedTextureDef& TextureDef = EditPackedTextures[i];
+		FTextureSetPackedTextureDef& TextureDef = EditPackedTextures[i];
 		FTextureSetPackedTextureInfo TextureInfo;
 
-		TArray<FName> SourceNames = TextureDef.GetSources();
-		TextureInfo.ChannelCount = SourceNames.Num();
+		// Enabled initially, but can be disabled if it's found to be incompatible with the current packing
 		TextureInfo.HardwareSRGB = TextureDef.GetHardwareSRGBEnabled();
 
-		for (int c = 0; c < TextureInfo.ChannelCount; c++)
+		for (int c = 0; c < TextureDef.GetSources().Num(); c++)
 		{
-			if (SourceNames[c].IsNone())
+			FName Source = TextureDef.GetSources()[c];
+
+			if (Source.IsNone())
 				continue;
 
 			FString SourceTexString;
 			FString SourceChannelString;
-			SourceNames[c].ToString().Split(".", &SourceTexString, &SourceChannelString);
+			Source.ToString().Split(".", &SourceTexString, &SourceChannelString);
 			const FName SourceTexName = FName(SourceTexString);
 
 			if (!ModuleInfo.GetProcessedTextures().Contains(SourceTexName))
+			{
+				// Trying to pack a channel from a texture that doesn't exist
+				TextureDef.SetSource(c, FName());
 				continue;
+			}
+
+			const int SourceChannel = ChannelSuffixes.Find("." + SourceChannelString);
+			check (SourceChannel != INDEX_NONE);
 
 			FTextureSetProcessedTextureDef Processed = ModuleInfo.GetProcessedTextures().FindChecked(SourceTexName);
 
-			static const TMap<FString, int> ChannelStringLookup = {
-				{"r", 0},
-				{"g", 1},
-				{"b", 2},
-				{"a", 3},
-			};
-
-			const int SourceChannel = ChannelStringLookup.FindChecked(SourceChannelString);
+			if (SourceChannel >= Processed.ChannelCount)
+			{
+				// Trying to pack a channel that doesn't exist in the processed texture output
+				TextureDef.SetSource(c, FName());
+				continue;
+			}
 
 			TextureInfo.ChannelInfo[c].ProcessedTexture = SourceTexName;
 			TextureInfo.ChannelInfo[c].ProessedTextureChannel = SourceChannel;
@@ -356,6 +377,8 @@ void UTextureSetDefinition::ApplyEdits()
 			}
 		}
 
+		// Set channel count after loop, incase any channels were removed
+		TextureInfo.ChannelCount = TextureDef.GetSources().Num();
 		TextureInfo.RangeCompressMulName = FName("RangeCompress_" + FString::FromInt(i) + "_Mul");
 		TextureInfo.RangeCompressAddName = FName("RangeCompress_" + FString::FromInt(i) + "_Add");
 

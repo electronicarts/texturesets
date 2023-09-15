@@ -14,17 +14,17 @@ struct FTextureSetProcessedTextureDef
 	GENERATED_BODY()
 
 public:
-	FTextureSetProcessedTextureDef() : FTextureSetProcessedTextureDef(0, false) {}
+	FTextureSetProcessedTextureDef() : FTextureSetProcessedTextureDef(1, false) {}
 
 	FTextureSetProcessedTextureDef(int ChannelCount, bool SRGB)
 		: ChannelCount(ChannelCount)
 		, SRGB(SRGB)
 	{}
 
-	UPROPERTY(VisibleAnywhere)
-	uint8 ChannelCount; // between 1 and 4
+	UPROPERTY(EditAnywhere, meta=(ClampMin = 1, ClampMax = 4))
+	uint8 ChannelCount;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(EditAnywhere)
 	bool SRGB; // Used for correct packing and sampling
 };
 
@@ -40,14 +40,14 @@ struct FTextureSetSourceTextureDef : public FTextureSetProcessedTextureDef
 	GENERATED_BODY()
 
 public:
-	FTextureSetSourceTextureDef() : FTextureSetSourceTextureDef(0, false, FVector4::Zero()) {}
+	FTextureSetSourceTextureDef() : FTextureSetSourceTextureDef(1, false, FVector4::Zero()) {}
 
 	FTextureSetSourceTextureDef(int ChannelCount, bool SRGB, FVector4 DefaultValue)
 		: Super(ChannelCount, SRGB)
 		, DefaultValue(DefaultValue)
 	{}
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(EditAnywhere)
 	FVector4 DefaultValue; // Used as a fallback if this map is not provided
 };
 

@@ -64,6 +64,27 @@ TArray<FName> FTextureSetPackedTextureDef::GetSources() const
 	return ReturnValue;
 }
 
+void FTextureSetPackedTextureDef::SetSource(int Index, FName Value)
+{
+	switch (Index)
+	{
+	case 0:
+		SourceR = Value;
+		break;
+	case 1:
+		SourceG = Value;
+		break;
+	case 2:
+		SourceB = Value;
+		break;
+	case 3:
+		SourceA = Value;
+		break;
+	default:
+		break;
+	}
+}
+
 TArray<FString> FTextureSetPackedTextureDef::GetSourcesWithoutChannel(bool RemoveDuplicate) const
 {
 	TArray<FString> SourcesWithoutChannel;

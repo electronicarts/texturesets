@@ -10,34 +10,19 @@ struct FElementDefinition
 {
 	GENERATED_BODY()
 public:
-	FElementDefinition()
-		: SRGB(false)
-		, ChannelCount(0)
-	{}
 
 	UPROPERTY(EditAnywhere)
 	FName ElementName;
 
-	// Used for correct packing and unpacking
-	UPROPERTY(EditAnywhere)
-	bool SRGB;
-
-	// between 1 and 4
-	UPROPERTY(EditAnywhere)
-	uint8 ChannelCount;
-
-	// Used as a fallback if this map is not provided
-	UPROPERTY(EditAnywhere)
-	FVector4 DefaultValue;
+	UPROPERTY(EditAnywhere, meta=(ShowOnlyInnerProperties))
+	FTextureSetSourceTextureDef ElementDef;
 };
 
 FORCEINLINE uint32 GetTypeHash(const FElementDefinition& Def)
 {
 	uint32 Hash = 0;
 	Hash = HashCombine(Hash, GetTypeHash(Def.ElementName.ToString()));
-	Hash = HashCombine(Hash, GetTypeHash(Def.SRGB));
-	Hash = HashCombine(Hash, GetTypeHash(Def.ChannelCount));
-	Hash = HashCombine(Hash, GetTypeHash(Def.DefaultValue));
+	Hash = HashCombine(Hash, GetTypeHash(Def.ElementDef));
 	return int32();
 }
 
