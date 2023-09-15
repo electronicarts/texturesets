@@ -194,6 +194,12 @@ EDataValidationResult UMaterialExpressionTextureSetSampleParameter::IsDataValid(
 		Result = EDataValidationResult::Invalid;
 	}
 
+	if (IsValid(DefaultTextureSet) && DefaultTextureSet->Definition != Definition)
+	{
+		Context.AddError(LOCTEXT("MismatchedDefinition","The Default texture set does not use the same definition as specified in the material expression parameter."));
+		Result = EDataValidationResult::Invalid;
+	}
+
 	return CombineDataValidationResults(Result, Super::IsDataValid(Context));
 }
 #endif
