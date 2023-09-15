@@ -30,6 +30,10 @@ UTextureSetDefinition::UTextureSetDefinition() : Super()
 {
 	if (!UniqueID.IsValid())
 		UniqueID = FGuid::NewGuid();
+
+	DefaultTextureSet = CreateDefaultSubobject<UTextureSet>(FName(GetName() + "_Default"));
+	DefaultTextureSet->Definition = this;
+	DefaultTextureSet->SetFlags(RF_Public);
 }
 
 #if WITH_EDITOR
@@ -100,10 +104,6 @@ void UTextureSetDefinition::PreSave(FObjectPreSaveContext ObjectSaveContext)
 void UTextureSetDefinition::PostLoad()
 {
 	Super::PostLoad();
-
-	// Temp because this was being set previously. Should be able to remove it when we have fresh data.
-	if (IsValid(DefaultTextureSet))
-		DefaultTextureSet->ClearFlags(RF_Standalone);
 
 #if WITH_EDITOR
 	ResetEdits();
@@ -361,14 +361,6 @@ void UTextureSetDefinition::ApplyEdits()
 
 		PackingInfo.PackedTextureDefs.Add(TextureDef);
 		PackingInfo.PackedTextureInfos.Add(TextureInfo);
-	}
-
-	// Ensure we have a default texture set instantiated
-	if (!IsValid(DefaultTextureSet))
-	{
-		FName DefaultName = FName(GetName() + "_Default");
-		DefaultTextureSet = NewObject<UTextureSet>(this, DefaultName, RF_Public);
-		DefaultTextureSet->Definition = this;
 	}
 
 	const uint32 NewHash = ComputeCookingHash();
