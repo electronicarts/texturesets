@@ -267,7 +267,8 @@ void UTextureSet::UpdateDerivedData()
 {
 	bIsDerivedDataReady = false;
 
-	if (!IsValid(Definition))
+	FDataValidationContext ValidationContext;
+	if (!IsValid(Definition) || Definition->IsDataValid(ValidationContext) == EDataValidationResult::Invalid)
 	{
 		// If we have no definition, clear our derived data
 		DerivedData = nullptr;
@@ -275,7 +276,6 @@ void UTextureSet::UpdateDerivedData()
 		return;
 	}
 
-	check(IsValid(Definition));
 	check(!ActiveCooker.IsValid());
 
 	// Garbage collection will destroy the unused cooked textures when all references from material instance are removed

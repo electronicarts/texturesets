@@ -73,7 +73,7 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 		}
 	}
 
-	return CombineDataValidationResults(Result, Super::IsDataValid(Context));;
+	return CombineDataValidationResults(Result, Super::IsDataValid(Context));
 }
 #endif
 
