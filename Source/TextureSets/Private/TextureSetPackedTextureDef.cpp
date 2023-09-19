@@ -29,6 +29,7 @@ int FTextureSetPackedTextureDef::GetAvailableChannels() const
 	case TC_SingleFloat:
 		return 1;
 	default:
+		checkf(false, TEXT("Unsupported compression setting"));
 		return 0;
 	}
 }

@@ -8,7 +8,6 @@ UTextureSetFactory::UTextureSetFactory(const FObjectInitializer& ObjectInitializ
 : Super(ObjectInitializer)
 {
 	SupportedClass = UTextureSet::StaticClass();
-	Formats.Add(TEXT("psd;My custom asset extension"));
 
 	bCreateNew = true;
 	bText = false;
@@ -16,7 +15,8 @@ UTextureSetFactory::UTextureSetFactory(const FObjectInitializer& ObjectInitializ
 	bEditAfterNew = true;
 }
 
-UObject* UTextureSetFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
+UObject* UTextureSetFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name,
+	EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
 	return NewObject<UTextureSet>(InParent, Class, Name, Flags);
 }

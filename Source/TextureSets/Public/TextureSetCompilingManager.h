@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "UObject/WeakObjectPtr.h"
-#include "Containers/Set.h"
 #include "AssetCompilingManager.h"
 #include "AsyncCompilationHelpers.h"
+#include "Containers/Set.h"
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
 
 #if WITH_EDITOR
 

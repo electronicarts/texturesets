@@ -3,7 +3,6 @@
 #include "Modules/HeightModule.h"
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
-#include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
 #if WITH_EDITOR

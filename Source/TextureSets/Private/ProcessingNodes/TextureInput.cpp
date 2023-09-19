@@ -3,8 +3,9 @@
 #if WITH_EDITOR
 
 #include "ProcessingNodes/TextureInput.h"
-#include "TextureSetProcessingGraph.h"
+
 #include "TextureSetDefinition.h"
+#include "TextureSetProcessingGraph.h"
 
 FTextureInput::FTextureInput(FName SourceNameIn, const FTextureSetSourceTextureDef& SourceDefinitionIn)
 {

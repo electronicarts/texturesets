@@ -4,11 +4,11 @@
 
 #if WITH_EDITOR
 #include "CoreMinimal.h"
+#include "DerivedDataPluginInterface.h"
+#include "TextureSetDerivedData.h"
 #include "TextureSetInfo.h"
 #include "TextureSetModule.h"
-#include "TextureSetDerivedData.h"
 #include "TextureSetProcessingGraph.h"
-#include "DerivedDataPluginInterface.h"
 
 class UTextureSet;
 class TextureSetCooker;
@@ -89,5 +89,13 @@ private:
 	void Build() const;
 	// Called for each packed texture of a texture set, can execute in parallel.
 	void BuildTextureData(int Index) const;
+
+	static inline int GetPixelIndex(int X, int Y, int Channel, int Width, int Height)
+	{
+		return Y * Width * 4
+			+ X * 4
+			+ Channel;
+	}
+
 };
 #endif

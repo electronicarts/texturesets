@@ -3,6 +3,7 @@
 #if WITH_EDITOR
 
 #include "TextureSetProcessingContext.h"
+
 #include "TextureSet.h"
 
 FTextureSetProcessingContext::FTextureSetProcessingContext(const class UTextureSet* TextureSet)

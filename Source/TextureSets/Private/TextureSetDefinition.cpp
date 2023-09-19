@@ -6,14 +6,6 @@
 #include "TextureSetModule.h"
 #include "TextureSetPackedTextureDef.h"
 #include "UObject/ObjectSaveContext.h"
-#include "AssetRegistry/AssetRegistryModule.h"
-#include "Materials/MaterialExpressionFunctionInput.h"
-#include "Materials/MaterialExpressionFunctionOutput.h"
-#include "Materials/MaterialExpressionTextureSampleParameter2D.h"
-#include "Materials/MaterialInstance.h"
-#include "Materials/MaterialInstanceConstant.h"
-#include "MaterialExpressionTextureSetSampleParameter.h"
-#include "ImageUtils.h"
 #if WITH_EDITOR
 #include "Misc/DataValidation.h"
 #endif

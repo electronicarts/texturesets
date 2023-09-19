@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// (c) Electronic Arts. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -8,27 +8,25 @@ public class TextureSets : ModuleRules
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		
-		PublicIncludePaths.AddRange(
-			new string[] {
-				// ... add public include paths required here ...
-			}
-			);
-				
-		
-		PrivateIncludePaths.AddRange(
-			new string[] {
-				// ... add other private include paths required here ...
-			}
-			);
-			
-		
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",
-				// ... add other public dependencies that you statically link with here ...
 				"Engine",
 				"ImageCore",
+			}
+			);
+
+		PrivateDependencyModuleNames.AddRange(
+			new string[]
+			{
+				"CoreUObject",
+				"Engine",
+				"Slate",
+				"SlateCore",
+				"MotiveMaterialLibrary",
+				"Projects",
+				"RenderCore",
 			}
 			);
 
@@ -39,25 +37,10 @@ public class TextureSets : ModuleRules
 				{
 					"UnrealEd",
 					"GraphEditor",
-					"DerivedDataCache", // TODO: Don't think we can have this for runtime builds
+					"DerivedDataCache",
 				}
 				);
-		}
 
-
-		PrivateDependencyModuleNames.AddRange(
-			new string[]
-			{
-				"CoreUObject",
-				"Engine",
-				"Slate",
-				"SlateCore",
-				"MotiveMaterialLibrary",
-			}
-			);
-
-		if (Target.bBuildEditor)
-		{
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
@@ -67,14 +50,5 @@ public class TextureSets : ModuleRules
 				}
 				);
 		}
-
-
-		DynamicallyLoadedModuleNames.AddRange(
-			new string[]
-			{
-				//"Engine",
-				// ... add any modules that your module loads dynamically here ...
-			}
-			);
 	}
 }

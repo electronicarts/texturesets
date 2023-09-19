@@ -3,16 +3,15 @@
 #include "Modules/PBRSurfaceModule.h"
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
-
 #if WITH_EDITOR
-#include "Materials/MaterialExpression.h"
-#include "Materials/MaterialExpressionFunctionOutput.h"
-#include "Materials/MaterialExpressionOneMinus.h"
-#include "Materials/MaterialExpressionAdd.h"
-#include "Materials/MaterialExpressionMultiply.h"
-#include "Materials/MaterialExpressionDeriveNormalZ.h"
-#include "Materials/MaterialExpressionAppendVector.h"
 #include "MaterialEditingLibrary.h"
+#include "Materials/MaterialExpression.h"
+#include "Materials/MaterialExpressionAdd.h"
+#include "Materials/MaterialExpressionAppendVector.h"
+#include "Materials/MaterialExpressionDeriveNormalZ.h"
+#include "Materials/MaterialExpressionFunctionOutput.h"
+#include "Materials/MaterialExpressionMultiply.h"
+#include "Materials/MaterialExpressionOneMinus.h"
 #include "ProcessingNodes/TextureOperatorInvert.h"
 #endif
 
@@ -88,8 +87,6 @@ int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSet
 
 	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
 
-	//Hash = HashCombine(Hash, GetTypeHash(SampleParams->ParameterizationOutput));
-	//Hash = HashCombine(Hash, GetTypeHash(SampleParams->NormalSpaceOutput));
 	Hash = HashCombine(Hash, GetTypeHash(SampleParams->MicrosurfaceOutput));
 	Hash = HashCombine(Hash, GetTypeHash(Paramaterization));
 	Hash = HashCombine(Hash, GetTypeHash(Microsurface));

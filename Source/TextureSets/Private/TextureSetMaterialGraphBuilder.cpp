@@ -77,8 +77,6 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 			UMaterialExpression* ChannelNode = TextureSample;
 			int ChannelNodeOutput = c + 1;
 
-			// TODO sRGB
-
 			// Create a named node for this channel
 			TObjectPtr<UMaterialExpressionNamedRerouteDeclaration> NamedNode = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
 			NamedNode->Name = SourceChannels[c];

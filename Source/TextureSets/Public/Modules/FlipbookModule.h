@@ -11,10 +11,10 @@ class UFlipbookAssetParams : public UTextureSetAssetParams
 	GENERATED_BODY()
 public:
 	UPROPERTY(EditAnywhere)
-	int FlipbookFramecount;
+	int FlipbookFramecount = 0;
 
 	UPROPERTY(EditAnywhere)
-	float FlipbookFramerate;
+	float FlipbookFramerate = 1.0f;
 };
 
 UCLASS()

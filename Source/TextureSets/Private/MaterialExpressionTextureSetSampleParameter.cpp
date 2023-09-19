@@ -2,17 +2,17 @@
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
 
-#include "TextureSetMaterialGraphBuilder.h"
-#include "TextureSet.h"
-#include "TextureSetDefinition.h"
 #include "HLSLTree/HLSLTreeCommon.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionTextureSampleParameter2D.h"
+#include "TextureSet.h"
+#include "TextureSetDefinition.h"
+#include "TextureSetMaterialGraphBuilder.h"
+#include "TextureSetModule.h"
 #if WITH_EDITOR
-#include "Misc/DataValidation.h"
 #include "MaterialEditingLibrary.h"
-#include "Editor.h"
+#include "Misc/DataValidation.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "TextureSets"

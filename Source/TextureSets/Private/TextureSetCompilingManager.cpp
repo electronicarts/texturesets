@@ -3,26 +3,15 @@
 #include "TextureSetCompilingManager.h"
 
 #if WITH_EDITOR
-
-#include "TextureSet.h"
-#include "TextureSetDefinition.h"
-#include "TextureSetCooker.h"
-#include "TextureSetModule.h"
-#include "MaterialExpressionTextureSetSampleParameter.h"
-#include "AssetRegistry/AssetRegistryModule.h"
-#include "Engine/TextureDefines.h"
-#include "Serialization/MemoryReader.h"
-#include "ImageUtils.h"
-#include "Misc/ScopedSlowTask.h"
-#include "ProfilingDebugging/CookStats.h"
-#include "DerivedDataCacheInterface.h"
-#include "Misc/DataValidation.h"
-#include "DerivedDataBuildVersion.h"
-#include "AsyncCompilationHelpers.h"
 #include "AssetCompilingManager.h"
+#include "AsyncCompilationHelpers.h"
 #include "Misc/QueuedThreadPoolWrapper.h"
-#include "ProfilingDebugging/CountersTrace.h"
 #include "ObjectCacheContext.h"
+#include "ProfilingDebugging/CookStats.h"
+#include "ProfilingDebugging/CountersTrace.h"
+#include "TextureSet.h"
+#include "TextureSetCooker.h"
+#include "TextureSetDefinition.h"
 
 #define LOCTEXT_NAMESPACE "TextureSets"
 

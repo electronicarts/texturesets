@@ -3,9 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TextureSetProcessingGraph.h"
 #include "TextureSetInfo.h"
 #include "TextureSetMaterialGraphBuilder.h"
+#include "TextureSetProcessingGraph.h"
 
 #include "TextureSetModule.Generated.h"
 

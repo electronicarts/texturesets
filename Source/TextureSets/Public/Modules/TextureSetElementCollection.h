@@ -45,7 +45,7 @@ public:
 
 protected:
 	UPROPERTY(EditDefaultsOnly)
-	bool bAllowMultiple;
+	bool bAllowMultiple = false;
 
 	UPROPERTY(EditDefaultsOnly)
 	TArray<FElementDefinition> Elements;

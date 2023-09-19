@@ -41,13 +41,6 @@ class UPBRSampleParams : public UTextureSetSampleParams
 {
 	GENERATED_BODY()
 public:
-	// TODO: Support conversion on sampling
-	//UPROPERTY(EditAnywhere);
-	//EPBRParamaterization ParameterizationOutput;
-	//
-	//UPROPERTY(EditAnywhere);
-	//EPBRNormalSpace NormalSpaceOutput;
-
 	UPROPERTY(EditAnywhere);
 	EPBRMicrosurface MicrosurfaceOutput;
 };
@@ -82,14 +75,11 @@ public:
 
 private:
 	UPROPERTY(EditAnywhere)
-	EPBRParamaterization Paramaterization;
+	EPBRParamaterization Paramaterization = EPBRParamaterization::Basecolor_Metal;
 
 	UPROPERTY(EditAnywhere)
-	EPBRMicrosurface Microsurface;
+	EPBRMicrosurface Microsurface = EPBRMicrosurface::Roughness;
 
 	UPROPERTY(EditAnywhere)
-	EPBRNormal Normal;
-
-	UPROPERTY(EditAnywhere)
-	bool bEnableNDFPrefiltering; // Not implemented
+	EPBRNormal Normal = EPBRNormal::None;
 };

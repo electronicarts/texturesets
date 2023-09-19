@@ -3,19 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/ObjectMacros.h"
-#include "UObject/Object.h"
-#include "Templates/SharedPointer.h"
-#include "ImageCore.h"
-#include "TextureSetCooker.h"
-#include "TextureSetDerivedData.h"
-#include "Materials/MaterialInstance.h"
 #include "Interfaces/Interface_AsyncCompilation.h"
+#include "Materials/MaterialInstance.h"
 
 #include "TextureSet.generated.h"
 
 class UTexture;
 class UTextureSetDefinition;
+class UTextureSetDerivedData;
 
 UCLASS(BlueprintType, hidecategories = (Object))
 class TEXTURESETS_API UTextureSet : public UObject, public ICustomMaterialParameterInterface, public IInterface_AsyncCompilation

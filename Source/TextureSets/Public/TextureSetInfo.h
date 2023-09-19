@@ -22,10 +22,10 @@ public:
 	{}
 
 	UPROPERTY(EditAnywhere, meta=(ClampMin = 1, ClampMax = 4))
-	uint8 ChannelCount;
+	uint8 ChannelCount = 1;
 
 	UPROPERTY(EditAnywhere)
-	bool SRGB; // Used for correct packing and sampling
+	bool SRGB = false; // Used for correct packing and sampling
 };
 
 inline uint32 GetTypeHash(const FTextureSetProcessedTextureDef& Def)
@@ -103,7 +103,7 @@ public:
 	FName ProcessedTexture;
 
 	UPROPERTY(VisibleAnywhere)
-	int ProessedTextureChannel;
+	int ProessedTextureChannel = 0;
 
 	UPROPERTY(VisibleAnywhere)
 	ETextureSetTextureChannelEncoding ChannelEncoding;
@@ -155,29 +155,4 @@ private:
 
 	UPROPERTY(VisibleAnywhere)
 	TArray<FTextureSetPackedTextureInfo> PackedTextureInfos;
-};
-
-// Info which is needed to generate the sampling graph for a texture set
-USTRUCT()
-struct FTextureSetDefinitionSamplingInfo
-{
-	friend class UTextureSetDefinition;
-
-	GENERATED_BODY()
-public:
-	void AddMaterialParameter(FName Name, EMaterialValueType Type);
-	void AddSampleInput(FName Name, EMaterialValueType Type);
-	void AddSampleOutput(FName Name, EMaterialValueType Type);
-
-	const TMap<FName, EMaterialValueType> GetMaterialParameters() const;
-	const TMap<FName, EMaterialValueType> GetSampleInputs() const;
-	const TMap<FName, EMaterialValueType> GetSampleOutputs() const;
-
-private:
-	// Shader constants required for sampling
-	TMap<FName, EMaterialValueType> MaterialParameters;
-	// Required input pins on the sampler node
-	TMap<FName, EMaterialValueType> SampleInputs;
-	// Output pins on the sampler node
-	TMap<FName, EMaterialValueType> SampleOutputs;
 };

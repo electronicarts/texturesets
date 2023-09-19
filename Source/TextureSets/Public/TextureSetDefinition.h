@@ -3,8 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TextureSetPackedTextureDef.h"
 #include "TextureSetInfo.h"
+#include "TextureSetPackedTextureDef.h"
+
 #include "TextureSetDefinition.generated.h"
 
 class UTextureSet;

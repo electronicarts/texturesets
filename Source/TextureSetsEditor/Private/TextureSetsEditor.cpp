@@ -2,22 +2,23 @@
 
 #include "TextureSetsEditor.h"
 
-#include "IMaterialEditor.h"
-#include "IDetailGroup.h"
-#include "DetailWidgetRow.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSet.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSetDefinition.h"
-#include "MaterialPropertyHelpers.h"
-#include "Materials/MaterialInstanceConstant.h"
-#include "Materials/MaterialFunctionInterface.h"
+#include "DEditorTextureSetParameterValue.h"
+#include "DetailWidgetRow.h"
+#include "IDetailGroup.h"
+#include "IDetailTreeNode.h"
+#include "IMaterialEditor.h"
 #include "MaterialEditor/DEditorParameterValue.h"
-#include "MaterialEditor/Public/MaterialEditorModule.h"
 #include "MaterialEditor/MaterialEditorInstanceConstant.h"
+#include "MaterialEditor/Public/MaterialEditorModule.h"
+#include "MaterialExpressionTextureSetSampleParameter.h"
+#include "MaterialPropertyHelpers.h"
+#include "Materials/MaterialFunctionInterface.h"
+#include "Materials/MaterialInstanceConstant.h"
+#include "PropertyCustomizationHelpers.h"
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
-#include "MaterialExpressionTextureSetSampleParameter.h"
-#include "IDetailTreeNode.h"
-#include "PropertyCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
@@ -37,12 +38,12 @@ class FTextureSetParameterEditor : public ICustomMaterialParameterEditor, public
 		return UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(Param->ParameterInfo.Name);
 	}
 
-	virtual bool CanHandleParam(TObjectPtr<UDEditorCustomParameterValue> Param)
+	virtual bool CanHandleParam(TObjectPtr<UDEditorCustomParameterValue> Param) override
 	{
 		return Param.GetClass() == UDEditorTextureSetParameterValue::StaticClass();
 	}
 
-	virtual void CreateWidget(CreateWidgetArguments& Args)
+	virtual void CreateWidget(CreateWidgetArguments& Args) override
 	{
 		UMaterialExpressionTextureSetSampleParameter* SamplerExpression = nullptr;
 
@@ -165,10 +166,12 @@ void FTextureSetsEditorModule::UnregisterAssetTools()
 	{
 		IAssetTools& AssetTools = AssetToolsModule->Get();
 
-		for (auto Action : RegisteredAssetTypeActions)
+		for (const TSharedRef<IAssetTypeActions>& Action : RegisteredAssetTypeActions)
 		{
 			AssetTools.UnregisterAssetTypeActions(Action);
 		}
+
+		RegisteredAssetTypeActions.Empty();
 	}
 }
 

@@ -13,6 +13,7 @@ public:
 	virtual FColor GetTypeColor() const override;
 	virtual uint32 GetCategories() override { return AssetCategoryBit; }
 	virtual bool CanFilter() override;
+
 private:
 	uint32 AssetCategoryBit;
 

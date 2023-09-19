@@ -2,20 +2,14 @@
 
 #include "TextureSet.h"
 
-#include "TextureSetDefinition.h"
-#include "TextureSetCooker.h"
-#include "TextureSetModule.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
-#include "AssetRegistry/AssetRegistryModule.h"
+#include "TextureSetCooker.h"
+#include "TextureSetDefinition.h"
+#include "TextureSetModule.h"
 #include "UObject/ObjectSaveContext.h"
-#include "Engine/TextureDefines.h"
-#include "Serialization/MemoryReader.h"
 #if WITH_EDITOR
-#include "ImageUtils.h"
-#include "Misc/ScopedSlowTask.h"
-#include "ProfilingDebugging/CookStats.h"
-#include "Misc/DataValidation.h"
 #include "DerivedDataBuildVersion.h"
+#include "Misc/DataValidation.h"
 #include "TextureSetCompilingManager.h"
 #endif
 
@@ -292,7 +286,7 @@ void UTextureSet::UpdateDerivedData()
 
 	for (int t = 0; t < DerivedTextures.Num(); t++)
 	{
-		FName TextureName = FName(GetName() + "_DerivedTexture_" + FString::FromInt(t));
+		FName TextureName = FName(GetName() + TEXT("_DerivedTexture_") + FString::FromInt(t));
 
 		if (!IsValid(DerivedTextures[t]))
 		{

@@ -4,28 +4,20 @@
 
 #if WITH_EDITOR
 
-#include "TextureSet.h"
-#include "TextureSetDefinition.h"
-#include "TextureSetModule.h"
-#include "ProcessingNodes/TextureInput.h"
-#include "ProcessingNodes/TextureOperatorEnlarge.h"
-#include "TextureSetDerivedData.h"
+#include "Async/Async.h"
 #include "DerivedDataBuildVersion.h"
 #include "DerivedDataCacheInterface.h"
-#include "Async/Async.h"
+#include "ProcessingNodes/TextureInput.h"
+#include "ProcessingNodes/TextureOperatorEnlarge.h"
+#include "TextureSet.h"
+#include "TextureSetDefinition.h"
+#include "TextureSetDerivedData.h"
 
 static TAutoConsoleVariable<int32> CVarTextureSetParallelCook(
 	TEXT("r.TextureSet.ParallelCook"),
 	1,
 	TEXT("Execute the texture cooking across multiple threads in parallel when possible"),
 	ECVF_Default);
-
-int GetPixelIndex(int X, int Y, int Channel, int Width, int Height)
-{
-	return Y * Width * 4
-		+ X * 4
-		+ Channel;
-}
 
 void FTextureSetCookerTaskWorker::DoWork()
 {

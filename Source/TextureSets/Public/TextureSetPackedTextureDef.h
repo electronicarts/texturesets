@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/NoExportTypes.h"
+
 #include "TextureSetPackedTextureDef.generated.h"
 
 uint32 GetTypeHash(const struct FTextureSetPackedTextureDef& Value);
