@@ -45,12 +45,12 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 		TextureObject->SamplerSource = ESamplerSourceMode::SSM_Wrap_WorldGroupSettings; // So we don't allocate a sampler
 
 		TextureObject->SetParameterName(PackedTextureName);
-		FMaterialParameterMetadata meta;
-		meta.Value.Type = EMaterialParameterType::Texture;
-		meta.Value.Texture = DefaultTexture;
-		meta.Group = Node->Group;
-		meta.SortPriority = 0;
-		TextureObject->SetParameterValue(PackedTextureName, meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
+		FMaterialParameterMetadata Meta;
+		Meta.Value.Type = EMaterialParameterType::Texture;
+		Meta.Value.Texture = DefaultTexture;
+		Meta.Group = Node->Group;
+		Meta.SortPriority = 0;
+		TextureObject->SetParameterValue(PackedTextureName, Meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
 		TextureObject->UpdateParameterGuid(true, true);
 		PackedTextureObjects.Add(TextureObject);
 
@@ -153,9 +153,6 @@ UMaterialExpressionFunctionOutput* FTextureSetMaterialGraphBuilder::GetOutput(FN
 
 UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeConstantParameter(FName Name, FVector4 Default)
 {
-	FMaterialParameterMetadata meta;
-	meta.SortPriority = 0;
-
 	FName ParameterName = Node->GetConstantParameterName(Name);
 
 	UMaterialExpressionVectorParameter* NewParam = CreateExpression<UMaterialExpressionVectorParameter>();

@@ -14,6 +14,7 @@ public class TextureSets : ModuleRules
 				"Core",
 				"Engine",
 				"ImageCore",
+				"MotiveMaterialLibrary",
 			}
 			);
 
@@ -22,9 +23,6 @@ public class TextureSets : ModuleRules
 			{
 				"CoreUObject",
 				"Engine",
-				"Slate",
-				"SlateCore",
-				"MotiveMaterialLibrary",
 				"Projects",
 				"RenderCore",
 			}
@@ -32,21 +30,14 @@ public class TextureSets : ModuleRules
 
 		if (Target.bBuildEditor)
 		{
-			PublicDependencyModuleNames.AddRange(
-				new string[]
-				{
-					"UnrealEd",
-					"GraphEditor",
-					"DerivedDataCache",
-				}
-				);
-
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
-					"PropertyEditor",
-					"MaterialEditor",
+					"DerivedDataCache",
 					"EditorScriptingUtilities",
+					"GraphEditor",
+					"MaterialEditor",
+					"UnrealEd",
 				}
 				);
 		}

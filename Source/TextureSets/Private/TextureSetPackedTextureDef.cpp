@@ -99,7 +99,6 @@ TArray<FString> FTextureSetPackedTextureDef::GetSourcesWithoutChannel(bool Remov
 		{
 			SourceChannelString.LeftInline(ChannelNameStartPos);
 		}
-		//SourceChannelString.ToLowerInline();
 
 		if (RemoveDuplicate)
 			SourcesWithoutChannel.AddUnique(SourceChannelString);
@@ -112,7 +111,7 @@ TArray<FString> FTextureSetPackedTextureDef::GetSourcesWithoutChannel(bool Remov
 
 bool FTextureSetPackedTextureDef::GetHardwareSRGBEnabled() const
 {
-	TArray<TextureCompressionSettings> SRGBSupportedFormats =
+	static const TArray<TextureCompressionSettings> SRGBSupportedFormats =
 	{
 		TC_Default,
 		TC_EditorIcon,

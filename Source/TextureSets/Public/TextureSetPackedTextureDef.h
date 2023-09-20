@@ -78,7 +78,7 @@ private:
 	// Used to determine if a source is enabled or not, as CanEditChange does not let us determine which index a property belongs to. 
 	// See https://udn.unrealengine.com/s/feed/0D54z00007Fbih8CAB
 	UPROPERTY()
-	int AvailableChannels;
+	int AvailableChannels = 0;
 #endif
 };
 

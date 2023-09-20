@@ -128,16 +128,16 @@ void FTextureSetsEditorModule::StartupModule()
 	RegisterAssetTools();
 
 	ParameterEditor = MakeShared<FTextureSetParameterEditor>();
-	FMaterialPropertyHelpers::RegisterParameterFilter(ParameterEditor.Get());
-	FMaterialPropertyHelpers::RegisterCustomParameterEditor(ParameterEditor.Get());
+	FMaterialPropertyHelpers::RegisterParameterFilter(ParameterEditor);
+	FMaterialPropertyHelpers::RegisterCustomParameterEditor(ParameterEditor);
 }
 
 void FTextureSetsEditorModule::ShutdownModule()
 {
 	UnregisterAssetTools();
 
-	FMaterialPropertyHelpers::UnregisterParameterFilter(ParameterEditor.Get());
-	FMaterialPropertyHelpers::UnregisterCustomParameterEditor(ParameterEditor.Get());
+	FMaterialPropertyHelpers::UnregisterParameterFilter(ParameterEditor);
+	FMaterialPropertyHelpers::UnregisterCustomParameterEditor(ParameterEditor);
 	ParameterEditor.Reset();
 }
 
