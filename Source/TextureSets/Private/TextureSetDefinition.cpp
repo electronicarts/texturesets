@@ -267,8 +267,11 @@ void UTextureSetDefinition::ResetEdits()
 
 	for (const UTextureSetModule* Module : Modules)
 	{
+		// Edit modules have a null outer so they will not be serialized
+		// Having 'this' as an outer caused a crash in RoutePresave (SavePackage2.cpp)
+		// when it was included in the save, and then cleaned up by the GC mid-save.
 		if (IsValid(Module))
-			EditModules.Add(DuplicateObject(Module, this));
+			EditModules.Add(DuplicateObject(Module, nullptr));
 	}
 
 	// Packing
