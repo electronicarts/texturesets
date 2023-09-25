@@ -42,12 +42,13 @@ void UTextureSet::AugmentMaterialParameters(const FCustomParameterValue& CustomP
 #if WITH_EDITOR
 	if (!bIsDerivedDataReady)
 	{
-		checkf(IsValid(Definition->GetDefaultTextureSet()), TEXT("Definition has no default texture set"));
-		checkf(Definition->GetDefaultTextureSet() != this, TEXT("Attempting to use default texture set before derived data is ready"));
-		checkf(Definition->GetDefaultTextureSet()->bIsDerivedDataReady, TEXT("Attempting to use default texture set before derived data is ready"));
+		// Use the default texture set if it's valid
+		if (IsValid(Definition->GetDefaultTextureSet()) && Definition->GetDefaultTextureSet() != this)
+		{
+			Definition->GetDefaultTextureSet()->AugmentMaterialParameters(CustomParameter, VectorParameters, TextureParameters);
+		}
 
-		// Fall back to using the definition's default texture set if our derived data isn't ready yet
-		TS = bIsDerivedDataReady ? this : Definition->GetDefaultTextureSet();
+		return;
 	}
 #endif
 
