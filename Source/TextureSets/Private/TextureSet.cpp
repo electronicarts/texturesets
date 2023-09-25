@@ -4,6 +4,7 @@
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "TextureSetDefinition.h"
+#include "TextureSetDerivedData.h"
 #include "TextureSetModule.h"
 #include "UObject/ObjectSaveContext.h"
 #if WITH_EDITOR
