@@ -122,6 +122,7 @@ bool FTextureSetPackedTextureDef::GetHardwareSRGBEnabled() const
 	return bHardwareSRGB && SRGBSupportedFormats.Contains(CompressionSettings);
 }
 
+#if WITH_EDITOR
 void FTextureSetPackedTextureDef::UpdateAvailableChannels()
 {
 	AvailableChannels = GetAvailableChannels();
@@ -145,3 +146,4 @@ void FTextureSetPackedTextureDef::UpdateAvailableChannels()
 		break;
 	}
 }
+#endif

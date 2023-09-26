@@ -51,7 +51,7 @@ class UPBRSurfaceModule : public UTextureSetModule
 	GENERATED_BODY()
 public:
 
-	const FName MetalName = "Metal";
+	const FName MetalName = "Metallic";
 	const FName BaseColorName = "BaseColor";
 	const FName AlbedoName = "Albedo";
 	const FName SpecularName = "Specular";

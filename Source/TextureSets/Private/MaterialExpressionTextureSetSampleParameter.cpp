@@ -66,6 +66,8 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 
 	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0"));
 
+	Hash = HashCombine(Hash, GetTypeHash(FTextureSetMaterialGraphBuilder::GetGraphBuilderVersion()));
+
 	Hash = HashCombine(Hash, GetTypeHash(ParameterName.ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(Group.ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(SortPriority));
@@ -80,6 +82,11 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 	{
 		Hash = HashCombine(Hash, Module->ComputeSamplingHash(this));
 	}
+
+	Hash = HashCombine(Hash, GetTypeHash(BaseNormalSource));
+	Hash = HashCombine(Hash, GetTypeHash(TangentSource));
+	Hash = HashCombine(Hash, GetTypeHash(PositionSource));
+	Hash = HashCombine(Hash, GetTypeHash(CameraVectorSource));
 
 	return Hash;
 }
@@ -193,8 +200,12 @@ EDataValidationResult UMaterialExpressionTextureSetSampleParameter::IsDataValid(
 		Context.AddError(LOCTEXT("MissingDefinition","A texture set sample must reference a valid definition."));
 		Result = EDataValidationResult::Invalid;
 	}
+	else if (Definition->IsDataValid(Context) == EDataValidationResult::Invalid)
+	{
+		Result = EDataValidationResult::Invalid;
+	}
 
-	if (IsValid(DefaultTextureSet) && DefaultTextureSet->Definition != Definition)
+	if (DefaultTextureSet.IsValid() && DefaultTextureSet->Definition != Definition)
 	{
 		Context.AddError(LOCTEXT("MismatchedDefinition","The Default texture set does not use the same definition as specified in the material expression parameter."));
 		Result = EDataValidationResult::Invalid;
@@ -238,7 +249,8 @@ void UMaterialExpressionTextureSetSampleParameter::UpdateSampleParamArray()
 #if WITH_EDITOR
 void UMaterialExpressionTextureSetSampleParameter::OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition)
 {
-	if (ChangedDefinition == Definition)
+	// Only update if this is our definition, or if we're not going to call post-load later (that will update everything anyway).
+	if (ChangedDefinition == Definition && !HasAnyFlags(RF_NeedPostLoad))
 	{
 		if (UpdateMaterialFunction())
 		{

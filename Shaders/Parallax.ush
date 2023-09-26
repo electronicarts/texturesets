@@ -1,0 +1,143 @@
+#pragma once
+
+float2 ParallaxOcclusionMapping(
+	float2 texcoord,
+	float3 worldSpaceNormal,
+	float3 worldSpaceViewDirection,
+	float heightScale,
+	float referencePlane,
+	float3 pos,
+	float sampleCount,
+	Texture2D heightmapTexture,
+	SamplerState heightmapSampler,
+	float heightmapChannel,
+	float2 heightmapSize,
+	float3 tangent,
+	float3 bitangent,
+	out float2 texcoordOffset,
+	out float depthOffset,
+	out float heightOut)
+{
+	float3x3 tangentToWorld = 
+	{
+		tangent,
+		bitangent,
+		worldSpaceNormal
+	};
+
+	// Multiply backwards for a world to tangent hack
+	float3 viewTangentSpace = mul(tangentToWorld, worldSpaceViewDirection);
+
+	texcoordOffset = 0;
+	depthOffset = 0;
+	
+	float textureAspectRatio = heightmapSize.x / heightmapSize.y;
+
+	float2 dx = ddx(texcoord);
+	float2 dy = ddy(texcoord);
+
+	if (heightScale > 0)
+	{
+		// Parallax occlusion mapping offset computation 
+
+		int number_of_steps = floor(sampleCount);
+
+		// Intersect the view ray with the height field profile along the direction of
+		// the parallax offset ray (computed in the vertex shader. Note that the code is
+		// designed specifically to take advantage of the dynamic flow control constructs
+		// in HLSL and is very sensitive to specific syntax. When converting to other examples,
+		// if still want to use dynamic flow control in the resulting assembly shader,
+		// care must be applied.
+		// 
+		// In the below steps we approximate the height field profile as piecewise linear
+		// curve. We find the pair of endpoints between which the intersection between the 
+		// height field profile and the view ray is found and then compute line segment
+		// intersection for the view ray and the line segment formed by the two endpoints.
+		// This intersection is the displacement offset from the original texture coordinate.
+
+		float current_height = 0.0;
+		float step_size = 1.0 / (float)number_of_steps;
+
+		float previous_height = 1.0;
+		float next_height = 0.0;
+
+		int step_index = 0;
+
+		// Compute initial parallax displacement direction:
+		float2 parallax_direction = normalize(viewTangentSpace.xy);
+		
+		// Adjust for non-square textures
+		parallax_direction.y *= textureAspectRatio;
+
+		float max_parallax_amount = sqrt(1 - viewTangentSpace.z * viewTangentSpace.z) / viewTangentSpace.z;
+
+		// Compute the actual reverse parallax displacement vector:
+		float2 parallax_offset_in_tangent_space = parallax_direction * max_parallax_amount;
+
+		// Need to scale the amount of displacement to account for different height ranges
+		// in height maps. This is controlled by an artist-editable parameter:
+		parallax_offset_in_tangent_space *= heightScale;
+
+		float2 texcoord_offset_per_step = step_size * parallax_offset_in_tangent_space;
+
+		float2 current_texcoord_offset = texcoord + referencePlane * parallax_offset_in_tangent_space;
+		float current_bound = 1.0;
+
+		float current_parallax_amount = 0.0;
+
+		float2 pt1 = 0;
+		float2 pt2 = 0;
+
+		while (step_index < number_of_steps)
+		{
+			current_texcoord_offset -= texcoord_offset_per_step;
+
+			// Sample height map
+			current_height = heightmapTexture.SampleGrad(heightmapSampler, current_texcoord_offset, dx, dy)[heightmapChannel];
+			current_bound -= step_size;
+
+			if (current_height > current_bound)
+			{
+				step_index = number_of_steps + 1;
+			}
+			else
+			{
+				step_index++;
+				previous_height = current_height;
+			}
+		}
+
+		pt1 = float2(current_bound, current_height) + referencePlane.xx;
+		pt2 = float2(current_bound + step_size, previous_height) + referencePlane.xx;
+		
+		float delta2 = pt2.x - pt2.y;
+		float delta1 = pt1.x - pt1.y;
+
+		float denominator = delta2 - delta1;
+
+		// SM 3.0 and above requires a check for divide by zero since that operation
+		// will generate an 'Inf' number instead of 0
+		[flatten]
+		if (denominator == 0.0f)
+			current_parallax_amount = 0.0f;
+		else
+			current_parallax_amount = (pt1.x * delta2 - pt2.x * delta1) / denominator;
+
+		texcoordOffset = -parallax_offset_in_tangent_space * (1.0f - current_parallax_amount);
+		
+		// START Depth Offset
+		float maxHeight = heightScale; // ?
+		float height = current_height + referencePlane; // ?
+		
+		// Since POM "pushes" geometry inwards (rather than extrude it), { height = height - 1 }.
+		// Since the result is used as a 'depthOffsetVS', it needs to be positive, so we flip the sign.
+		
+		float verticalDisplacement = (maxHeight - height * maxHeight);
+		depthOffset = verticalDisplacement / saturate(dot(worldSpaceNormal, worldSpaceViewDirection));
+		// END Depth Offset
+		
+		heightOut = current_height;
+	}
+	
+	return texcoord + texcoordOffset;
+}

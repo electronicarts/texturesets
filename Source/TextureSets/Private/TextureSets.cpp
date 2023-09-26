@@ -2,11 +2,14 @@
 
 #include "TextureSets.h"
 
+#include "Interfaces/IPluginManager.h"
+
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
 void FTextureSetsModule::StartupModule()
 {
-
+	FString PluginShaderDir = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("TextureSets"))->GetBaseDir(), TEXT("Shaders"));
+	AddShaderSourceDirectoryMapping(TEXT("/Plugin/TextureSets"), PluginShaderDir);
 }
 
 void FTextureSetsModule::ShutdownModule()

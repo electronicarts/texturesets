@@ -11,6 +11,36 @@ class UTextureSet;
 class FObjectInitializer;
 class FArguments;
 
+UENUM()
+enum class EBaseNormalSource : uint8
+{
+	Explicit UMETA(ToolTip = "Explicitly define base normal input."),
+	Vertex UMETA(ToolTip = "Use the mesh's vertex normal as the base normal."),
+};
+
+UENUM()
+enum class ETangentSource : uint8
+{
+	Explicit UMETA(ToolTip = "Explicitly define tangent and bitangent inputs."),
+	Synthesized UMETA(ToolTip = "Synthesized the tangent and bitangent with screen-space derivatives based on input UVs, base normal, and position."),
+	Vertex UMETA(ToolTip = "Read the tangent and bitangent from the mesh's vertex data. More accurate than Synthesized tangents, but only works correctly if your input UVs are based on the UV0 of the mesh!"),
+};
+
+UENUM()
+enum class EPositionSource : uint8
+{
+	Explicit UMETA(ToolTip = "Explicitly position to use for internal calculations."),
+	World UMETA(ToolTip = "Use the world position if a position is needed for any internal calculations."),
+};
+
+UENUM()
+enum class ECameraVectorSource : uint8
+{
+	Explicit UMETA(ToolTip = "Explicitly camera vector to use for internal calculations."),
+	World UMETA(ToolTip = "Use the world camera vector if it's needed for any internal calculations."),
+};
+
+
 UCLASS(HideCategories = (MaterialExpressionMaterialFunctionCall))
 class TEXTURESETS_API UMaterialExpressionTextureSetSampleParameter : public UProceduralMaterialFunction
 {
@@ -20,25 +50,37 @@ public:
 	FName ParameterName;
 	
 	/** GUID that should be unique within the material, this is used for parameter renaming. */
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere)
 	FGuid ExpressionGUID;
 
 	/** The name of the parameter Group to display in MaterialInstance Editor. Default is None group */
-	UPROPERTY(EditAnywhere, Category=MaterialExpressionParameter)
+	UPROPERTY(EditAnywhere)
 	FName Group;
 
 	/** Controls where the this parameter is displayed in a material instance parameter list.  The lower the number the higher up in the parameter list. */
-	UPROPERTY(EditAnywhere, Category=MaterialExpressionParameter)
+	UPROPERTY(EditAnywhere)
 	int32 SortPriority = 32;
 
 	UPROPERTY(EditAnywhere)
-	TObjectPtr<class UTextureSet> DefaultTextureSet;
+	TSoftObjectPtr<class UTextureSet> DefaultTextureSet;
 
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<class UTextureSetDefinition> Definition;
 
 	UPROPERTY(EditAnywhere, EditFixedSize, NoClear)
 	TArray<class UTextureSetSampleParams*> SampleParams;
+
+	UPROPERTY(EditAnywhere, Category=Context)
+	EBaseNormalSource BaseNormalSource = EBaseNormalSource::Vertex;
+
+	UPROPERTY(EditAnywhere, Category=Context)
+	ETangentSource TangentSource = ETangentSource::Synthesized;
+
+	UPROPERTY(EditAnywhere, Category=Context)
+	EPositionSource PositionSource = EPositionSource::World;
+
+	UPROPERTY(EditAnywhere, Category=Context)
+	ECameraVectorSource CameraVectorSource = ECameraVectorSource::World;
 
 	template <class T>
 	const T* GetSampleParams() const

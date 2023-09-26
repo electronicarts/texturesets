@@ -1,0 +1,34 @@
+
+#pragma once
+
+void SynthesizeTangents(in float3 Position, in float2 Texcoord, in float3 Normal, out float3 Tangent, out float3 Bitangent)
+{
+	// compute derivations of the world position
+	float3 p_dx = ddx(Position);
+	float3 p_dy = ddy(Position);
+	// compute derivations of the texture coordinate
+	float2 tc_dx = ddx(Texcoord);
+	float2 tc_dy = ddy(Texcoord);
+	// compute initial tangent and bi-tangent
+	Tangent = tc_dy.y * p_dx - tc_dx.y * p_dy;
+	Bitangent = tc_dy.x * p_dx - tc_dx.x * p_dy;
+	// avoid zero-division
+	[flatten]
+	if (all(Tangent == 0.0f))
+		Tangent = Normal;
+	[flatten]
+	if (all(Bitangent == 0.0f))
+		Bitangent = Normal;
+	// sign inversion
+	Tangent = -normalize(Tangent);
+	Bitangent = normalize(Bitangent);
+
+	bool mirroredUV = dot(cross(Bitangent, Tangent), Normal) > 0.0f;
+
+	[flatten]
+	if (!mirroredUV)
+	{
+		Tangent = -Tangent;
+		Bitangent = -Bitangent;
+	}
+}
