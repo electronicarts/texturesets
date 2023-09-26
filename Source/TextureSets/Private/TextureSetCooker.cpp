@@ -82,6 +82,7 @@ TextureSetCooker::TextureSetCooker(UTextureSet* TS)
 	, AsyncTask(nullptr)
 {
 	check(IsValid(TextureSet->Definition));
+	check(IsInGameThread());
 
 	TextureSetDataId = TS->ComputeTextureSetDataId();
 
@@ -104,6 +105,8 @@ bool TextureSetCooker::IsOutOfDate(int PackedTextureIndex) const
 
 void TextureSetCooker::ConfigureTexture(int Index) const
 {
+	check(IsInGameThread());
+
 	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
 	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
 	const FPackedTextureData& Data = TextureSet->DerivedData->PackedTextureData[Index];
@@ -128,6 +131,12 @@ void TextureSetCooker::ConfigureTexture(int Index) const
 void TextureSetCooker::Execute()
 {
 	check(!IsAsyncJobInProgress());
+	check(IsInGameThread());
+
+	for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
+	{
+		ConfigureTexture(t);
+	}
 
 	ExecuteInternal();
 }
@@ -135,6 +144,12 @@ void TextureSetCooker::Execute()
 void TextureSetCooker::ExecuteAsync(FQueuedThreadPool* InQueuedPool, EQueuedWorkPriority InQueuedWorkPriority)
 {
 	check(!IsAsyncJobInProgress());
+	check(IsInGameThread());
+
+	for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
+	{
+		ConfigureTexture(t);
+	}
 
 	AsyncTask = MakeUnique<FAsyncTask<FTextureSetCookerTaskWorker>>(this);
 	AsyncTask->StartBackgroundTask(InQueuedPool, InQueuedWorkPriority);
@@ -142,11 +157,13 @@ void TextureSetCooker::ExecuteAsync(FQueuedThreadPool* InQueuedPool, EQueuedWork
 
 bool TextureSetCooker::IsAsyncJobInProgress()
 {
+	check(IsInGameThread());
 	return AsyncTask.IsValid() && !AsyncTask->IsDone();
 }
 
 bool TextureSetCooker::TryCancel()
 {
+	check(IsInGameThread());
 	if (IsAsyncJobInProgress())
 		return AsyncTask->Cancel();
 	else
@@ -185,8 +202,6 @@ void TextureSetCooker::ExecuteInternal()
 	{
 		for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
 		{
-			ConfigureTexture(t);
-
 			// This can happen if a texture build gets interrupted after a texture-set cook.
 			if (!TextureSet->DerivedTextures[t]->PlatformDataExistsInCache())
 			{
@@ -365,8 +380,6 @@ void TextureSetCooker::BuildTextureData(int Index) const
 	}
 
 	Texture->Source.UnlockMip(0);
-
-	ConfigureTexture(Index);
 }
 
 #endif
