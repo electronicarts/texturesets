@@ -271,7 +271,7 @@ void UTextureSet::UpdateDerivedData()
 		return;
 	}
 
-	if (ensureAlways(!ActiveCooker.IsValid()))
+	if (!ensureAlways(!ActiveCooker.IsValid()))
 	{
 		// This generally shouldn't happen, but if it does, make sure we finish the previous cook before trying to kick off another one
 		if (!TryCancelCook())
