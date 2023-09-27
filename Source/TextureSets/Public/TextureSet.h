@@ -25,7 +25,7 @@ public:
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(EditAnywhere, EditFixedSize, meta=(ReadOnlyKeys))
-	TMap<FName, TSoftObjectPtr<UTexture>> SourceTextures;
+	TMap<FName, TObjectPtr<UTexture>> SourceTextures;
 
 	UPROPERTY(EditAnywhere, EditFixedSize)
 	TArray<class UTextureSetAssetParams*> AssetParams;

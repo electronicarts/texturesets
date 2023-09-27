@@ -12,8 +12,8 @@ struct FTextureSetProcessingContext
 
 public:
 	bool HasSourceTexure(FName Name) const { return SourceTextures.Contains(Name); }
-	const TObjectPtr<class UTexture> GetSourceTexture(FName Name) const { return SourceTextures.FindChecked(Name).LoadSynchronous(); }
+	const TObjectPtr<class UTexture> GetSourceTexture(FName Name) const { return SourceTextures.FindChecked(Name); }
 private:
-	TMap<FName, TSoftObjectPtr<UTexture>> SourceTextures;
+	TMap<FName, TObjectPtr<UTexture>> SourceTextures;
 };
 #endif
