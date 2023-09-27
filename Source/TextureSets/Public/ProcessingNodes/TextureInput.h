@@ -38,5 +38,6 @@ private:
 	bool bInitialized;
 	uint8 ValidChannels;
 	FImage Image;
+	bool bValidImage;
 };
 #endif

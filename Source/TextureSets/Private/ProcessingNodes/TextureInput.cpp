@@ -11,6 +11,7 @@ FTextureInput::FTextureInput(FName SourceNameIn, const FTextureSetSourceTextureD
 {
 	SourceName = SourceNameIn;
 	SourceDefinition = SourceDefinitionIn;
+	bValidImage = false;
 	bInitialized = false;
 	ValidChannels = 0;
 }
@@ -28,29 +29,34 @@ void FTextureInput::Initialize(const FTextureSetProcessingContext& Context)
 		
 		if (IsValid(Texture))
 		{
+			check(Texture->Source.IsValid());
+
 			FImage RawImage;
-			Texture->Source.GetMipImage(RawImage, 0, 0, 0);
+			bValidImage = Texture->Source.GetMipImage(RawImage, 0, 0, 0);
 
-			switch (RawImage.Format)
+			if (bValidImage)
 			{
-			case ERawImageFormat::G8:
-			case ERawImageFormat::G16:
-			case ERawImageFormat::R16F:
-			case ERawImageFormat::R32F:
-				ValidChannels = 1;
-				break;
-			case ERawImageFormat::BGRE8:
-			case ERawImageFormat::BGRA8:
-			case ERawImageFormat::RGBA16:
-			case ERawImageFormat::RGBA16F:
-			case ERawImageFormat::RGBA32F:
-				ValidChannels = 4;
-				break;
-			default:
-				unimplemented();
-			}
+				switch (RawImage.Format)
+				{
+				case ERawImageFormat::G8:
+				case ERawImageFormat::G16:
+				case ERawImageFormat::R16F:
+				case ERawImageFormat::R32F:
+					ValidChannels = 1;
+					break;
+				case ERawImageFormat::BGRE8:
+				case ERawImageFormat::BGRA8:
+				case ERawImageFormat::RGBA16:
+				case ERawImageFormat::RGBA16F:
+				case ERawImageFormat::RGBA32F:
+					ValidChannels = 4;
+					break;
+				default:
+					unimplemented();
+				}
 
-			RawImage.Linearize((int)Texture->SourceColorSettings.EncodingOverride, Image);
+				RawImage.Linearize((int)Texture->SourceColorSettings.EncodingOverride, Image);
+			}
 		}
 	}
 
@@ -85,12 +91,20 @@ const uint32 FTextureInput::ComputeDataHash(const FTextureSetProcessingContext& 
 
 float FTextureInput::GetPixel(int X, int Y, int Channel) const
 {
+#ifdef UE_BUILD_DEBUG
+	// Too slow to be used in development builds
 	check(bInitialized);
 	check(Channel < SourceDefinition.ChannelCount);
+#endif
 
 	// TODO: Can we avoid a branch on every pixel?
 	if (Channel < ValidChannels)
 	{
+#ifdef UE_BUILD_DEBUG
+		check(bValidImage);
+		check(X < Image.GetWidth());
+		check(Y < Image.GetHeight());
+#endif
 		const int I = Y * Image.GetWidth() + X;
 		return Image.AsRGBA32F()[I].Component(Channel);
 	}

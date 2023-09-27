@@ -66,7 +66,7 @@ public:
 
 	void Finalize();
 
-	bool IsAsyncJobInProgress();
+	bool IsAsyncJobInProgress() const;
 	bool TryCancel();
 
 	FAsyncTaskBase* GetAsyncTask() { return AsyncTask.Get(); }

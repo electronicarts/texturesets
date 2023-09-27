@@ -33,7 +33,10 @@ public:
 	virtual float GetPixel(int X, int Y, int Channel) const override
 	{
 		// TODO: Bilinear interpolation
-		return SourceImage->GetPixel(X * (SourceImage->GetWidth() / Width), Y * (SourceImage->GetHeight() / Height), Channel);
+		const int SourceX = X * (SourceImage->GetWidth() / Width);
+		const int SourceY = Y * (SourceImage->GetHeight() / Height);
+
+		return SourceImage->GetPixel(SourceX, SourceY, Channel);
 	}
 
 private:

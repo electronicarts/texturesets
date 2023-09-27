@@ -110,32 +110,6 @@ bool TextureSetCooker::CookRequired() const
 	return false;
 }
 
-void TextureSetCooker::ConfigureTexture(int Index) const
-{
-	// Configure texture MUST be called only in the game thread.
-	// Changing texture properties in a thread can cause a crash in the texture compiler.
-	check(IsInGameThread());
-
-	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
-	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
-
-	UTexture* Texture = TextureSet->GetDerivedTexture(Index);
-
-	// sRGB if possible
-	Texture->SRGB = TextureInfo.HardwareSRGB;
-
-	// Make sure the texture's compression settings are correct
-	Texture->CompressionSettings = TextureDef.CompressionSettings;
-
-	// Let the texture compression know if we don't need the alpha channel
-	Texture->CompressionNoAlpha = TextureInfo.ChannelCount <= 3;
-
-	// Set the ID of the generated source to match the hash ID of this texture.
-	// This will be used to recover the cooked texture data from the DDC if possible.
-	Texture->Source.SetId(PackedTextureIds[Index], true);
-	Texture->bSourceBulkDataTransient = true;
-}
-
 void TextureSetCooker::Execute()
 {
 	check(!IsAsyncJobInProgress());
@@ -168,11 +142,9 @@ void TextureSetCooker::Finalize()
 		TextureSet->DerivedTextures[t]->UpdateResource();
 		TextureSet->DerivedTextures[t]->UpdateCachedLODBias();
 	}
-
-
 }
 
-bool TextureSetCooker::IsAsyncJobInProgress()
+bool TextureSetCooker::IsAsyncJobInProgress() const
 {
 	check(IsInGameThread());
 	return AsyncTask.IsValid() && !AsyncTask->IsDone();
@@ -187,6 +159,33 @@ bool TextureSetCooker::TryCancel()
 		return true;
 }
 
+void TextureSetCooker::ConfigureTexture(int Index) const
+{
+	// Configure texture MUST be called only in the game thread.
+	// Changing texture properties in a thread can cause a crash in the texture compiler.
+	check(IsInGameThread());
+	check(!IsAsyncJobInProgress());
+
+	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
+	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
+
+	UTexture* Texture = TextureSet->GetDerivedTexture(Index);
+
+	// sRGB if possible
+	Texture->SRGB = TextureInfo.HardwareSRGB;
+
+	// Make sure the texture's compression settings are correct
+	Texture->CompressionSettings = TextureDef.CompressionSettings;
+
+	// Let the texture compression know if we don't need the alpha channel
+	Texture->CompressionNoAlpha = TextureInfo.ChannelCount <= 3;
+
+	// Set the ID of the generated source to match the hash ID of this texture.
+	// This will be used to recover the cooked texture data from the DDC if possible.
+	Texture->Source.SetId(PackedTextureIds[Index], true);
+	Texture->bSourceBulkDataTransient = true;
+}
+
 void TextureSetCooker::ExecuteInternal()
 {
 	check(TextureSet->ActiveCooker.Get() == this);
@@ -194,8 +193,7 @@ void TextureSetCooker::ExecuteInternal()
 	bool bDataWasBuilt = false;
 
 	// Fetch or build derived data for the texture set
-	FGuid NewID = TextureSet->ComputeTextureSetDataId();
-	if (NewID != TextureSet->DerivedData->Id)
+	if (TextureSetDataId != TextureSet->DerivedData->Id)
 	{
 		// Keys to current derived data don't match
 		// Retreive derived data from the DDC, or cook new data
@@ -220,7 +218,7 @@ void TextureSetCooker::ExecuteInternal()
 		for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
 		{
 			// This can happen if a texture build gets interrupted after a texture-set cook.
-			if (!TextureSet->DerivedTextures[t]->PlatformDataExistsInCache())
+			if (!ensure(TextureSet->DerivedTextures[t]->PlatformDataExistsInCache()))
 			{
 				// Build this texture to regenerate the source data, so it can be cached.
 				BuildTextureData(t);
