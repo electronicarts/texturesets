@@ -28,7 +28,17 @@ UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITOR
 bool UTextureSet::IsCompiling() const
 {
-	return ActiveCooker.IsValid() && !bIsDerivedDataReady;
+	if (ActiveCooker.IsValid() && !bIsDerivedDataReady)
+		return true;
+
+	for (UTexture* DerivedTexture : DerivedTextures)
+	{
+		// Texture set is not compiled until the derived texturess are finished compiling
+		if (DerivedTexture->IsCompiling())
+			return true;
+	}
+
+	return false;
 }
 #endif
 
