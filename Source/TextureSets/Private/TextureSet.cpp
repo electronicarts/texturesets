@@ -334,19 +334,7 @@ void UTextureSet::UpdateDerivedData()
 
 	ActiveCooker = MakeShared<TextureSetCooker>(this);
 
-	if (ComputeTextureSetDataId() != DerivedData->Id)
-		bCookRequired = true;
-
-	for (int t = 0; !bCookRequired && t < DerivedTextures.Num(); t++)
-	{
-		// Make sure the texture is using the right key before checking if it's cached
-		ActiveCooker->ConfigureTexture(t);
-
-		if (!DerivedTextures[t]->PlatformDataExistsInCache())
-			bCookRequired = true;
-	}
-
-	if (!bCookRequired)
+	if (!ActiveCooker->CookRequired())
 	{
 		bIsDerivedDataReady = true;
 		ActiveCooker = nullptr;
@@ -421,13 +409,7 @@ void UTextureSet::OnFinishCook()
 	check(IsValid(Definition));
 	check(ActiveCooker.IsValid());
 
-	check(!ActiveCooker->IsAsyncJobInProgress());
-
-	for (int t = 0; t < DerivedTextures.Num(); t++)
-	{
-		DerivedTextures[t]->UpdateResource();
-		DerivedTextures[t]->UpdateCachedLODBias();
-	}
+	ActiveCooker->Finalize();
 
 	ActiveCooker = nullptr;
 	bIsDerivedDataReady = true;

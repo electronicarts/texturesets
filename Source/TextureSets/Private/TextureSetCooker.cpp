@@ -61,9 +61,6 @@ FString TextureSetDerivedDataPlugin::GetDebugContextString() const
 
 bool TextureSetDerivedDataPlugin::Build(TArray<uint8>& OutData)
 {
-	if (Cooker->IsOutOfDate())
-		return false; // TODO: What are the consequences of this? Do we fail gracefully?
-
 	Cooker->Build();
 
 	OutData.Empty(2048);
@@ -88,28 +85,39 @@ TextureSetCooker::TextureSetCooker(UTextureSet* TS)
 
 	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
 		PackedTextureIds.Add(TS->ComputePackedTextureDataID(i));
+
+	// Derived textures must be configured before cooking, so PlatformDataExistsInCache() uses the correct keys
+	for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
+		ConfigureTexture(t);
 }
 
-bool TextureSetCooker::IsOutOfDate() const
+bool TextureSetCooker::CookRequired() const
 {
-	return TextureSet->ComputeTextureSetDataId() != TextureSetDataId;
-}
+	check(IsInGameThread());
 
-bool TextureSetCooker::IsOutOfDate(int PackedTextureIndex) const
-{
-	if (PackedTextureIndex >= PackedTextureIds.Num())
+	if (TextureSetDataId != TextureSet->DerivedData->Id)
 		return true;
 
-	return TextureSet->ComputePackedTextureDataID(PackedTextureIndex) != PackedTextureIds[PackedTextureIndex];
+	for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
+	{
+		// Make sure the texture is using the right key before checking if it's cached
+		ConfigureTexture(t);
+
+		if (!TextureSet->DerivedTextures[t]->PlatformDataExistsInCache())
+			return true;
+	}
+
+	return false;
 }
 
 void TextureSetCooker::ConfigureTexture(int Index) const
 {
+	// Configure texture MUST be called only in the game thread.
+	// Changing texture properties in a thread can cause a crash in the texture compiler.
 	check(IsInGameThread());
 
 	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
 	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
-	const FPackedTextureData& Data = TextureSet->DerivedData->PackedTextureData[Index];
 
 	UTexture* Texture = TextureSet->GetDerivedTexture(Index);
 
@@ -124,7 +132,7 @@ void TextureSetCooker::ConfigureTexture(int Index) const
 
 	// Set the ID of the generated source to match the hash ID of this texture.
 	// This will be used to recover the cooked texture data from the DDC if possible.
-	Texture->Source.SetId(Data.Id, true);
+	Texture->Source.SetId(PackedTextureIds[Index], true);
 	Texture->bSourceBulkDataTransient = true;
 }
 
@@ -132,11 +140,6 @@ void TextureSetCooker::Execute()
 {
 	check(!IsAsyncJobInProgress());
 	check(IsInGameThread());
-
-	for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
-	{
-		ConfigureTexture(t);
-	}
 
 	ExecuteInternal();
 }
@@ -146,13 +149,27 @@ void TextureSetCooker::ExecuteAsync(FQueuedThreadPool* InQueuedPool, EQueuedWork
 	check(!IsAsyncJobInProgress());
 	check(IsInGameThread());
 
-	for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
-	{
-		ConfigureTexture(t);
-	}
-
 	AsyncTask = MakeUnique<FAsyncTask<FTextureSetCookerTaskWorker>>(this);
 	AsyncTask->StartBackgroundTask(InQueuedPool, InQueuedWorkPriority);
+}
+
+void TextureSetCooker::Finalize()
+{
+	check(IsInGameThread());
+	check(!IsAsyncJobInProgress())
+
+	for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
+	{
+		// Configure textures is called again after cooking, to make sure the correct keys are used.
+		// If Mip data was updated in BuildTextureData, it would reset the key incorrectly.
+		ConfigureTexture(t);
+
+		// Update resources re-caches the derived texture data
+		TextureSet->DerivedTextures[t]->UpdateResource();
+		TextureSet->DerivedTextures[t]->UpdateCachedLODBias();
+	}
+
+
 }
 
 bool TextureSetCooker::IsAsyncJobInProgress()
@@ -234,8 +251,6 @@ void TextureSetCooker::Build() const
 
 void TextureSetCooker::BuildTextureData(int Index) const
 {
-	check(!IsOutOfDate(Index));
-
 	FPackedTextureData& Data = TextureSet->DerivedData->PackedTextureData[Index];
 
 	Data.MaterialParameters.Empty();

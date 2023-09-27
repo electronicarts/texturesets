@@ -57,13 +57,14 @@ public:
 
 	TextureSetCooker(UTextureSet* TS);
 
-	bool IsOutOfDate() const;
-	bool IsOutOfDate(int PackedTextureIndex) const;
+	bool CookRequired() const;
 
 	void ConfigureTexture(int Index) const;
 
 	void Execute();
 	void ExecuteAsync(FQueuedThreadPool* InQueuedPool = GThreadPool, EQueuedWorkPriority InQueuedWorkPriority = EQueuedWorkPriority::Normal);
+
+	void Finalize();
 
 	bool IsAsyncJobInProgress();
 	bool TryCancel();
