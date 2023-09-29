@@ -3,25 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "TextureSetAssetParams.h"
 #include "TextureSetInfo.h"
 #include "TextureSetMaterialGraphBuilder.h"
 #include "TextureSetProcessingGraph.h"
 
 #include "TextureSetModule.Generated.h"
-
-// Data class which is instanced on each texture set asset. Module can use this to allow users to configure asset settings.
-UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
-class UTextureSetAssetParams : public UObject
-{
-	GENERATED_BODY()
-};
-
-// Data class which is instanced on each texture set sampler material expression. Module can use this to allow users to configure sample settings.
-UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
-class UTextureSetSampleParams : public UObject
-{
-	GENERATED_BODY()
-};
 
 // Abstract class for texture set modules. Modules provide a mechanism for extending textures sets with additional functionality.
 UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)

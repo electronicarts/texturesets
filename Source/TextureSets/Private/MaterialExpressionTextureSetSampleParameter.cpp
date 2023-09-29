@@ -221,28 +221,9 @@ void UMaterialExpressionTextureSetSampleParameter::UpdateSampleParamArray()
 	if (!IsValid(Definition))
 		return;
 
-	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredSampleParamClasses = Definition->GetRequiredSampleParamClasses();
+	TArray<TSubclassOf<UTextureSetAssetParams>> RequiredSampleParamClasses(Definition->GetRequiredSampleParamClasses());
 
-	// Remove un-needed sample params
-	for (int i = 0; i < SampleParams.Num(); i++)
-	{
-		UClass* SampleParamClass = SampleParams[i]->GetClass();
-		if (RequiredSampleParamClasses.Contains(SampleParamClass))
-		{
-			RequiredSampleParamClasses.Remove(SampleParamClass); // Remove this sample param from required array, so duplicates will be removed
-		}
-		else
-		{
-			SampleParams.RemoveAt(i);
-			i--;
-		}
-	}
-
-	// Add missing sample params
-	for (TSubclassOf<UTextureSetSampleParams> SampleParamClass : RequiredSampleParamClasses)
-	{
-		SampleParams.Add(NewObject<UTextureSetSampleParams>(this, SampleParamClass));
-	}
+	SampleParams.UpdateParamList(this, RequiredSampleParamClasses);
 }
 #endif
 

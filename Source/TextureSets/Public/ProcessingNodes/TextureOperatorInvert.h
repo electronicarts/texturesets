@@ -10,7 +10,7 @@
 class FTextureOperatorInvert : public FTextureOperator
 {
 public:
-	FTextureOperatorInvert(TSharedRef<IProcessingNode> I) : FTextureOperator(I)
+	FTextureOperatorInvert(TSharedRef<ITextureProcessingNode> I) : FTextureOperator(I)
 	{}
 
 	virtual FName GetNodeTypeName() const  { return "Invert"; }

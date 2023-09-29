@@ -5,12 +5,15 @@
 #include "CoreMinimal.h"
 #include "Interfaces/Interface_AsyncCompilation.h"
 #include "Materials/MaterialInstance.h"
+#include "TextureSetAssetParams.h"
 
 #include "TextureSet.generated.h"
 
 class UTexture;
 class UTextureSetDefinition;
 class UTextureSetDerivedData;
+class FTextureSetProcessingGraph;
+struct FTextureSetProcessingContext;
 
 UCLASS(BlueprintType, hidecategories = (Object))
 class TEXTURESETS_API UTextureSet : public UObject, public ICustomMaterialParameterInterface, public IInterface_AsyncCompilation
@@ -27,23 +30,9 @@ public:
 	UPROPERTY(EditAnywhere, EditFixedSize, meta=(ReadOnlyKeys))
 	TMap<FName, TObjectPtr<UTexture>> SourceTextures;
 
-	UPROPERTY(EditAnywhere, EditFixedSize)
-	TArray<class UTextureSetAssetParams*> AssetParams;
+	UPROPERTY(EditAnywhere)
+	FTextureSetAssetParamsCollection AssetParams;
 
-	template <class T>
-	const T* GetAssetParams() const
-	{
-		for (UTextureSetAssetParams* Params : AssetParams)
-		{
-			const T* P = Cast<T>(Params);
-
-			if (IsValid(P))
-			{
-				return P;
-			}
-		}
-		return GetDefault<T>(); // Not found, return the default class
-	}
 #endif
 
 	// IInterface_AsyncCompilation Interface
@@ -65,12 +54,6 @@ public:
 #endif
 
 #if WITH_EDITOR
-	// Compute the hashed Guid for a specific hashed texture. Used by the DDC to cache the data.
-	FGuid ComputePackedTextureDataID(int PackedTextureDefIndex) const;
-
-	// Compute the hashed Guid for the entire texture set (including all hashed textures) Used by the DDC to cache the data.
-	FGuid ComputeTextureSetDataId() const;
-
 	void FixupData();
 	void UpdateDerivedData();
 
@@ -95,10 +78,10 @@ private:
 	TSharedPtr<TextureSetCooker> ActiveCooker;
 #endif
 
-	UPROPERTY(VisibleAnywhere, Category="Debug")
+	UPROPERTY(VisibleAnywhere, Category="Derived Data")
 	TObjectPtr<UTextureSetDerivedData> DerivedData;
 
-	UPROPERTY(VisibleAnywhere, Category="Debug")
+	UPROPERTY(VisibleAnywhere, Category="Derived Data")
 	TArray<TObjectPtr<UTexture>> DerivedTextures;
 
 	FDelegateHandle OnTextureSetDefinitionChangedHandle;

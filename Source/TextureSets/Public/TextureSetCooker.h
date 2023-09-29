@@ -59,8 +59,6 @@ public:
 
 	bool CookRequired() const;
 
-	void ConfigureTexture(int Index) const;
-
 	void Execute();
 	void ExecuteAsync(FQueuedThreadPool* InQueuedPool = GThreadPool, EQueuedWorkPriority InQueuedWorkPriority = EQueuedWorkPriority::Normal);
 
@@ -85,10 +83,18 @@ private:
 
 	TUniquePtr<FAsyncTask<FTextureSetCookerTaskWorker>> AsyncTask;
 
+	// Compute the hashed Guid for a specific hashed texture. Used by the DDC to cache the data.
+	FGuid ComputePackedTextureDataId(int PackedTextureDefIndex) const;
+	// Compute the hashed Guid for the entire texture set (including all hashed textures) Used by the DDC to cache the data.
+	FGuid ComputeTextureSetDataId() const;
+
+	void Prepare();
+
+	void ConfigureTexture(int Index) const;
+
 	void ExecuteInternal();
 
 	void Build() const;
-	// Called for each packed texture of a texture set, can execute in parallel.
 	void BuildTextureData(int Index) const;
 
 	static inline int GetPixelIndex(int X, int Y, int Channel, int Width, int Height)

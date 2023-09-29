@@ -12,10 +12,6 @@ class UTextureSet;
 class UTextureSetModule;
 class UTextureSetAssetParams;
 class UTextureSetSampleParams;
-#if WITH_EDITOR
-class UMaterialExpressionTextureSetSampleParameter;
-class FTextureSetMaterialGraphBuilder;
-#endif
 
 #if WITH_EDITOR
 DECLARE_EVENT_OneParam(UTextureSetDefinition, FOnTextureSetDefinitionChanged, UTextureSetDefinition* /*Definition*/);

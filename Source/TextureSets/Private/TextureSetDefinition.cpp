@@ -243,17 +243,16 @@ uint32 UTextureSetDefinition::ComputeCookingHash()
 	// Key for debugging, easily force rebuild
 	Hash = HashCombine(Hash, GetTypeHash(UserKey));
 
-	// TODO: Only hash processing outputs that contribute to this packed texture
 	FTextureSetProcessingGraph Graph = FTextureSetProcessingGraph(GetModules());
+
 	for (const auto& [Name, Node] : Graph.GetOutputTextures())
-	{
 		Hash = HashCombine(Hash, Node->ComputeGraphHash());
-	}
 
 	for (int i = 0; i < PackingInfo.PackedTextureDefs.Num(); i++)
-	{
 		Hash = HashCombine(Hash, GetTypeHash(PackingInfo.PackedTextureDefs[i]));
-	}
+
+	for (const auto& [Name, Node] : Graph.GetOutputParameters())
+		Hash = HashCombine(Hash, Node->ComputeGraphHash());
 
 	return Hash;
 }

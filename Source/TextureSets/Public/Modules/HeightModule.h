@@ -13,6 +13,9 @@ public:
 	// What is regarded as "neutral" height in the heightmap. A value of 0 means the heightmap is an extrusion, and a value of 1 is an inset.
 	UPROPERTY(EditAnywhere, meta=(UIMin = "0.0", UIMax = "1.0"))
 	float HeightmapReferencePlane = 1.0f;
+
+	UPROPERTY(EditAnywhere, meta=(UIMin = "0.0", UIMax = "1.0"))
+	float HeightmapScale = 0.05f;
 };
 
 UCLASS()

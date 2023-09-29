@@ -69,8 +69,8 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 
 		if (TextureDef.bDoRangeCompression)
 		{
-			MakeConstantParameter(TextureInfo.RangeCompressAddName, FVector4::Zero());
-			MakeConstantParameter(TextureInfo.RangeCompressMulName, FVector4::One());
+			MakeConstantParameter(TextureInfo.RangeCompressAddName, FVector4f::Zero());
+			MakeConstantParameter(TextureInfo.RangeCompressMulName, FVector4f::One());
 		}
 	}
 
@@ -403,7 +403,7 @@ UMaterialExpressionFunctionOutput* FTextureSetMaterialGraphBuilder::GetOutput(FN
 	return SampleOutputs.FindChecked(Name);
 }
 
-UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeConstantParameter(FName Name, FVector4 Default)
+UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeConstantParameter(FName Name, FVector4f Default)
 {
 	FName ParameterName = Node->GetConstantParameterName(Name);
 

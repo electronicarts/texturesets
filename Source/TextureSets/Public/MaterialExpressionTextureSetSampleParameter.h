@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "ProceduralMaterialFunction.h"
+#include "TextureSetAssetParams.h"
 
 #include "MaterialExpressionTextureSetSampleParameter.generated.h"
 
@@ -67,8 +68,8 @@ public:
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<class UTextureSetDefinition> Definition;
 
-	UPROPERTY(EditAnywhere, EditFixedSize, NoClear)
-	TArray<class UTextureSetSampleParams*> SampleParams;
+	UPROPERTY(EditAnywhere)
+	FTextureSetAssetParamsCollection SampleParams;
 
 	UPROPERTY(EditAnywhere, Category=Context)
 	EBaseNormalSource BaseNormalSource = EBaseNormalSource::Vertex;
@@ -81,21 +82,6 @@ public:
 
 	UPROPERTY(EditAnywhere, Category=Context)
 	ECameraVectorSource CameraVectorSource = ECameraVectorSource::World;
-
-	template <class T>
-	const T* GetSampleParams() const
-	{
-		for (UTextureSetSampleParams* Params : SampleParams)
-		{
-			const T* SP = Cast<T>(Params);
-
-			if (IsValid(SP))
-			{
-				return SP;
-			}
-		}
-		return GetDefault<T>(); // Not found, return the default class
-	}
 
 	FName GetTextureParameterName(int TextureIndex) const;
 	FName GetConstantParameterName(FName ConstantName) const;

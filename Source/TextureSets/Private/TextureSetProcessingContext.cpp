@@ -8,6 +8,7 @@
 
 FTextureSetProcessingContext::FTextureSetProcessingContext(const class UTextureSet* TextureSet)
 	: SourceTextures(TextureSet->SourceTextures)
+	, AssetParams(TextureSet->AssetParams)
 {
 	check(IsInGameThread());
 }

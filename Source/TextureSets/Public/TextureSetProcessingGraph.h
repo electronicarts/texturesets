@@ -21,11 +21,14 @@ public:
 	}
 	const TMap<FName, TSharedRef<FTextureInput>>& GetInputTextures() const { return InputTextures; }
 
-	void AddOutputTexture(FName Name, TSharedRef<IProcessingNode> Texture) { OutputTextures.Add(Name, Texture); }
-	const TMap<FName, TSharedRef<IProcessingNode>>& GetOutputTextures() const { return OutputTextures; }
+	void AddOutputTexture(FName Name, TSharedRef<ITextureProcessingNode> Texture) { OutputTextures.Add(Name, Texture); }
+	const TMap<FName, TSharedRef<ITextureProcessingNode>>& GetOutputTextures() const { return OutputTextures; }
 
+	void AddOutputParameter(FName Name, TSharedRef<IParameterProcessingNode> Parameter) { OutputParameters.Add(Name, Parameter); }
+	const TMap<FName, TSharedRef<IParameterProcessingNode>>& GetOutputParameters() const { return OutputParameters; }
 private:
 	TMap<FName, TSharedRef<FTextureInput>> InputTextures;
-	TMap<FName, TSharedRef<IProcessingNode>> OutputTextures;
+	TMap<FName, TSharedRef<ITextureProcessingNode>> OutputTextures;
+	TMap<FName, TSharedRef<IParameterProcessingNode>> OutputParameters;
 };
 #endif

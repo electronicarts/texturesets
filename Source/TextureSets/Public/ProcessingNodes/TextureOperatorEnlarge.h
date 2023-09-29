@@ -10,7 +10,7 @@
 class FTextureOperatorEnlarge : public FTextureOperator
 {
 public:
-	FTextureOperatorEnlarge(TSharedRef<IProcessingNode> I, int NewWidth, int newHeight) : FTextureOperator(I)
+	FTextureOperatorEnlarge(TSharedRef<ITextureProcessingNode> I, int NewWidth, int newHeight) : FTextureOperator(I)
 		, Width(NewWidth)
 		, Height(newHeight)
 	{}

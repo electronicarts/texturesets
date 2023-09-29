@@ -18,7 +18,7 @@ void UFlipbookModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph)
 #if WITH_EDITOR
 int32 UFlipbookModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
-	const UFlipbookSampleParams* HeightSampleParams = SampleExpression->GetSampleParams<UFlipbookSampleParams>();
+	const UFlipbookSampleParams* HeightSampleParams = SampleExpression->SampleParams.Get<UFlipbookSampleParams>();
 
 	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
 

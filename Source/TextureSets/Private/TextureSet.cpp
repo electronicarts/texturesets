@@ -63,19 +63,19 @@ void UTextureSet::AugmentMaterialParameters(const FCustomParameterValue& CustomP
 #endif
 
 	// Set any constant parameters what we have
-	for (auto& [ParameterName, Value] : TS->DerivedData->MaterialParameters)
+	for (const FDerivedParameterData& ParamData : TS->DerivedData->MaterialParameters)
 	{
 		FVectorParameterValue Parameter;
-		Parameter.ParameterValue = FLinearColor(Value);
-		Parameter.ParameterInfo.Name = UMaterialExpressionTextureSetSampleParameter::MakeConstantParameterName(CustomParameter.ParameterInfo.Name, ParameterName);
+		Parameter.ParameterValue = FLinearColor(ParamData.Value);
+		Parameter.ParameterInfo.Name = UMaterialExpressionTextureSetSampleParameter::MakeConstantParameterName(CustomParameter.ParameterInfo.Name, ParamData.Name);
 		Parameter.ParameterInfo.Association = CustomParameter.ParameterInfo.Association;
 		Parameter.ParameterInfo.Index = CustomParameter.ParameterInfo.Index;
 		VectorParameters.Add(Parameter);
 	}
 
-	for (int i = 0; i < TS->DerivedData->PackedTextureData.Num(); i++)
+	for (int i = 0; i < TS->DerivedData->DerivedTextureData.Num(); i++)
 	{
-		const FPackedTextureData& PackedTextureData = TS->DerivedData->PackedTextureData[i];
+		const FDerivedTextureData& DerivedTextureData = TS->DerivedData->DerivedTextureData[i];
 
 		// Set the texture parameter for each packed texture
 		FTextureParameterValue TextureParameter;
@@ -86,7 +86,7 @@ void UTextureSet::AugmentMaterialParameters(const FCustomParameterValue& CustomP
 		TextureParameters.Add(TextureParameter);
 
 		// Set any constant parameters that come with this texture
-		for (auto& [ParameterName, Value] : PackedTextureData.MaterialParameters)
+		for (auto& [ParameterName, Value] : DerivedTextureData.MaterialParameters)
 		{
 			FVectorParameterValue Parameter;
 			Parameter.ParameterValue = FLinearColor(Value);
@@ -100,11 +100,14 @@ void UTextureSet::AugmentMaterialParameters(const FCustomParameterValue& CustomP
 
 void UTextureSet::PreSave(FObjectPreSaveContext SaveContext)
 {
-	Super::PreSave(SaveContext);
-
 #if WITH_EDITOR
+	// Important to call UpdateDerivedData before Super, otherwise it causes 
+	// the package to fail to save if any of the derived data's references
+	// have changed.
 	UpdateDerivedData();
 #endif
+
+	Super::PreSave(SaveContext);
 }
 
 void UTextureSet::PostLoad()
@@ -163,58 +166,8 @@ void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 	if (ChangedPropName == GET_MEMBER_NAME_CHECKED(UTextureSet, Definition)
 		&& PropertyChangedEvent.ChangeType == EPropertyChangeType::ValueSet)
 	{
-		OnDefinitionChanged(Definition);
+		FixupData();
 	}
-}
-#endif
-
-#if WITH_EDITOR
-FGuid UTextureSet::ComputePackedTextureDataID(int PackedTextureIndex) const
-{
-	check(IsValid(Definition));
-	check(PackedTextureIndex < Definition->GetPackingInfo().NumPackedTextures());
-
-	UE::DerivedData::FBuildVersionBuilder IdBuilder;
-
-	IdBuilder << FString("TextureSetPackedTexture_V1");
-
-	// Key for debugging, easily force rebuild
-	IdBuilder << UserKey;
-
-	const FTextureSetProcessingGraph Graph = FTextureSetProcessingGraph(Definition->GetModules());
-	const FTextureSetProcessingContext Context = FTextureSetProcessingContext(this);
-
-	// We currently don't have a mechanism to know which specific source textures we depend on
-	// TODO: Only hash on source textures that contribute to this packed texture
-	for (const auto& [Name, Node] : Graph.GetOutputTextures())
-	{
-		IdBuilder << Node->ComputeGraphHash();
-		IdBuilder << Node->ComputeDataHash(Context);
-	}
-
-	IdBuilder << GetTypeHash(Definition->GetPackingInfo().GetPackedTextureDef(PackedTextureIndex));
-
-	return IdBuilder.Build();
-}
-#endif
-
-#if WITH_EDITOR
-FGuid UTextureSet::ComputeTextureSetDataId() const
-{
-	check(IsValid(Definition))
-
-	UE::DerivedData::FBuildVersionBuilder IdBuilder;
-
-	// Start with a global version tracking format changes
-	IdBuilder << FString("TextureSet_V1");
-
-	const FTextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
-	for (int32 i = 0; i < PackingInfo.NumPackedTextures(); i++)
-	{
-		IdBuilder << ComputePackedTextureDataID(i);
-	}
-
-	return IdBuilder.Build();
 }
 #endif
 
@@ -235,34 +188,8 @@ void UTextureSet::FixupData()
 
 		SourceTextures = NewSourceTextures;
 
-		// Asset Params
-		TArray<TSubclassOf<UTextureSetAssetParams>> RequiredAssetParamClasses = Definition->GetRequiredAssetParamClasses();
-		TArray<TSubclassOf<UTextureSetAssetParams>> ExistingAssetParamClasses;
-
-		// Remove un-needed asset params
-		for (int i = 0; i < AssetParams.Num(); i++)
-		{
-			UTextureSetAssetParams* AssetParam = AssetParams[i];
-			if (!RequiredAssetParamClasses.Contains(AssetParam->StaticClass()))
-			{
-				AssetParams.RemoveAt(i);
-				i--;
-			}
-			else
-			{
-				ExistingAssetParamClasses.Add(AssetParam->StaticClass());
-			}
-		}
-
-		// Add missing asset params
-		for (TSubclassOf<UTextureSetAssetParams> SampleParamClass : RequiredAssetParamClasses)
-		{
-			if (!ExistingAssetParamClasses.Contains(SampleParamClass))
-			{
-				FName AssetParamsName = MakeUniqueObjectName(this, SampleParamClass, SampleParamClass->GetFName());
-				AssetParams.Add(NewObject<UTextureSetAssetParams>(this, SampleParamClass, AssetParamsName, RF_NoFlags));
-			}
-		}
+		// Update Asset Params
+		AssetParams.UpdateParamList(this, Definition->GetRequiredAssetParamClasses());
 	}
 }
 #endif
@@ -291,46 +218,6 @@ void UTextureSet::UpdateDerivedData()
 	}
 
 	check(!ActiveCooker.IsValid());
-
-	// Garbage collection will destroy the unused cooked textures when all references from material instance are removed
-	DerivedTextures.SetNum(Definition->GetPackingInfo().NumPackedTextures());
-
-	for (int t = 0; t < DerivedTextures.Num(); t++)
-	{
-		FName TextureName = FName(GetName() + TEXT("_DerivedTexture_") + FString::FromInt(t));
-
-		if (!IsValid(DerivedTextures[t]))
-		{
-			// Try to find an existing texture stored in our package that may have become unreferenced, but still exists.
-			// This can hapen if the number of derived textures was higher, became lower, and then was set higher again,
-			// before the previous texture was garbage-collected.
-			DerivedTextures[t] = static_cast<UTexture*>(FindObjectWithOuter(this, nullptr, TextureName));
-
-			// No existing texture, create a new one
-			if (!IsValid(DerivedTextures[t]))
-			{
-				DerivedTextures[t] = NewObject<UTexture2D>(this, TextureName, RF_Public);
-			}
-		}
-		
-		// Usually happens if the outer texture set is renamed
-		if (DerivedTextures[t]->GetFName() != TextureName)
-		{
-			DerivedTextures[t]->Rename(*TextureName.ToString());
-		}
-
-		check(DerivedTextures[t]->GetFName() == TextureName);
-		check(DerivedTextures[t]->IsInOuter(this));
-	}
-
-	// Create a new derived data if ours is missing
-	if (!IsValid(DerivedData))
-	{
-		FName DerivedDataName = MakeUniqueObjectName(this, UTextureSetDerivedData::StaticClass(), "DerivedData");
-		DerivedData = NewObject<UTextureSetDerivedData>(this, DerivedDataName, RF_NoFlags);
-	}
-
-	bool bCookRequired = false;
 
 	ActiveCooker = MakeShared<TextureSetCooker>(this);
 
@@ -422,7 +309,7 @@ void UTextureSet::OnFinishCook()
 #if WITH_EDITOR
 void UTextureSet::OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition)
 {
-	if (ChangedDefinition == Definition)
+	if (ChangedDefinition == Definition && !HasAnyFlags(RF_NeedPostLoad))
 	{
 		FixupData();
 		UpdateDerivedData();

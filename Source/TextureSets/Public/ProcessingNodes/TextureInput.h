@@ -9,7 +9,7 @@
 #include "IProcessingNode.h"
 #include "TextureSetInfo.h"
 
-class FTextureInput : public IProcessingNode
+class FTextureInput : public ITextureProcessingNode
 {
 public:
 	FTextureInput(FName SourceName, const FTextureSetSourceTextureDef& SourceDefinition);
@@ -17,7 +17,7 @@ public:
 	virtual FName GetNodeTypeName() const  { return "TextureInput"; }
 
 	virtual void Initialize(const FTextureSetProcessingContext& Context);
-	virtual bool IsInitialized() { return bInitialized; }
+	virtual bool IsInitialized() const { return bInitialized; }
 
 	virtual const uint32 ComputeGraphHash() const override;
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override;

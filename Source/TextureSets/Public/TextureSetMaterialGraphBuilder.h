@@ -69,7 +69,7 @@ public:
 	UMaterialExpressionFunctionOutput* CreateOutput(FName Name);
 	UMaterialExpressionFunctionOutput* GetOutput(FName Name) const;
 
-	UMaterialExpression* MakeConstantParameter(FName Name, FVector4 Default);
+	UMaterialExpression* MakeConstantParameter(FName Name, FVector4f Default);
 
 private:
 	TObjectPtr<const UMaterialExpressionTextureSetSampleParameter> Node;

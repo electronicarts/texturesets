@@ -83,7 +83,7 @@ void UPBRSurfaceModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Grap
 #if WITH_EDITOR
 int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
-	const UPBRSampleParams* SampleParams = SampleExpression->GetSampleParams<UPBRSampleParams>();
+	const UPBRSampleParams* SampleParams = SampleExpression->SampleParams.Get<UPBRSampleParams>();
 
 	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
 
@@ -100,7 +100,7 @@ int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSet
 void UPBRSurfaceModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder& Builder) const
 {
-	const UPBRSampleParams* PBRSampleParams = SampleExpression->GetSampleParams<UPBRSampleParams>();
+	const UPBRSampleParams* PBRSampleParams = SampleExpression->SampleParams.Get<UPBRSampleParams>();
 
 	// Surface Parameterization
 	{

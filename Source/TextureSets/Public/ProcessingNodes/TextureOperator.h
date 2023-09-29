@@ -7,15 +7,15 @@
 #include "CoreMinimal.h"
 #include "IProcessingNode.h"
 
-class FTextureOperator : public IProcessingNode
+class FTextureOperator : public ITextureProcessingNode
 {
 public:
-	FTextureOperator(const TSharedRef<IProcessingNode> I)
+	FTextureOperator(const TSharedRef<ITextureProcessingNode> I)
 		: SourceImage(I)
 	{}
 
 	virtual void Initialize(const FTextureSetProcessingContext& Context) { SourceImage->Initialize(Context); }
-	virtual bool IsInitialized() { return SourceImage->IsInitialized(); }
+	virtual bool IsInitialized() const { return SourceImage->IsInitialized(); }
 
 	virtual const uint32 ComputeGraphHash() const override { return HashCombine(SourceImage->ComputeGraphHash(), GetTypeHash(GetNodeTypeName().ToString())); }
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override { return SourceImage->ComputeDataHash(Context); };
@@ -24,6 +24,6 @@ public:
 	virtual int GetHeight() const override { return SourceImage->GetHeight(); }
 	virtual const FTextureSetProcessedTextureDef& GetTextureDef() override { return SourceImage->GetTextureDef(); }
 
-	const TSharedRef<IProcessingNode> SourceImage;
+	const TSharedRef<ITextureProcessingNode> SourceImage;
 };
 #endif
