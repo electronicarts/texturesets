@@ -94,22 +94,21 @@ private:
 	const FName ParameterName;
 };
 
-TextureSetCooker::TextureSetCooker(UTextureSet* TS)
-	: Definition(TS->Definition)
-	, DerivedData(TS->DerivedData)
-	, Context(TS)
-	, Graph(FTextureSetProcessingGraph(TS->Definition->GetModules()))
-	, ModuleInfo(TS->Definition->GetModuleInfo())
-	, PackingInfo(TS->Definition->GetPackingInfo())
+TextureSetCooker::TextureSetCooker(UTextureSet* TextureSet)
+	: DerivedData(TextureSet->DerivedData)
+	, Context(TextureSet)
+	, Graph(FTextureSetProcessingGraph(TextureSet->Definition->GetModules()))
+	, ModuleInfo(TextureSet->Definition->GetModuleInfo())
+	, PackingInfo(TextureSet->Definition->GetPackingInfo())
 	, AsyncTask(nullptr)
 {
 	check(IsInGameThread());
-	check(IsValid(Definition));
+	check(IsValid(TextureSet->Definition));
 	
-	OuterObject = TS;
-	TextureSetName = TS->GetName();
-	TextureSetFullName = TS->GetFullName();
-	UserKey = TS->UserKey;
+	OuterObject = TextureSet;
+	TextureSetName = TextureSet->GetName();
+	TextureSetFullName = TextureSet->GetFullName();
+	UserKey = TextureSet->UserKey;
 
 	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
 		DerivedTextureIds.Add(ComputeTextureDataId(i));
@@ -245,8 +244,8 @@ void TextureSetCooker::Prepare()
 	check(IsInGameThread());
 
 	// Garbage collection will destroy the unused cooked textures when all references from material instance are removed
-	DerivedData.Textures.SetNum(Definition->GetPackingInfo().NumPackedTextures());
-	DerivedData.TextureData.SetNum(Definition->GetPackingInfo().NumPackedTextures());
+	DerivedData.Textures.SetNum(PackingInfo.NumPackedTextures());
+	DerivedData.TextureData.SetNum(PackingInfo.NumPackedTextures());
 
 	for (int t = 0; t < DerivedData.Textures.Num(); t++)
 	{

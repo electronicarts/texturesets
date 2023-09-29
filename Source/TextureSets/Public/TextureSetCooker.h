@@ -53,7 +53,6 @@ public:
 	FAsyncTaskBase* GetAsyncTask() { return AsyncTask.Get(); }
 
 private:
-	UTextureSetDefinition* Definition;
 	FTextureSetDerivedData& DerivedData;
 
 	FTextureSetProcessingContext Context;
