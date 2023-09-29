@@ -40,7 +40,6 @@ public:
 		return GetTypeHash(GetValue(Context.GetAssetParam<ParameterClass>()));
 	}
 
-	virtual int GetDimension() const override { return Dimension; }
 	virtual FVector4f GetValue() const override { return Value; }
 
 	virtual FVector4f GetValue(const ParameterClass* Parameter) const = 0;

@@ -24,89 +24,124 @@ void FTextureSetCookerTaskWorker::DoWork()
 	Cooker->ExecuteInternal();
 }
 
-TextureSetDerivedDataPlugin::TextureSetDerivedDataPlugin(TextureSetCooker* CookerPtr)
-	: Cooker(CookerPtr)
+class TextureSetDerivedTextureDataPlugin : public FDerivedDataPluginInterface
 {
-}
+public:
+	TextureSetDerivedTextureDataPlugin(TextureSetCooker& Cooker, int32 CookedTextureIndex)
+		: Cooker(Cooker)
+		, CookedTextureIndex(CookedTextureIndex)
+	{}
 
-const TCHAR* TextureSetDerivedDataPlugin::GetPluginName() const
+	// FDerivedDataPluginInterface
+	virtual const TCHAR* GetPluginName() const override { return TEXT("TextureSet_FDerivedTextureData"); }
+	virtual const TCHAR* GetVersionString() const override { return TEXT("F956B1B9-3AD3-47B3-BD82-8826C71A3DCB"); }
+	virtual FString GetPluginSpecificCacheKeySuffix() const override { return Cooker.DerivedTextureIds[CookedTextureIndex].ToString(); }
+	virtual bool IsBuildThreadsafe() const override { return false; } // TODO: Enable this if possible
+	virtual bool IsDeterministic() const override { return false; } // TODO: Enable this if possible
+	virtual FString GetDebugContextString() const override { return Cooker.TextureSetFullName; }
+	
+	virtual bool Build(TArray<uint8>& OutData) override
+	{
+		FDerivedTextureData TextureData = Cooker.BuildTextureData(CookedTextureIndex);
+
+		OutData.Empty(2048);
+		FMemoryWriter DataWriter(OutData);
+		DataWriter << TextureData;
+		return true;
+	}
+
+private:
+	const TextureSetCooker& Cooker;
+	const int32 CookedTextureIndex;
+};
+
+class TextureSetDerivedParameterDataPlugin : public FDerivedDataPluginInterface
 {
-	return TEXT("TextureSet");
-}
+public:
+	TextureSetDerivedParameterDataPlugin(const TextureSetCooker& Cooker, FName ParameterName)
+		: Cooker(Cooker)
+		, ParameterName(ParameterName)
+	{}
 
-const TCHAR* TextureSetDerivedDataPlugin::GetVersionString() const
-{
-	return TEXT("B022E127-9B3D-4D58-9B24-1C7AA5C6AF3B");
-}
+	// FDerivedDataPluginInterface
+	virtual const TCHAR* GetPluginName() const override { return TEXT("TextureSet_FDerivedTextureData"); }
+	virtual const TCHAR* GetVersionString() const override { return TEXT("8D5EAAD9-8514-4957-B931-C7AF2698794F"); }
+	virtual FString GetPluginSpecificCacheKeySuffix() const override { return Cooker.ParameterIds.FindChecked(ParameterName).ToString(); }
+	virtual bool IsBuildThreadsafe() const override { return false; } // TODO: Enable this if possible
+	virtual bool IsDeterministic() const override { return false; } // TODO: Enable this if possible
+	virtual FString GetDebugContextString() const override { return Cooker.TextureSetFullName; }
+	virtual bool Build(TArray<uint8>& OutData) override
+	{
+		TSharedRef<IParameterProcessingNode> Parameter = Cooker.Graph.GetOutputParameters().FindChecked(ParameterName);
 
-FString TextureSetDerivedDataPlugin::GetPluginSpecificCacheKeySuffix() const
-{
-	return Cooker->TextureSetDataId.ToString();
-}
+		Parameter->Initialize(Cooker.Context);
 
-bool TextureSetDerivedDataPlugin::IsBuildThreadsafe() const
-{
-	return false; // TODO: Enable this if possible
-}
+		FDerivedParameterData ParameterData;
+		ParameterData.Value = Parameter->GetValue();
 
-bool TextureSetDerivedDataPlugin::IsDeterministic() const
-{
-	return false; // TODO: Enable this if possible
-}
+		UE::DerivedData::FBuildVersionBuilder IdBuilder;
+		IdBuilder << HashCombine(Parameter->ComputeGraphHash(), Parameter->ComputeDataHash(Cooker.Context));
+		ParameterData.Id = IdBuilder.Build();
 
-FString TextureSetDerivedDataPlugin::GetDebugContextString() const
-{
-	return Cooker->TextureSet->GetFullName();
-}
+		OutData.Empty(sizeof(FDerivedParameterData));
+		FMemoryWriter DataReader(OutData);
+		DataReader << ParameterData;
+		return true;
+	}
 
-bool TextureSetDerivedDataPlugin::Build(TArray<uint8>& OutData)
-{
-	Cooker->Build();
-
-	OutData.Empty(2048);
-	FMemoryWriter MemWriterAr(OutData);
-	Cooker->TextureSet->GetDerivedData()->Serialize(MemWriterAr);
-
-	return true;
-}
+private:
+	const TextureSetCooker& Cooker;
+	const FName ParameterName;
+};
 
 TextureSetCooker::TextureSetCooker(UTextureSet* TS)
-	: TextureSet(TS)
+	: Definition(TS->Definition)
+	, DerivedData(TS->DerivedData)
 	, Context(TS)
 	, Graph(FTextureSetProcessingGraph(TS->Definition->GetModules()))
 	, ModuleInfo(TS->Definition->GetModuleInfo())
 	, PackingInfo(TS->Definition->GetPackingInfo())
 	, AsyncTask(nullptr)
 {
-	check(IsValid(TextureSet->Definition));
 	check(IsInGameThread());
-
-	TextureSetDataId = ComputeTextureSetDataId();
+	check(IsValid(Definition));
+	
+	OuterObject = TS;
+	TextureSetName = TS->GetName();
+	TextureSetFullName = TS->GetFullName();
+	UserKey = TS->UserKey;
 
 	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
-		PackedTextureIds.Add(ComputePackedTextureDataId(i));
+		DerivedTextureIds.Add(ComputeTextureDataId(i));
 
-	// Derived textures must be configured before cooking, so PlatformDataExistsInCache() uses the correct keys
-	for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
-		ConfigureTexture(t);
+	for (const auto& [Name, Parameter] : Graph.GetOutputParameters())
+		ParameterIds.Add(Name, ComputeParameterDataId(Name));
 }
 
 bool TextureSetCooker::CookRequired() const
 {
 	check(IsInGameThread());
 
-	if (!TextureSet->DerivedData || TextureSet->DerivedTextures.Num() != PackingInfo.NumPackedTextures())
+	if (DerivedData.Textures.Num() != PackingInfo.NumPackedTextures())
 		return true;
 
-	if (TextureSetDataId != TextureSet->DerivedData->Id)
-		return true;
-
-	for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
+	for (const auto& [Name, Id] : ParameterIds)
 	{
+		FDerivedParameterData* ParameterData = DerivedData.MaterialParameters.Find(Name);
+
+		if (!ParameterData || (Id != ParameterData->Id))
+			return true;
+	}
+
+	for (int t = 0; t < DerivedData.Textures.Num(); t++)
+	{
+		if (DerivedTextureIds[t] != DerivedData.TextureData[t].Id)
+			return true;
+
 		// Make sure the texture is using the right key before checking if it's cached
 		ConfigureTexture(t);
 
-		if (!TextureSet->DerivedTextures[t]->PlatformDataExistsInCache())
+		if (!DerivedData.Textures[t]->PlatformDataExistsInCache())
 			return true;
 	}
 
@@ -137,15 +172,15 @@ void TextureSetCooker::Finalize()
 	check(IsInGameThread());
 	check(!IsAsyncJobInProgress())
 
-	for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
+	for (int t = 0; t < DerivedData.Textures.Num(); t++)
 	{
 		// Configure textures is called again after cooking, to make sure the correct keys are used.
 		// If Mip data was updated in BuildTextureData, it would reset the key incorrectly.
 		ConfigureTexture(t);
 
 		// Update resources re-caches the derived texture data
-		TextureSet->DerivedTextures[t]->UpdateResource();
-		TextureSet->DerivedTextures[t]->UpdateCachedLODBias();
+		DerivedData.Textures[t]->UpdateResource();
+		DerivedData.Textures[t]->UpdateCachedLODBias();
 	}
 }
 
@@ -164,51 +199,43 @@ bool TextureSetCooker::TryCancel()
 		return true;
 }
 
-FGuid TextureSetCooker::ComputePackedTextureDataId(int PackedTextureIndex) const
+FGuid TextureSetCooker::ComputeTextureDataId(int PackedTextureIndex) const
 {
-	check(IsValid(TextureSet->Definition));
-	check(PackedTextureIndex < TextureSet->Definition->GetPackingInfo().NumPackedTextures());
+	check(PackedTextureIndex < PackingInfo.NumPackedTextures());
 
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
 
-	IdBuilder << FString("TextureSetPackedTexture_V4");
+	IdBuilder << FString("TextureSetDerivedTexture_V0"); // Version string, bump this to invalidate everything
+	IdBuilder << UserKey; // Key for debugging, easily force rebuild
+	IdBuilder << GetTypeHash(PackingInfo.GetPackedTextureDef(PackedTextureIndex));
 
-	// Key for debugging, easily force rebuild
-	IdBuilder << TextureSet->UserKey;
-
-	// We currently don't have a mechanism to know which specific source textures we depend on
-	// TODO: Only hash on source textures that contribute to this packed texture
-	for (const auto& [Name, Node] : Graph.GetOutputTextures())
+	TSet<FName> TextureDependencies;
+	for (const FTextureSetPackedChannelInfo& ChannelInfo : PackingInfo.GetPackedTextureInfo(PackedTextureIndex).ChannelInfo)
 	{
-		IdBuilder << Node->ComputeGraphHash();
-		IdBuilder << Node->ComputeDataHash(Context);
+		if (!ChannelInfo.ProcessedTexture.IsNone())
+			TextureDependencies.Add(ChannelInfo.ProcessedTexture);
 	}
 
-	IdBuilder << GetTypeHash(TextureSet->Definition->GetPackingInfo().GetPackedTextureDef(PackedTextureIndex));
+	// Only hash on source textures that contribute to this packed texture
+	for (const FName& TextureName : TextureDependencies)
+	{
+		TSharedRef<ITextureProcessingNode> TextureNode = Graph.GetOutputTextures().FindChecked(TextureName);
+		IdBuilder << TextureNode->ComputeGraphHash();
+		IdBuilder << TextureNode->ComputeDataHash(Context);
+	}
 
 	return IdBuilder.Build();
 }
 
-FGuid TextureSetCooker::ComputeTextureSetDataId() const
+FGuid TextureSetCooker::ComputeParameterDataId(FName ParameterName) const
 {
-	check(IsValid(TextureSet->Definition))
+	TSharedRef<IParameterProcessingNode> ParameterNode = Graph.GetOutputParameters().FindChecked(ParameterName);
 
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
-
-	// Start with a global version tracking format changes
-	IdBuilder << FString("TextureSet_V4");
-
-	for (int32 i = 0; i < PackingInfo.NumPackedTextures(); i++)
-	{
-		IdBuilder << ComputePackedTextureDataId(i);
-	}
-
-	for (const auto& [Name, Node] : Graph.GetOutputParameters())
-	{
-		IdBuilder << Node->ComputeGraphHash();
-		IdBuilder << Node->ComputeDataHash(Context);
-	}
-
+	IdBuilder << FString("TextureSetParameter_V0"); // Version string, bump this to invalidate everything
+	IdBuilder << UserKey; // Key for debugging, easily force rebuild
+	IdBuilder << ParameterNode->ComputeGraphHash();
+	IdBuilder << ParameterNode->ComputeDataHash(Context);
 	return IdBuilder.Build();
 }
 
@@ -217,42 +244,38 @@ void TextureSetCooker::Prepare()
 	// May need to create UObjects, so has to execute in game thread
 	check(IsInGameThread());
 
-	// Create a new derived data if ours is missing
-	if (!IsValid(TextureSet->DerivedData))
-	{
-		FName DerivedDataName = MakeUniqueObjectName(TextureSet, UTextureSetDerivedData::StaticClass(), "DerivedData");
-		TextureSet->DerivedData = NewObject<UTextureSetDerivedData>(TextureSet, DerivedDataName, RF_NoFlags);
-	}
-	TextureSet->DerivedData->DerivedTextureData.SetNum(TextureSet->Definition->GetPackingInfo().NumPackedTextures());
-
 	// Garbage collection will destroy the unused cooked textures when all references from material instance are removed
-	TextureSet->DerivedTextures.SetNum(TextureSet->Definition->GetPackingInfo().NumPackedTextures());
+	DerivedData.Textures.SetNum(Definition->GetPackingInfo().NumPackedTextures());
+	DerivedData.TextureData.SetNum(Definition->GetPackingInfo().NumPackedTextures());
 
-	for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
+	for (int t = 0; t < DerivedData.Textures.Num(); t++)
 	{
-		FName TextureName = FName(TextureSet->GetName() + TEXT("_DerivedTexture_") + FString::FromInt(t));
+		FName TextureName = FName(TextureSetName + TEXT("_DerivedTexture_") + FString::FromInt(t));
 
-		if (!IsValid(TextureSet->DerivedTextures[t]))
+		if (!IsValid(DerivedData.Textures[t]))
 		{
 			// Try to find an existing texture stored in our package that may have become unreferenced, but still exists.
 			// This could happen if the number of derived textures was higher, became lower, and then was set higher again,
 			// before the previous texture was garbage-collected.
-			TextureSet->DerivedTextures[t] = static_cast<UTexture*>(FindObjectWithOuter(TextureSet, nullptr, TextureName));
+			DerivedData.Textures[t] = static_cast<UTexture*>(FindObjectWithOuter(OuterObject, nullptr, TextureName));
 
 			// No existing texture, create a new one
-			if (!IsValid(TextureSet->DerivedTextures[t]))
+			if (!IsValid(DerivedData.Textures[t]))
 			{
-				TextureSet->DerivedTextures[t] = NewObject<UTexture2D>(TextureSet, TextureName, RF_Public);
+				DerivedData.Textures[t] = NewObject<UTexture2D>(OuterObject, TextureName, RF_Public);
 			}
 		}
 
 		// Usually happens if the outer texture set is renamed
-		if (TextureSet->DerivedTextures[t]->GetFName() != TextureName)
+		if (DerivedData.Textures[t]->GetFName() != TextureName)
 		{
-			TextureSet->DerivedTextures[t]->Rename(*TextureName.ToString());
+			DerivedData.Textures[t]->Rename(*TextureName.ToString());
 		}
 
-		check(TextureSet->DerivedTextures[t]->IsInOuter(TextureSet));
+		check(DerivedData.Textures[t]->IsInOuter(OuterObject));
+
+		// Derived textures must be configured before cooking, so PlatformDataExistsInCache() uses the correct keys
+		ConfigureTexture(t);
 	}
 }
 
@@ -266,7 +289,7 @@ void TextureSetCooker::ConfigureTexture(int Index) const
 	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
 	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
 
-	UTexture* Texture = TextureSet->GetDerivedTexture(Index);
+	UTexture* Texture = DerivedData.Textures[Index];
 
 	// sRGB if possible
 	Texture->SRGB = TextureInfo.HardwareSRGB;
@@ -279,93 +302,64 @@ void TextureSetCooker::ConfigureTexture(int Index) const
 
 	// Set the ID of the generated source to match the hash ID of this texture.
 	// This will be used to recover the cooked texture data from the DDC if possible.
-	Texture->Source.SetId(PackedTextureIds[Index], true);
+	Texture->Source.SetId(DerivedTextureIds[Index], true);
 	Texture->bSourceBulkDataTransient = true;
 }
 
 void TextureSetCooker::ExecuteInternal()
 {
-	check(TextureSet->ActiveCooker.Get() == this);
+	// TODO: Log stats with "COOK_STAT" macro
+	// TODO: Run DDC async
+	FDerivedDataCacheInterface& DDC = GetDerivedDataCacheRef();
 
-	bool bDataWasBuilt = false;
-
-	// Fetch or build derived data for the texture set
-	if (TextureSetDataId != TextureSet->DerivedData->Id)
+	for (int t = 0; t < DerivedTextureIds.Num(); t++)
 	{
-		// Keys to current derived data don't match
-		// Retreive derived data from the DDC, or cook new data
-		TArray<uint8> Data;
-		FDerivedDataCacheInterface& DDC = GetDerivedDataCacheRef();
-		//COOK_STAT(auto Timer = NavCollisionCookStats::UsageStats.TimeSyncWork());
-		if (DDC.GetSynchronous(new TextureSetDerivedDataPlugin(this), Data, &bDataWasBuilt))
+		bool bDataWasBuilt = false;
+
+		if (DerivedTextureIds[t] != DerivedData.TextureData[t].Id) // Only invoke DDC if keys don't match
 		{
-			//COOK_STAT(Timer.AddHitOrMiss(bDataWasBuilt ? FCookStats::CallStats::EHitOrMiss::Miss : FCookStats::CallStats::EHitOrMiss::Hit, OutData.Num()));
-			if (!bDataWasBuilt)
+			// Retreive derived data from the DDC, or cook new data
+			TArray<uint8> Data;
+			if (DDC.GetSynchronous(new TextureSetDerivedTextureDataPlugin(*this, t), Data, &bDataWasBuilt))
 			{
-				// If data was not built, it was retreived from the cache; de-serialized it.
-				FMemoryReader MemoryReaderDerivedData(Data);
-				TextureSet->DerivedData->Serialize(MemoryReaderDerivedData);
+				// De-serialized the data from the cache into the derived data
+				FMemoryReader DataReader(Data);
+				DataReader << DerivedData.TextureData[t];
 			}
+		}
+
+		if (!bDataWasBuilt && !DerivedData.Textures[t]->PlatformDataExistsInCache())
+		{
+			// This can happen if a texture build gets interrupted after a texture-set cook, or if a different platform is required.
+			// Build this texture to regenerate the source data, so it can be cached.
+			BuildTextureData(t);
 		}
 	}
 
-	// Ensure our textures are up to date
-	if (!bDataWasBuilt)
+	for (const auto& [Name, Id] : ParameterIds)
 	{
-		for (int t = 0; t < TextureSet->DerivedTextures.Num(); t++)
+		FDerivedParameterData* OldParameterData = DerivedData.MaterialParameters.Find(Name);
+
+		if (!OldParameterData || (Id != OldParameterData->Id)) // Only invoke DDC param is missing or keys don't match
 		{
-			// This can happen if a texture build gets interrupted after a texture-set cook.
-			if (!TextureSet->DerivedTextures[t]->PlatformDataExistsInCache())
+			// Retreive derived data from the DDC, or cook new data
+			TArray<uint8> Data;
+			if (DDC.GetSynchronous(new TextureSetDerivedParameterDataPlugin(*this, Name), Data))
 			{
-				// Build this texture to regenerate the source data, so it can be cached.
-				BuildTextureData(t);
+				// De-serialized the data from the cache into the derived data
+				FDerivedParameterData NewParameterData;
+				FMemoryReader DataReader(Data);
+				DataReader << NewParameterData;
+				DerivedData.MaterialParameters.Emplace(Name, NewParameterData);
 			}
 		}
 	}
 }
 
-void TextureSetCooker::Build() const
+FDerivedTextureData TextureSetCooker::BuildTextureData(int Index) const
 {
-	TObjectPtr<UTextureSetDerivedData> DerivedData = TextureSet->DerivedData;
-
-	check(IsValid(DerivedData))
-
-	// Update our derived data key
-	DerivedData->Id = TextureSetDataId;
-
-	const EParallelForFlags ParallelForFlags = CVarTextureSetParallelCook.GetValueOnAnyThread() ? EParallelForFlags::None : EParallelForFlags::ForceSingleThread;
-	
-	ParallelFor(DerivedData->DerivedTextureData.Num(), [this](int32 t)
-	{
-		BuildTextureData(t);
-
-	}, ParallelForFlags);
-
-	// TODO: Keep old param if hashes match
-	DerivedData->MaterialParameters.Empty();
-
-	for (const auto& [Name, Parameter] : Graph.GetOutputParameters())
-	{
-		uint32 ParameterHash = HashCombine(Parameter->ComputeGraphHash(), Parameter->ComputeDataHash(Context));
-
-		Parameter->Initialize(Context);
-
-		check(Parameter->GetDimension() <= 4);
-		FDerivedParameterData ParameterData;
-		ParameterData.Name = Name;
-		ParameterData.Value = Parameter->GetValue();
-		ParameterData.Hash = ParameterHash;
-
-		DerivedData->MaterialParameters.Add(ParameterData);
-	}
-}
-
-void TextureSetCooker::BuildTextureData(int Index) const
-{
-	FDerivedTextureData& Data = TextureSet->DerivedData->DerivedTextureData[Index];
-
-	Data.MaterialParameters.Empty();
-	Data.Id = PackedTextureIds[Index];
+	FDerivedTextureData Data;
+	Data.Id = DerivedTextureIds[Index];
 
 	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
 	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
@@ -399,7 +393,7 @@ void TextureSetCooker::BuildTextureData(int Index) const
 	}
 
 	// Copy pixel data into the texture's source
-	UTexture* Texture = TextureSet->GetDerivedTexture(Index);
+	UTexture* Texture = DerivedData.Textures[Index];
 	Texture->Source.Init(Width, Height, 1, 1, TSF_RGBA16F);
 	FFloat16* PixelValues = (FFloat16*)Texture->Source.LockMip(0);
 
@@ -500,12 +494,12 @@ void TextureSetCooker::BuildTextureData(int Index) const
 
 		if (RestoreMul != FVector4f::One() || RestoreAdd != FVector4f::Zero())
 		{
-			Data.MaterialParameters.Add(TextureInfo.RangeCompressMulName, RestoreMul);
-			Data.MaterialParameters.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
+			Data.TextureParameters.Add(TextureInfo.RangeCompressMulName, RestoreMul);
+			Data.TextureParameters.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
 		}
 	}
 
 	Texture->Source.UnlockMip(0);
+	return Data;
 }
-
 #endif

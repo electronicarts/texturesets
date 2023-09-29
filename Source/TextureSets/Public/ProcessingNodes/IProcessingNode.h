@@ -41,7 +41,6 @@ public:
 class IParameterProcessingNode : public IProcessingNode
 {
 public:
-	virtual int GetDimension() const = 0;
 	virtual FVector4f GetValue() const = 0;
 };
 #endif

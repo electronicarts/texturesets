@@ -31,7 +31,7 @@ bool UTextureSet::IsCompiling() const
 	if (ActiveCooker.IsValid() && !bIsDerivedDataReady)
 		return true;
 
-	for (UTexture* DerivedTexture : DerivedTextures)
+	for (UTexture* DerivedTexture : DerivedData.Textures)
 	{
 		// Texture set is not compiled until the derived texturess are finished compiling
 		if (DerivedTexture->IsCompiling())
@@ -47,8 +47,6 @@ void UTextureSet::AugmentMaterialParameters(const FCustomParameterValue& CustomP
 	if (!IsValid(Definition))
 		return;
 
-	const UTextureSet* TS = this;
-
 #if WITH_EDITOR
 	if (!bIsDerivedDataReady)
 	{
@@ -63,30 +61,30 @@ void UTextureSet::AugmentMaterialParameters(const FCustomParameterValue& CustomP
 #endif
 
 	// Set any constant parameters what we have
-	for (const FDerivedParameterData& ParamData : TS->DerivedData->MaterialParameters)
+	for (const auto& [ParameterName, Data] : DerivedData.MaterialParameters)
 	{
 		FVectorParameterValue Parameter;
-		Parameter.ParameterValue = FLinearColor(ParamData.Value);
-		Parameter.ParameterInfo.Name = UMaterialExpressionTextureSetSampleParameter::MakeConstantParameterName(CustomParameter.ParameterInfo.Name, ParamData.Name);
+		Parameter.ParameterValue = FLinearColor(Data.Value);
+		Parameter.ParameterInfo.Name = UMaterialExpressionTextureSetSampleParameter::MakeConstantParameterName(CustomParameter.ParameterInfo.Name, ParameterName);
 		Parameter.ParameterInfo.Association = CustomParameter.ParameterInfo.Association;
 		Parameter.ParameterInfo.Index = CustomParameter.ParameterInfo.Index;
 		VectorParameters.Add(Parameter);
 	}
 
-	for (int i = 0; i < TS->DerivedData->DerivedTextureData.Num(); i++)
+	for (int i = 0; i < DerivedData.TextureData.Num(); i++)
 	{
-		const FDerivedTextureData& DerivedTextureData = TS->DerivedData->DerivedTextureData[i];
+		const FDerivedTextureData& DerivedTextureData = DerivedData.TextureData[i];
 
 		// Set the texture parameter for each packed texture
 		FTextureParameterValue TextureParameter;
-		TextureParameter.ParameterValue = TS->DerivedTextures[i].Get();
+		TextureParameter.ParameterValue = DerivedData.Textures[i].Get();
 		TextureParameter.ParameterInfo.Name = UMaterialExpressionTextureSetSampleParameter::MakeTextureParameterName(CustomParameter.ParameterInfo.Name, i);
 		TextureParameter.ParameterInfo.Association = CustomParameter.ParameterInfo.Association;
 		TextureParameter.ParameterInfo.Index = CustomParameter.ParameterInfo.Index;
 		TextureParameters.Add(TextureParameter);
 
 		// Set any constant parameters that come with this texture
-		for (auto& [ParameterName, Value] : DerivedTextureData.MaterialParameters)
+		for (auto& [ParameterName, Value] : DerivedTextureData.TextureParameters)
 		{
 			FVectorParameterValue Parameter;
 			Parameter.ParameterValue = FLinearColor(Value);
@@ -203,8 +201,7 @@ void UTextureSet::UpdateDerivedData()
 	if (!IsValid(Definition) || Definition->IsDataValid(ValidationContext) == EDataValidationResult::Invalid)
 	{
 		// If we have no definition, clear our derived data
-		DerivedData = nullptr;
-		DerivedTextures.Empty();
+		DerivedData = FTextureSetDerivedData();
 		return;
 	}
 

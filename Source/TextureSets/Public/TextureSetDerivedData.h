@@ -14,11 +14,17 @@ struct TEXTURESETS_API FDerivedTextureData
 public:
 	// Material parameters that were generated along with this packed texture
 	UPROPERTY(VisibleAnywhere)
-	TMap<FName, FVector4f> MaterialParameters;
+	TMap<FName, FVector4f> TextureParameters;
 
 	// Guid generated from the key
 	UPROPERTY(VisibleAnywhere)
 	FGuid Id;
+
+	FORCEINLINE friend FArchive& operator<<(FArchive& Ar, FDerivedTextureData& Data)
+	{
+		Ar << Data.TextureParameters;
+		Ar << Data.Id;
+	}
 };
 
 USTRUCT()
@@ -28,29 +34,31 @@ struct TEXTURESETS_API FDerivedParameterData
 
 public:
 	UPROPERTY(VisibleAnywhere)
-	FName Name;
-
-	UPROPERTY(VisibleAnywhere)
 	FVector4f Value;
 
 	// Hash of the data and logic used to produce this value
 	UPROPERTY(VisibleAnywhere)
-	uint32 Hash;
+	FGuid Id;
+
+	FORCEINLINE friend FArchive& operator<<(FArchive& Ar, FDerivedParameterData& Data)
+	{
+		Ar << Data.Value;
+		Ar << Data.Id;
+	}
 };
 
-UCLASS(Within=TextureSet, DefaultToInstanced)
-class TEXTURESETS_API UTextureSetDerivedData : public UObject
+USTRUCT()
+struct TEXTURESETS_API FTextureSetDerivedData
 {
 	GENERATED_BODY()
 
 public:
+	UPROPERTY(VisibleAnywhere, NoClear)
+	TArray<TObjectPtr<UTexture>> Textures;
 
-	UPROPERTY(VisibleAnywhere, Category="Derived Data")
-	TArray<FDerivedParameterData> MaterialParameters;
+	UPROPERTY(VisibleAnywhere)
+	TArray<FDerivedTextureData> TextureData;
 
-	UPROPERTY(VisibleAnywhere, Category="Derived Data")
-	TArray<FDerivedTextureData> DerivedTextureData;
-
-	UPROPERTY(VisibleAnywhere, Category="Derived Data")
-	FGuid Id;
+	UPROPERTY(VisibleAnywhere)
+	TMap<FName, FDerivedParameterData> MaterialParameters;
 };

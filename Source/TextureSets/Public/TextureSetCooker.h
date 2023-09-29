@@ -13,24 +13,6 @@
 class UTextureSet;
 class TextureSetCooker;
 
-class TextureSetDerivedDataPlugin : public FDerivedDataPluginInterface
-{
-public:
-	TextureSetDerivedDataPlugin(TextureSetCooker* Cooker);
-
-	// FDerivedDataPluginInterface
-	virtual const TCHAR* GetPluginName() const override;
-	virtual const TCHAR* GetVersionString() const override;
-	virtual FString GetPluginSpecificCacheKeySuffix() const override;
-	virtual bool IsBuildThreadsafe() const override;
-	virtual bool IsDeterministic() const override;
-	virtual FString GetDebugContextString() const override;
-	virtual bool Build(TArray<uint8>& OutData) override;
-
-private:
-	TextureSetCooker* Cooker;
-};
-
 class FTextureSetCookerTaskWorker : public FNonAbandonableTask
 {
 public:
@@ -51,7 +33,8 @@ private:
 
 class TextureSetCooker
 {
-	friend class TextureSetDerivedDataPlugin;
+	friend class TextureSetDerivedTextureDataPlugin;
+	friend class TextureSetDerivedParameterDataPlugin;
 	friend class FTextureSetCookerTaskWorker;
 public:
 
@@ -70,7 +53,8 @@ public:
 	FAsyncTaskBase* GetAsyncTask() { return AsyncTask.Get(); }
 
 private:
-	UTextureSet* TextureSet;
+	UTextureSetDefinition* Definition;
+	FTextureSetDerivedData& DerivedData;
 
 	FTextureSetProcessingContext Context;
 	FTextureSetProcessingGraph Graph;
@@ -78,15 +62,18 @@ private:
 	const FTextureSetDefinitionModuleInfo ModuleInfo;
 	const FTextureSetPackingInfo PackingInfo;
 
-	FGuid TextureSetDataId;
-	TArray<FGuid> PackedTextureIds;
+	UObject* OuterObject;
+	FString TextureSetName;
+	FString TextureSetFullName;
+	FString UserKey;
+	TArray<FGuid> DerivedTextureIds;
+	TMap<FName, FGuid> ParameterIds;
 
 	TUniquePtr<FAsyncTask<FTextureSetCookerTaskWorker>> AsyncTask;
 
 	// Compute the hashed Guid for a specific hashed texture. Used by the DDC to cache the data.
-	FGuid ComputePackedTextureDataId(int PackedTextureDefIndex) const;
-	// Compute the hashed Guid for the entire texture set (including all hashed textures) Used by the DDC to cache the data.
-	FGuid ComputeTextureSetDataId() const;
+	FGuid ComputeTextureDataId(int Index) const;
+	FGuid ComputeParameterDataId(FName ParameterName) const;
 
 	void Prepare();
 
@@ -94,8 +81,7 @@ private:
 
 	void ExecuteInternal();
 
-	void Build() const;
-	void BuildTextureData(int Index) const;
+	FDerivedTextureData BuildTextureData(int Index) const;
 
 	static inline int GetPixelIndex(int X, int Y, int Channel, int Width, int Height)
 	{

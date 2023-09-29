@@ -6,6 +6,7 @@
 #include "Interfaces/Interface_AsyncCompilation.h"
 #include "Materials/MaterialInstance.h"
 #include "TextureSetAssetParams.h"
+#include "TextureSetDerivedData.h"
 
 #include "TextureSet.generated.h"
 
@@ -61,13 +62,7 @@ public:
 
 	bool TryCancelCook();
 #endif
-	UTextureSetDerivedData* GetDerivedData() const { return DerivedData.Get(); }
-	UTexture* GetDerivedTexture(int Index) const { return DerivedTextures[Index].Get(); }
-
-	// For debugging, allow the user to manually change a value that doesn't affect the logic,
-	// but is hashed. Forces a regeneration of the data when a new unique value is entered.
-	UPROPERTY(EditAnywhere, Category="Debug")
-	FString UserKey;
+	const FTextureSetDerivedData& GetDerivedData() const { return DerivedData; }
 
 private:
 #if WITH_EDITOR
@@ -78,11 +73,13 @@ private:
 	TSharedPtr<TextureSetCooker> ActiveCooker;
 #endif
 
-	UPROPERTY(VisibleAnywhere, Category="Derived Data")
-	TObjectPtr<UTextureSetDerivedData> DerivedData;
+	// For debugging, allow the user to manually change a value that doesn't affect the logic,
+	// but is hashed. Forces a regeneration of the data when a new unique value is entered.
+	UPROPERTY(EditAnywhere, AdvancedDisplay)
+	FString UserKey;
 
-	UPROPERTY(VisibleAnywhere, Category="Derived Data")
-	TArray<TObjectPtr<UTexture>> DerivedTextures;
+	UPROPERTY(VisibleAnywhere, AdvancedDisplay)
+	FTextureSetDerivedData DerivedData;
 
 	FDelegateHandle OnTextureSetDefinitionChangedHandle;
 
