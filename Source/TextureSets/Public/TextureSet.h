@@ -21,7 +21,6 @@ class TEXTURESETS_API UTextureSet : public UObject, public ICustomMaterialParame
 {
 	GENERATED_UCLASS_BODY()
 
-	friend class TextureSetCooker;
 	friend class FTextureSetCompilingManager;
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -57,21 +56,11 @@ public:
 #if WITH_EDITOR
 	void FixupData();
 	void UpdateDerivedData();
-
-	bool IsAsyncCookComplete() const;
-
-	bool TryCancelCook();
 #endif
 	const FTextureSetDerivedData& GetDerivedData() const { return DerivedData; }
+	const FString& GetUserKey() const { return UserKey; }
 
 private:
-#if WITH_EDITOR
-	bool bIsDerivedDataReady;
-#endif
-
-#if WITH_EDITOR
-	TSharedPtr<TextureSetCooker> ActiveCooker;
-#endif
 
 	// For debugging, allow the user to manually change a value that doesn't affect the logic,
 	// but is hashed. Forces a regeneration of the data when a new unique value is entered.

@@ -3,7 +3,6 @@
 #include "TextureSet.h"
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
-#include "TextureSetCooker.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetModule.h"
 #include "UObject/ObjectSaveContext.h"
@@ -19,8 +18,6 @@ UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 #if WITH_EDITOR
-	bIsDerivedDataReady = false;
-
 	OnTextureSetDefinitionChangedHandle = UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent.AddUObject(this, &UTextureSet::OnDefinitionChanged);
 #endif
 }
@@ -28,7 +25,7 @@ UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITOR
 bool UTextureSet::IsCompiling() const
 {
-	if (ActiveCooker.IsValid() && !bIsDerivedDataReady)
+	if (FTextureSetCompilingManager::Get().IsRegistered(this))
 		return true;
 
 	for (UTexture* DerivedTexture : DerivedData.Textures)
@@ -48,7 +45,7 @@ void UTextureSet::AugmentMaterialParameters(const FCustomParameterValue& CustomP
 		return;
 
 #if WITH_EDITOR
-	if (!bIsDerivedDataReady)
+	if (DerivedData.bIsCooking)
 	{
 		// Use the default texture set if it's valid
 		if (IsValid(Definition->GetDefaultTextureSet()) && Definition->GetDefaultTextureSet() != this)
@@ -113,7 +110,6 @@ void UTextureSet::PostLoad()
 	Super::PostLoad();
 
 #if WITH_EDITOR
-	FixupData();
 	UpdateDerivedData();
 #endif
 }
@@ -195,7 +191,7 @@ void UTextureSet::FixupData()
 #if WITH_EDITOR
 void UTextureSet::UpdateDerivedData()
 {
-	bIsDerivedDataReady = false;
+	FixupData();
 
 	FDataValidationContext ValidationContext;
 	if (!IsValid(Definition) || Definition->IsDataValid(ValidationContext) == EDataValidationResult::Invalid)
@@ -205,67 +201,7 @@ void UTextureSet::UpdateDerivedData()
 		return;
 	}
 
-	if (!ensureAlways(!ActiveCooker.IsValid()))
-	{
-		// This generally shouldn't happen, but if it does, make sure we finish the previous cook before trying to kick off another one
-		if (!TryCancelCook())
-		{
-			FTextureSetCompilingManager::Get().FinishCompilation({this});
-		}
-	}
-
-	check(!ActiveCooker.IsValid());
-
-	ActiveCooker = MakeShared<TextureSetCooker>(this);
-
-	if (!ActiveCooker->CookRequired())
-	{
-		bIsDerivedDataReady = true;
-		ActiveCooker = nullptr;
-	}
-	else
-	{
-		if (FTextureSetCompilingManager::Get().IsAsyncCompilationAllowed(this))
-		{
-			// Will swap out material instances with default values until cooking has finished
-			NotifyMaterialInstances();
-
-			FTextureSetCompilingManager::Get().StartCompilation({this});
-		}
-		else
-		{
-			ActiveCooker->Execute();
-			OnFinishCook();
-		}
-	}
-}
-#endif
-
-#if WITH_EDITOR
-bool UTextureSet::IsAsyncCookComplete() const
-{
-	if (ActiveCooker.IsValid())
-	{
-		if (ActiveCooker->IsAsyncJobInProgress())
-			return false;
-		else
-			return true;
-	}
-
-	return false;
-}
-#endif
-
-#if WITH_EDITOR
-bool UTextureSet::TryCancelCook()
-{
-	if (ActiveCooker.IsValid() && ActiveCooker->TryCancel())
-	{
-		ActiveCooker = nullptr;
-		return true;
-	}
-
-	return false;
+	FTextureSetCompilingManager::Get().StartCompilation({this});
 }
 #endif
 
@@ -288,27 +224,10 @@ void UTextureSet::NotifyMaterialInstances()
 #endif
 
 #if WITH_EDITOR
-void UTextureSet::OnFinishCook()
-{
-	check(IsValid(Definition));
-	check(ActiveCooker.IsValid());
-
-	ActiveCooker->Finalize();
-
-	ActiveCooker = nullptr;
-	bIsDerivedDataReady = true;
-
-	// Update loaded material instances that use this texture set
-	NotifyMaterialInstances();
-}
-#endif
-
-#if WITH_EDITOR
 void UTextureSet::OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition)
 {
 	if (ChangedDefinition == Definition && !HasAnyFlags(RF_NeedPostLoad))
 	{
-		FixupData();
 		UpdateDerivedData();
 	}
 }

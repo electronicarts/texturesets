@@ -61,4 +61,6 @@ public:
 
 	UPROPERTY(VisibleAnywhere)
 	TMap<FName, FDerivedParameterData> MaterialParameters;
+
+	bool bIsCooking = false;
 };

@@ -11,34 +11,45 @@
 #include "TextureSetProcessingGraph.h"
 
 class UTextureSet;
-class TextureSetCooker;
+class FTextureSetCooker;
 
 class FTextureSetCookerTaskWorker : public FNonAbandonableTask
 {
 public:
-	FTextureSetCookerTaskWorker (TextureSetCooker* Cooker)
-		: Cooker(Cooker)
-	{}
+	FTextureSetCookerTaskWorker (FTextureSetCooker* Cooker)
+		: Cooker(Cooker) {}
 
-	FORCEINLINE TStatId GetStatId() const
-	{
-		RETURN_QUICK_DECLARE_CYCLE_STAT(FTextureSetCookerTaskWorker, STATGROUP_ThreadPoolAsyncTasks);
-	}
-
+	FORCEINLINE TStatId GetStatId() const { RETURN_QUICK_DECLARE_CYCLE_STAT(FTextureSetCookerTaskWorker, STATGROUP_ThreadPoolAsyncTasks); }
 	void DoWork();
 
 private:
-	TextureSetCooker* Cooker;
+	FTextureSetCooker* Cooker;
 };
 
-class TextureSetCooker
+/**
+* The Texture Set Cooker generates derived data for a given texture set.
+* It copies everything it needs from the texture set and the definition in
+* the constructor, so changes to the data won't affect a cook in progress.
+* 
+* Intended usage looks something like:
+* 
+*	FTextureSetCooker Cooker(TextureSet, DerivedData);
+*	if (Cooker.CookRequired())
+*	{
+*		Cooker.Execute();
+*		Cooker.Finalize();
+*	}
+* 
+* The cooker also supports async execution, which can check for completion with IsAsyncJobInProgress()
+*/
+class FTextureSetCooker
 {
 	friend class TextureSetDerivedTextureDataPlugin;
 	friend class TextureSetDerivedParameterDataPlugin;
 	friend class FTextureSetCookerTaskWorker;
 public:
 
-	TextureSetCooker(UTextureSet* TS);
+	FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerivedData& DerivedData);
 
 	bool CookRequired() const;
 
@@ -51,6 +62,7 @@ public:
 	bool TryCancel();
 
 	FAsyncTaskBase* GetAsyncTask() { return AsyncTask.Get(); }
+	FName GetTextureSetName() { return FName(TextureSetName); }
 
 private:
 	FTextureSetDerivedData& DerivedData;
