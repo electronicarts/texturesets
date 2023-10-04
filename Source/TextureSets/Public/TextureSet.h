@@ -32,7 +32,6 @@ public:
 
 	UPROPERTY(EditAnywhere)
 	FTextureSetAssetParamsCollection AssetParams;
-
 #endif
 
 	// IInterface_AsyncCompilation Interface

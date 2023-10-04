@@ -20,8 +20,12 @@ public:
 private:
 
 	void RegisterAssetTools();
+
 	void RegisterAssetTypeAction(IAssetTools& AssetTools, TSharedRef<IAssetTypeActions> Action);
 	void UnregisterAssetTools();
+
+	void RegisterCustomizations();
+	void UnregisterCustomizations();
 
 	FDelegateHandle OnMaterialInstanceOpenedForEditHandle;
 

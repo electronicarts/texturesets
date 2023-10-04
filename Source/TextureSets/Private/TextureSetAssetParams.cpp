@@ -2,8 +2,13 @@
 
 #include "TextureSetAssetParams.h"
 
+#if WITH_EDITOR
+FOnTextureSetAssetParamsCollectionChanged FTextureSetAssetParamsCollection::OnCollectionChangedDelegate;
+
 void FTextureSetAssetParamsCollection::UpdateParamList(UObject* Outer, TArray<TSubclassOf<UTextureSetAssetParams>> RequiredParamClasses)
 {
+	bool bListChanged = false;
+
 	// Remove un-needed sample params
 	for (int i = 0; i < ParamList.Num(); i++)
 	{
@@ -15,6 +20,7 @@ void FTextureSetAssetParamsCollection::UpdateParamList(UObject* Outer, TArray<TS
 		{
 			ParamList.RemoveAt(i);
 			i--;
+			bListChanged = true;
 		}
 	}
 
@@ -22,5 +28,10 @@ void FTextureSetAssetParamsCollection::UpdateParamList(UObject* Outer, TArray<TS
 	for (TSubclassOf<UTextureSetAssetParams>& SampleParamClass : RequiredParamClasses)
 	{
 		ParamList.Add(NewObject<UTextureSetAssetParams>(Outer, SampleParamClass));
+		bListChanged = true;
 	}
+
+	if (bListChanged)
+		OnCollectionChangedDelegate.Broadcast();
 }
+#endif

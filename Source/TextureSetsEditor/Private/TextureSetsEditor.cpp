@@ -19,6 +19,7 @@
 #include "PropertyCustomizationHelpers.h"
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
+#include "TextureSetDetails.h"
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
@@ -126,6 +127,7 @@ class FTextureSetParameterEditor : public ICustomMaterialParameterEditor, public
 void FTextureSetsEditorModule::StartupModule()
 {
 	RegisterAssetTools();
+	RegisterCustomizations();
 
 	ParameterEditor = MakeShared<FTextureSetParameterEditor>();
 	FMaterialPropertyHelpers::RegisterParameterFilter(ParameterEditor);
@@ -135,6 +137,7 @@ void FTextureSetsEditorModule::StartupModule()
 void FTextureSetsEditorModule::ShutdownModule()
 {
 	UnregisterAssetTools();
+	UnregisterCustomizations();
 
 	FMaterialPropertyHelpers::UnregisterParameterFilter(ParameterEditor);
 	FMaterialPropertyHelpers::UnregisterCustomParameterEditor(ParameterEditor);
@@ -173,6 +176,20 @@ void FTextureSetsEditorModule::UnregisterAssetTools()
 
 		RegisteredAssetTypeActions.Empty();
 	}
+}
+
+void FTextureSetsEditorModule::RegisterCustomizations()
+{
+	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+
+	PropertyModule.RegisterCustomPropertyTypeLayout(FTextureSetDetails::GetPropertyTypeName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FTextureSetDetails::MakeInstance));
+}
+
+void FTextureSetsEditorModule::UnregisterCustomizations()
+{
+	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+
+	PropertyModule.UnregisterCustomPropertyTypeLayout(FTextureSetDetails::GetPropertyTypeName());
 }
 
 #undef LOCTEXT_NAMESPACE
