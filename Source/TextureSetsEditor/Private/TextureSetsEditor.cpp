@@ -111,14 +111,21 @@ class FTextureSetParameterEditor : public ICustomMaterialParameterEditor, public
 						{
 							if (!SamplerExpression)
 								return false;
-		
-							UTextureSet* TextureSetAsset = CastChecked<UTextureSet>(AssetData.GetAsset());
-							return TextureSetAsset->Definition != SamplerExpression->Definition;
-		
-							// TODO: Why isn't this working?
-							//const FString& AssetDefinitionID = AssetData.GetTagValueRef<FString>("TextureSetDefinitionID");
-							//const FString ExpressionDefinitionID = SamplerExpression->Definition->GetGuid().ToString();
-							//return AssetDefinitionID != ExpressionDefinitionID;
+
+							FAssetTagValueRef DefinitionIdValue = AssetData.TagsAndValues.FindTag("TextureSetDefinitionID");
+							if (DefinitionIdValue.IsSet())
+							{
+								// Prefer to compare with the asset tag to avoid loading each texture set just to check it's definition.
+								const FString AssetDefinitionID = DefinitionIdValue.AsString();
+								const FString ExpressionDefinitionID = SamplerExpression->Definition->GetGuid().ToString();
+								return AssetDefinitionID != ExpressionDefinitionID;
+							}
+							else
+							{
+								// No definition ID was found, so we need to load the texture set to know if it references the right definition.
+								UTextureSet* TextureSetAsset = CastChecked<UTextureSet>(AssetData.GetAsset());
+								return TextureSetAsset->Definition != SamplerExpression->Definition;
+							}
 						})
 				];
 		}
