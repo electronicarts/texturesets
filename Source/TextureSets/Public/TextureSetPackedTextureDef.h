@@ -23,7 +23,7 @@ public:
 
 	// Texture Format
 	UPROPERTY(EditAnywhere)
-	TEnumAsByte<TextureCompressionSettings> CompressionSettings;
+	TEnumAsByte<TextureCompressionSettings> CompressionSettings = TextureCompressionSettings::TC_Default;
 
 	// Sources
 	UPROPERTY(EditAnywhere, meta=(GetOptions="EditGetUnpackedChannelNames", EditCondition = "AvailableChannels > 0"))
