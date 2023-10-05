@@ -206,7 +206,7 @@ FGuid FTextureSetCooker::ComputeTextureDataId(int PackedTextureIndex) const
 
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
 
-	IdBuilder << FString("TextureSetDerivedTexture_V0"); // Version string, bump this to invalidate everything
+	IdBuilder << FString("TextureSetDerivedTexture_V0.0"); // Version string, bump this to invalidate everything
 	IdBuilder << UserKey; // Key for debugging, easily force rebuild
 	IdBuilder << GetTypeHash(PackingInfo.GetPackedTextureDef(PackedTextureIndex));
 
@@ -233,7 +233,7 @@ FGuid FTextureSetCooker::ComputeParameterDataId(FName ParameterName) const
 	TSharedRef<IParameterProcessingNode> ParameterNode = Graph.GetOutputParameters().FindChecked(ParameterName);
 
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
-	IdBuilder << FString("TextureSetParameter_V0"); // Version string, bump this to invalidate everything
+	IdBuilder << FString("TextureSetParameter_V0.0"); // Version string, bump this to invalidate everything
 	IdBuilder << UserKey; // Key for debugging, easily force rebuild
 	IdBuilder << ParameterNode->ComputeGraphHash();
 	IdBuilder << ParameterNode->ComputeDataHash(Context);
