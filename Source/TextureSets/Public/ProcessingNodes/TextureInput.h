@@ -37,6 +37,7 @@ private:
 
 	bool bInitialized;
 	uint8 ValidChannels;
+	uint8 ChannelSwizzle[4];
 	FImage Image;
 	bool bValidImage;
 };

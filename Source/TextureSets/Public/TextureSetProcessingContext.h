@@ -6,6 +6,7 @@
 
 #include "CoreMinimal.h"
 #include "TextureSetAssetParams.h"
+#include "TextureSetSourceTextureReference.h"
 
 struct FTextureSetProcessingContext
 {
@@ -13,12 +14,12 @@ struct FTextureSetProcessingContext
 
 public:
 	bool HasSourceTexure(FName Name) const { return SourceTextures.Contains(Name); }
-	const TObjectPtr<class UTexture> GetSourceTexture(FName Name) const { return SourceTextures.FindChecked(Name); }
+	const FTextureSetSourceTextureReference& GetSourceTexture(FName Name) const { return SourceTextures.FindChecked(Name); }
 
 	template <class T> const T* GetAssetParam() const { return AssetParams.Get<T>(); }
 
 private:
-	TMap<FName, TObjectPtr<UTexture>> SourceTextures;
+	TMap<FName, FTextureSetSourceTextureReference> SourceTextures;
 	FTextureSetAssetParamsCollection AssetParams;
 };
 #endif

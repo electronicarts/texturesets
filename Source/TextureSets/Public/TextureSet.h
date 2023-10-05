@@ -7,6 +7,7 @@
 #include "Materials/MaterialInstance.h"
 #include "TextureSetAssetParams.h"
 #include "TextureSetDerivedData.h"
+#include "TextureSetSourceTextureReference.h"
 
 #include "TextureSet.generated.h"
 
@@ -28,7 +29,7 @@ public:
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(EditAnywhere, EditFixedSize, meta=(ReadOnlyKeys))
-	TMap<FName, TObjectPtr<UTexture>> SourceTextures;
+	TMap<FName, FTextureSetSourceTextureReference> SourceTextures;
 
 	UPROPERTY(EditAnywhere)
 	FTextureSetAssetParamsCollection AssetParams;

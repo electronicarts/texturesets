@@ -18,8 +18,9 @@
 #include "Materials/MaterialInstanceConstant.h"
 #include "PropertyCustomizationHelpers.h"
 #include "TextureSet.h"
+#include "TextureSetAssetParamsCollectionCustomization.h"
 #include "TextureSetDefinition.h"
-#include "TextureSetDetails.h"
+#include "TextureSetSourceTextureReferenceCustomization.h"
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
@@ -182,14 +183,16 @@ void FTextureSetsEditorModule::RegisterCustomizations()
 {
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 
-	PropertyModule.RegisterCustomPropertyTypeLayout(FTextureSetDetails::GetPropertyTypeName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FTextureSetDetails::MakeInstance));
+	PropertyModule.RegisterCustomPropertyTypeLayout(FTextureSetAssetParamsCollectionCustomization::GetPropertyTypeName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FTextureSetAssetParamsCollectionCustomization::MakeInstance));
+	PropertyModule.RegisterCustomPropertyTypeLayout(FTextureSetSourceTextureReferenceCustomization::GetPropertyTypeName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FTextureSetSourceTextureReferenceCustomization::MakeInstance));
 }
 
 void FTextureSetsEditorModule::UnregisterCustomizations()
 {
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 
-	PropertyModule.UnregisterCustomPropertyTypeLayout(FTextureSetDetails::GetPropertyTypeName());
+	PropertyModule.UnregisterCustomPropertyTypeLayout(FTextureSetAssetParamsCollectionCustomization::GetPropertyTypeName());
+	PropertyModule.UnregisterCustomPropertyTypeLayout(FTextureSetSourceTextureReferenceCustomization::GetPropertyTypeName());
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -5,10 +5,10 @@
 #include "CoreMinimal.h"
 #include "IPropertyTypeCustomization.h"
 
-class FTextureSetDetails : public IPropertyTypeCustomization
+class FTextureSetAssetParamsCollectionCustomization : public IPropertyTypeCustomization
 {
 public:
-	virtual ~FTextureSetDetails();
+	virtual ~FTextureSetAssetParamsCollectionCustomization();
 
 	static const FName GetPropertyTypeName();
 
@@ -20,6 +20,5 @@ public:
 	virtual void CustomizeChildren(TSharedRef<IPropertyHandle> PropertyHandle, IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& CustomizationUtils) override;
 
 private:
-	//TSharedPtr<IPropertyUtilities> PropertyUtilities;
 	FDelegateHandle RefreshHandle;
 };

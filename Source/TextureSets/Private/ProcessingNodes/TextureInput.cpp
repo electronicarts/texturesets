@@ -8,12 +8,13 @@
 #include "TextureSetProcessingGraph.h"
 
 FTextureInput::FTextureInput(FName SourceNameIn, const FTextureSetSourceTextureDef& SourceDefinitionIn)
+	: SourceName(SourceNameIn)
+	, SourceDefinition(SourceDefinitionIn)
+	, bInitialized(false)
+	, ValidChannels(0)
+	, ChannelSwizzle{0, 1, 2, 3}
+	, bValidImage(false)
 {
-	SourceName = SourceNameIn;
-	SourceDefinition = SourceDefinitionIn;
-	bValidImage = false;
-	bInitialized = false;
-	ValidChannels = 0;
 }
 
 void FTextureInput::Initialize(const FTextureSetProcessingContext& Context)
@@ -25,8 +26,10 @@ void FTextureInput::Initialize(const FTextureSetProcessingContext& Context)
 
 	if(Context.HasSourceTexure(SourceName))
 	{
-		UTexture* Texture = Context.GetSourceTexture(SourceName);
+		const FTextureSetSourceTextureReference& TextureRef = Context.GetSourceTexture(SourceName);
 		
+		UTexture* Texture = TextureRef.Texture;
+
 		if (IsValid(Texture))
 		{
 			check(Texture->Source.IsValid());
@@ -56,6 +59,27 @@ void FTextureInput::Initialize(const FTextureSetProcessingContext& Context)
 				}
 
 				RawImage.Linearize((int)Texture->SourceColorSettings.EncodingOverride, Image);
+
+				uint8 CurrentChannel = 0;
+
+				// Start at the first valid, unmasked channel
+				while((CurrentChannel + 1 < ValidChannels) && !(TextureRef.ChannelMask & (1 << CurrentChannel)))
+					CurrentChannel++;
+
+				for (int i = 0; i < SourceDefinition.ChannelCount; i++)
+				{
+					ChannelSwizzle[i] = CurrentChannel;
+
+					// Advance to the next valid, unmasked channel
+					for (uint8 NextChannel = CurrentChannel + 1; NextChannel < ValidChannels; NextChannel++)
+					{
+						if (TextureRef.ChannelMask & (1 << NextChannel))
+						{
+							CurrentChannel = NextChannel;
+							break;
+						}
+					}
+				}
 			}
 		}
 	}
@@ -79,10 +103,12 @@ const uint32 FTextureInput::ComputeDataHash(const FTextureSetProcessingContext& 
 
 	if(Context.HasSourceTexure(SourceName))
 	{
-		UTexture* Texture = Context.GetSourceTexture(SourceName);
+		const FTextureSetSourceTextureReference& TextureRef = Context.GetSourceTexture(SourceName);
+		UTexture* Texture = TextureRef.Texture;
 		if (IsValid(Texture))
 		{
 			Hash = HashCombine(Hash, GetTypeHash(Texture->Source.GetId()));
+			Hash = HashCombine(Hash, GetTypeHash(TextureRef.ChannelMask));
 		}
 	}
 
@@ -98,15 +124,14 @@ float FTextureInput::GetPixel(int X, int Y, int Channel) const
 #endif
 
 	// TODO: Can we avoid a branch on every pixel?
-	if (Channel < ValidChannels)
+	if (bValidImage)
 	{
 #ifdef UE_BUILD_DEBUG
-		check(bValidImage);
 		check(X < Image.GetWidth());
 		check(Y < Image.GetHeight());
 #endif
 		const int I = Y * Image.GetWidth() + X;
-		return Image.AsRGBA32F()[I].Component(Channel);
+		return Image.AsRGBA32F()[I].Component(ChannelSwizzle[Channel]);
 	}
 	else
 	{

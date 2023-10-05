@@ -1,6 +1,6 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#include "TextureSetDetails.h"
+#include "TextureSetAssetParamsCollectionCustomization.h"
 
 #include "DetailWidgetRow.h"
 #include "IDetailChildrenBuilder.h"
@@ -10,24 +10,24 @@
 
 #define LOCTEXT_NAMESPACE "TextureSets"
 
-FTextureSetDetails::~FTextureSetDetails()
+FTextureSetAssetParamsCollectionCustomization::~FTextureSetAssetParamsCollectionCustomization()
 {
 	if (RefreshHandle.IsValid())
 		FTextureSetAssetParamsCollection::OnCollectionChangedDelegate.Remove(RefreshHandle);
 }
 
-const FName FTextureSetDetails::GetPropertyTypeName()
+const FName FTextureSetAssetParamsCollectionCustomization::GetPropertyTypeName()
 {
 	static const FName TypeName = "TextureSetAssetParamsCollection";
 	return TypeName;
 }
 
-TSharedRef<IPropertyTypeCustomization> FTextureSetDetails::MakeInstance()
+TSharedRef<IPropertyTypeCustomization> FTextureSetAssetParamsCollectionCustomization::MakeInstance()
 {
-	return MakeShared<FTextureSetDetails>();
+	return MakeShared<FTextureSetAssetParamsCollectionCustomization>();
 }
 
-void FTextureSetDetails::CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils)
+void FTextureSetAssetParamsCollectionCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils)
 {
 	const bool bShowInnerPropsOnly = PropertyHandle->HasMetaData(TEXT("ShowOnlyInnerProperties"));
 
@@ -41,7 +41,7 @@ void FTextureSetDetails::CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHan
 	}
 }
 
-void FTextureSetDetails::CustomizeChildren(TSharedRef<IPropertyHandle> PropertyHandle, IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& CustomizationUtils)
+void FTextureSetAssetParamsCollectionCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> PropertyHandle, IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& CustomizationUtils)
 {
 	// Draw all properties of sub-objects as if they were part of this struct
 	TSharedPtr<IPropertyHandle> ParamListHandle = PropertyHandle->GetChildHandle("ParamList", false);

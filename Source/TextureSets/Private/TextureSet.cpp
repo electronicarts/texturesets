@@ -173,12 +173,12 @@ void UTextureSet::FixupData()
 	if (IsValid(Definition))
 	{
 		// Source Textures
-		TMap<FName, TObjectPtr<UTexture>> NewSourceTextures;
+		TMap<FName, FTextureSetSourceTextureReference> NewSourceTextures;
 
 		for (const auto& [Name, TextureInfo] : Definition->GetModuleInfo().GetSourceTextures())
 		{
-			TObjectPtr<UTexture>* OldTexture = SourceTextures.Find(Name);
-			NewSourceTextures.Add(Name, (OldTexture != nullptr) ? *OldTexture : nullptr);
+			FTextureSetSourceTextureReference* OldTexture = SourceTextures.Find(Name);
+			NewSourceTextures.Add(Name, OldTexture ? *OldTexture : FTextureSetSourceTextureReference());
 		}
 
 		SourceTextures = NewSourceTextures;
