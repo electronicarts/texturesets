@@ -84,7 +84,7 @@ private:
 
 	// Compute the hashed Guid for a specific hashed texture. Used by the DDC to cache the data.
 	FGuid ComputeTextureDataId(int Index) const;
-	FGuid ComputeParameterDataId(FName ParameterName) const;
+	FGuid ComputeParameterDataId(const TSharedRef<IParameterProcessingNode> Parameter) const;
 
 	void Prepare();
 

@@ -78,10 +78,7 @@ public:
 
 		FDerivedParameterData ParameterData;
 		ParameterData.Value = Parameter->GetValue();
-
-		UE::DerivedData::FBuildVersionBuilder IdBuilder;
-		IdBuilder << HashCombine(Parameter->ComputeGraphHash(), Parameter->ComputeDataHash(Cooker.Context));
-		ParameterData.Id = IdBuilder.Build();
+		ParameterData.Id = Cooker.ParameterIds.FindChecked(ParameterName);
 
 		OutData.Empty(sizeof(FDerivedParameterData));
 		FMemoryWriter DataReader(OutData);
@@ -114,7 +111,7 @@ FTextureSetCooker::FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerived
 		DerivedTextureIds.Add(ComputeTextureDataId(i));
 
 	for (const auto& [Name, Parameter] : Graph.GetOutputParameters())
-		ParameterIds.Add(Name, ComputeParameterDataId(Name));
+		ParameterIds.Add(Name, ComputeParameterDataId(Parameter));
 }
 
 bool FTextureSetCooker::CookRequired() const
@@ -228,15 +225,13 @@ FGuid FTextureSetCooker::ComputeTextureDataId(int PackedTextureIndex) const
 	return IdBuilder.Build();
 }
 
-FGuid FTextureSetCooker::ComputeParameterDataId(FName ParameterName) const
+FGuid FTextureSetCooker::ComputeParameterDataId(const TSharedRef<IParameterProcessingNode> Parameter) const
 {
-	TSharedRef<IParameterProcessingNode> ParameterNode = Graph.GetOutputParameters().FindChecked(ParameterName);
-
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
-	IdBuilder << FString("TextureSetParameter_V0.0"); // Version string, bump this to invalidate everything
+	IdBuilder << FString("TextureSetParameter_V0.1"); // Version string, bump this to invalidate everything
 	IdBuilder << UserKey; // Key for debugging, easily force rebuild
-	IdBuilder << ParameterNode->ComputeGraphHash();
-	IdBuilder << ParameterNode->ComputeDataHash(Context);
+	IdBuilder << Parameter->ComputeGraphHash();
+	IdBuilder << Parameter->ComputeDataHash(Context);
 	return IdBuilder.Build();
 }
 
