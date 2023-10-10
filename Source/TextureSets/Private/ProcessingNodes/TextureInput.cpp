@@ -4,17 +4,29 @@
 
 #include "ProcessingNodes/TextureInput.h"
 
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetProcessingGraph.h"
+#include "TextureSetsHelpers.h"
 
 FTextureInput::FTextureInput(FName SourceNameIn, const FTextureSetSourceTextureDef& SourceDefinitionIn)
 	: SourceName(SourceNameIn)
 	, SourceDefinition(SourceDefinitionIn)
+	, Texture(nullptr)
 	, bInitialized(false)
 	, ValidChannels(0)
 	, ChannelSwizzle{0, 1, 2, 3}
 	, bValidImage(false)
 {
+}
+
+void FTextureInput::LoadResources(const FTextureSetProcessingContext& Context)
+{
+	if(!IsValid(Texture) && Context.HasSourceTexure(SourceName))
+	{
+		const FTextureSetSourceTextureReference& TextureRef = Context.GetSourceTexture(SourceName);
+		Texture = TextureRef.Texture.LoadSynchronous();
+	}
 }
 
 void FTextureInput::Initialize(const FTextureSetProcessingContext& Context)
@@ -24,60 +36,54 @@ void FTextureInput::Initialize(const FTextureSetProcessingContext& Context)
 	if (bInitialized)
 		return;
 
-	if(Context.HasSourceTexure(SourceName))
+	if(Context.HasSourceTexure(SourceName) && IsValid(Texture))
 	{
 		const FTextureSetSourceTextureReference& TextureRef = Context.GetSourceTexture(SourceName);
-		
-		UTexture* Texture = TextureRef.Texture;
 
-		if (IsValid(Texture))
+		FImage RawImage;
+		check(Texture->Source.IsValid());
+		bValidImage = Texture->Source.GetMipImage(RawImage, 0, 0, 0);
+
+		if (bValidImage)
 		{
-			check(Texture->Source.IsValid());
-
-			FImage RawImage;
-			bValidImage = Texture->Source.GetMipImage(RawImage, 0, 0, 0);
-
-			if (bValidImage)
+			switch (RawImage.Format)
 			{
-				switch (RawImage.Format)
+			case ERawImageFormat::G8:
+			case ERawImageFormat::G16:
+			case ERawImageFormat::R16F:
+			case ERawImageFormat::R32F:
+				ValidChannels = 1;
+				break;
+			case ERawImageFormat::BGRE8:
+			case ERawImageFormat::BGRA8:
+			case ERawImageFormat::RGBA16:
+			case ERawImageFormat::RGBA16F:
+			case ERawImageFormat::RGBA32F:
+				ValidChannels = 4;
+				break;
+			default:
+				unimplemented();
+			}
+
+			RawImage.Linearize((int)Texture->SourceColorSettings.EncodingOverride, Image);
+
+			uint8 CurrentChannel = 0;
+
+			// Start at the first valid, unmasked channel
+			while((CurrentChannel + 1 < ValidChannels) && !(TextureRef.ChannelMask & (1 << CurrentChannel)))
+				CurrentChannel++;
+
+			for (int i = 0; i < SourceDefinition.ChannelCount; i++)
+			{
+				ChannelSwizzle[i] = CurrentChannel;
+
+				// Advance to the next valid, unmasked channel
+				for (uint8 NextChannel = CurrentChannel + 1; NextChannel < ValidChannels; NextChannel++)
 				{
-				case ERawImageFormat::G8:
-				case ERawImageFormat::G16:
-				case ERawImageFormat::R16F:
-				case ERawImageFormat::R32F:
-					ValidChannels = 1;
-					break;
-				case ERawImageFormat::BGRE8:
-				case ERawImageFormat::BGRA8:
-				case ERawImageFormat::RGBA16:
-				case ERawImageFormat::RGBA16F:
-				case ERawImageFormat::RGBA32F:
-					ValidChannels = 4;
-					break;
-				default:
-					unimplemented();
-				}
-
-				RawImage.Linearize((int)Texture->SourceColorSettings.EncodingOverride, Image);
-
-				uint8 CurrentChannel = 0;
-
-				// Start at the first valid, unmasked channel
-				while((CurrentChannel + 1 < ValidChannels) && !(TextureRef.ChannelMask & (1 << CurrentChannel)))
-					CurrentChannel++;
-
-				for (int i = 0; i < SourceDefinition.ChannelCount; i++)
-				{
-					ChannelSwizzle[i] = CurrentChannel;
-
-					// Advance to the next valid, unmasked channel
-					for (uint8 NextChannel = CurrentChannel + 1; NextChannel < ValidChannels; NextChannel++)
+					if (TextureRef.ChannelMask & (1 << NextChannel))
 					{
-						if (TextureRef.ChannelMask & (1 << NextChannel))
-						{
-							CurrentChannel = NextChannel;
-							break;
-						}
+						CurrentChannel = NextChannel;
+						break;
 					}
 				}
 			}
@@ -104,10 +110,33 @@ const uint32 FTextureInput::ComputeDataHash(const FTextureSetProcessingContext& 
 	if(Context.HasSourceTexure(SourceName))
 	{
 		const FTextureSetSourceTextureReference& TextureRef = Context.GetSourceTexture(SourceName);
-		UTexture* Texture = TextureRef.Texture;
-		if (IsValid(Texture))
+
+		if (!TextureRef.Texture.IsNull())
 		{
-			Hash = HashCombine(Hash, GetTypeHash(Texture->Source.GetId()));
+			FString PayloadIdString;
+
+			// If referenced texture is already loaded just grab the ID string from it directly
+			if (!TextureRef.Texture.IsValid() || !TextureSetsHelpers::GetSourceDataIdAsString(TextureRef.Texture.Get(), PayloadIdString))
+			{
+				// If the referenced texture is not loaded, check if we have the IdString saved with it's asset data
+				// so we can avoid loading the texture just to check if it's changed.
+				FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+				FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(TextureRef.Texture.ToSoftObjectPath());
+
+				if(!TextureSetsHelpers::GetSourceDataIdAsString(AssetData, PayloadIdString))
+				{
+					// If we were not able to get the ID string from the asset data, we need to load the texture to retreive it.
+					// This should only happen on textures that were created before the texture-sets plugin was enabled, and haven't been re-saved since.
+					// As existing textures are modified and re-saved, this should happen less frequently.
+					UTexture* T = TextureRef.Texture.LoadSynchronous();
+					check(IsValid(T));
+					FGuid PersistentID = T->Source.GetPersistentId();
+					TextureSetsHelpers::GetSourceDataIdAsString(T, PayloadIdString);
+				}
+			}
+			
+			check(!PayloadIdString.IsEmpty())
+			Hash = HashCombine(Hash, GetTypeHash(PayloadIdString));
 			Hash = HashCombine(Hash, GetTypeHash(TextureRef.ChannelMask));
 		}
 	}

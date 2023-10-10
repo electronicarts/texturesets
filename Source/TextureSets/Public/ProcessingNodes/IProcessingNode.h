@@ -15,10 +15,12 @@ public:
 	// Return a uniqe name for this node type
 	virtual FName GetNodeTypeName() const = 0;
 
-	// Initializes the graph, doing any pre-processing of data required
-	virtual void Initialize(const FTextureSetProcessingContext& Context) = 0;
+	// Loads resources required for execuring the graph. Called before Initialize, and guaranteed to be on the game thread.
+	virtual void LoadResources(const FTextureSetProcessingContext& Context) = 0;
 
-	virtual bool IsInitialized() const = 0;
+	// Initializes the graph, doing any pre-processing of data required.
+	// This can be called on a worker thread, so should not load resources or modify UObjects
+	virtual void Initialize(const FTextureSetProcessingContext& Context) = 0;
 
 	// Computes the hash of the graph logic. Doesn't take into account any data, and can be called without initializing the node.
 	virtual const uint32 ComputeGraphHash() const = 0;

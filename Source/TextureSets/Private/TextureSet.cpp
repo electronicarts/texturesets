@@ -202,7 +202,10 @@ void UTextureSet::UpdateDerivedData()
 		return;
 	}
 
-	FTextureSetCompilingManager::Get().StartCompilation({this});
+	if (IsLoading())
+		FTextureSetCompilingManager::Get().QueueCompilation({this});
+	else
+		FTextureSetCompilingManager::Get().StartCompilation({this});
 }
 #endif
 

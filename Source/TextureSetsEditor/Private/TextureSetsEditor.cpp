@@ -9,6 +9,7 @@
 #include "IDetailGroup.h"
 #include "IDetailTreeNode.h"
 #include "IMaterialEditor.h"
+#include "Interfaces/IPluginManager.h"
 #include "MaterialEditor/DEditorParameterValue.h"
 #include "MaterialEditor/MaterialEditorInstanceConstant.h"
 #include "MaterialEditor/Public/MaterialEditorModule.h"
@@ -21,6 +22,8 @@
 #include "TextureSetAssetParamsCollectionCustomization.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetSourceTextureReferenceCustomization.h"
+#include "TextureSetsHelpers.h"
+#include "UObject/Object.h"
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
@@ -140,6 +143,8 @@ void FTextureSetsEditorModule::StartupModule()
 	ParameterEditor = MakeShared<FTextureSetParameterEditor>();
 	FMaterialPropertyHelpers::RegisterParameterFilter(ParameterEditor);
 	FMaterialPropertyHelpers::RegisterCustomParameterEditor(ParameterEditor);
+
+	OnGetExtraObjectTagsDelegateHandle = UObject::FAssetRegistryTag::OnGetExtraObjectTags.AddStatic(&FTextureSetsEditorModule::OnGetExtraObjectTags);
 }
 
 void FTextureSetsEditorModule::ShutdownModule()
@@ -150,6 +155,8 @@ void FTextureSetsEditorModule::ShutdownModule()
 	FMaterialPropertyHelpers::UnregisterParameterFilter(ParameterEditor);
 	FMaterialPropertyHelpers::UnregisterCustomParameterEditor(ParameterEditor);
 	ParameterEditor.Reset();
+
+	UObject::FAssetRegistryTag::OnGetExtraObjectTags.Remove(OnGetExtraObjectTagsDelegateHandle);
 }
 
 
@@ -200,6 +207,22 @@ void FTextureSetsEditorModule::UnregisterCustomizations()
 
 	PropertyModule.UnregisterCustomPropertyTypeLayout(FTextureSetAssetParamsCollectionCustomization::GetPropertyTypeName());
 	PropertyModule.UnregisterCustomPropertyTypeLayout(FTextureSetSourceTextureReferenceCustomization::GetPropertyTypeName());
+}
+
+void FTextureSetsEditorModule::OnGetExtraObjectTags(const UObject* Object, TArray<UObject::FAssetRegistryTag>& OutTags)
+{
+	if (const UTexture* Texture = Cast<UTexture>(Object))
+	{
+		if (Texture->Source.IsValid() && !Texture->bSourceBulkDataTransient)
+		{
+			// Add a string with the ID of our source texture to the asset data, so it can be checked for change without having to deserialize the whole asset.
+			FString IdString;
+			if (TextureSetsHelpers::GetSourceDataIdAsString(Texture, IdString))
+			{
+				OutTags.Add(UObject::FAssetRegistryTag(TextureSetsHelpers::TextureBulkDataIdAssetTagName, IdString, UObject::FAssetRegistryTag::TT_Hidden));
+			}
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

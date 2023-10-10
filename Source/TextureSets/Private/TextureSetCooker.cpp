@@ -275,6 +275,13 @@ void FTextureSetCooker::Prepare()
 		// Derived textures must be configured before cooking, so PlatformDataExistsInCache() uses the correct keys
 		ConfigureTexture(t);
 	}
+
+	// Load all resources required by the graph
+	for (const auto& [Name, TextureNode] : Graph.GetOutputTextures())
+		TextureNode->LoadResources(Context);
+
+	for (const auto& [Name, ParameterNode] : Graph.GetOutputParameters())
+		ParameterNode->LoadResources(Context);
 }
 
 void FTextureSetCooker::ConfigureTexture(int Index) const

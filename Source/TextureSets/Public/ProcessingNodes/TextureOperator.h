@@ -14,8 +14,8 @@ public:
 		: SourceImage(I)
 	{}
 
-	virtual void Initialize(const FTextureSetProcessingContext& Context) { SourceImage->Initialize(Context); }
-	virtual bool IsInitialized() const { return SourceImage->IsInitialized(); }
+	virtual void LoadResources(const FTextureSetProcessingContext& Context) override { SourceImage->LoadResources(Context); }
+	virtual void Initialize(const FTextureSetProcessingContext& Context) override { SourceImage->Initialize(Context); }
 
 	virtual const uint32 ComputeGraphHash() const override { return HashCombine(SourceImage->ComputeGraphHash(), GetTypeHash(GetNodeTypeName().ToString())); }
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override { return SourceImage->ComputeDataHash(Context); };

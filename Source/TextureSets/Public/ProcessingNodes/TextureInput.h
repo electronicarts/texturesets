@@ -9,6 +9,8 @@
 #include "IProcessingNode.h"
 #include "TextureSetInfo.h"
 
+class UTexture;
+
 class FTextureInput : public ITextureProcessingNode
 {
 public:
@@ -16,8 +18,9 @@ public:
 
 	virtual FName GetNodeTypeName() const  { return "TextureInput"; }
 
-	virtual void Initialize(const FTextureSetProcessingContext& Context);
-	virtual bool IsInitialized() const { return bInitialized; }
+	virtual void LoadResources(const FTextureSetProcessingContext& Context) override;
+
+	virtual void Initialize(const FTextureSetProcessingContext& Context) override;
 
 	virtual const uint32 ComputeGraphHash() const override;
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override;
@@ -35,6 +38,7 @@ private:
 
 	mutable FCriticalSection InitializeCS;
 
+	TObjectPtr<UTexture> Texture;
 	bool bInitialized;
 	uint8 ValidChannels;
 	uint8 ChannelSwizzle[4];

@@ -22,12 +22,15 @@ class TEXTURESETS_API FTextureSetCompilingManager : IAssetCompilingManager
 public:
 	static FTextureSetCompilingManager& Get();
 
+	void QueueCompilation(TArrayView<UTextureSet* const> InTextureSets);
+
 	// Adds textures compiled asynchronously
 	void StartCompilation(TArrayView<UTextureSet* const> InTextureSets);
 
 	// Blocks until completion of the requested textures.
 	void FinishCompilation(TArrayView<UTextureSet* const> InTextureSets);
 
+	// Try canceling the compilation of an async job. Returns true if the job was cancelled or no job existed in the first place.
 	bool TryCancelCompilation(UTextureSet* const TextureSet);
 
 	bool IsRegistered(const UTextureSet* TextureSet) const;
@@ -67,7 +70,10 @@ private:
 
 	double LastReschedule = 0.0f;
 	bool bHasShutdown = false;
-	TMap<UTextureSet*, TSharedRef<FTextureSetCooker>> RegisteredTextureSets;
+
+	// Note: An array is used here instead of a queue, because a queue doesn't allow us to easily check if an item is contained within it.
+	TArray<TSoftObjectPtr<UTextureSet>> QueuedTextureSets;
+	TMap<UTextureSet*, TSharedRef<FTextureSetCooker>> CompilingTextureSets;
 	FAsyncCompilationNotification Notification;
 
 	/** Event issued at the end of the compile process */

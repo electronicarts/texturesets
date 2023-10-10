@@ -18,16 +18,16 @@ public:
 
 	virtual FName GetNodeTypeName() const override { return Name; }
 
+	virtual void LoadResources(const FTextureSetProcessingContext& Context) override
+	{
+		// No resources to load
+	}
+
 	virtual void Initialize(const FTextureSetProcessingContext& Context) override
 	{
 		check(!bInitialized);
 		Value = GetValue(Context.GetAssetParam<ParameterClass>());
 		bInitialized = true;
-	}
-
-	virtual bool IsInitialized() const override
-	{
-		return bInitialized;
 	}
 
 	virtual const uint32 ComputeGraphHash() const override
