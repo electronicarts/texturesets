@@ -202,10 +202,10 @@ void UTextureSet::UpdateDerivedData()
 		return;
 	}
 
-	if (IsLoading())
-		FTextureSetCompilingManager::Get().QueueCompilation({this});
-	else
+	if (Definition->GetDefaultTextureSet() == this) // Default textures need to compile immediately
 		FTextureSetCompilingManager::Get().StartCompilation({this});
+	else
+		FTextureSetCompilingManager::Get().QueueCompilation({this});
 }
 #endif
 
