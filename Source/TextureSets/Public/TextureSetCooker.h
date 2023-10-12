@@ -68,10 +68,10 @@ private:
 	FTextureSetDerivedData& DerivedData;
 
 	FTextureSetProcessingContext Context;
-	FTextureSetProcessingGraph Graph;
+	TSharedPtr<FTextureSetProcessingGraph> GraphInstance;
 	
-	const FTextureSetDefinitionModuleInfo ModuleInfo;
 	const FTextureSetPackingInfo PackingInfo;
+	const FTextureSetDefinitionModuleInfo ModuleInfo;
 
 	UObject* OuterObject;
 	FString TextureSetName;
@@ -83,8 +83,8 @@ private:
 	TUniquePtr<FAsyncTask<FTextureSetCookerTaskWorker>> AsyncTask;
 
 	// Compute the hashed Guid for a specific hashed texture. Used by the DDC to cache the data.
-	FGuid ComputeTextureDataId(int Index) const;
-	FGuid ComputeParameterDataId(const TSharedRef<IParameterProcessingNode> Parameter) const;
+	FGuid ComputeTextureDataId(int Index, const TMap<FName, const ITextureProcessingNode*>& ProcessedTextures) const;
+	FGuid ComputeParameterDataId(const IParameterProcessingNode* Parameter) const;
 
 	void Prepare();
 

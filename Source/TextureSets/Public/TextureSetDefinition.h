@@ -32,10 +32,6 @@ public:
 	static FOnTextureSetDefinitionChanged FOnTextureSetDefinitionChangedEvent;
 #endif
 
-	// Suffixes used when addressing specific channels of a texture by name
-	// Defined as {".r", ".g", ".b", ".a"}
-	static const TArray<FString> ChannelSuffixes;
-
 	// UObject Overrides
 #if WITH_EDITOR
 	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) override;
@@ -49,11 +45,9 @@ public:
 	UFUNCTION(CallInEditor)
 	TArray<FName> EditGetUnpackedChannelNames() const;
 #endif
-	TArray<FName> GetUnpackedChannelNames() const;
 
-	const FTextureSetDefinitionModuleInfo& GetModuleInfo() const;
-	const FTextureSetPackingInfo& GetPackingInfo() const;
-	const TArray<const UTextureSetModule*> GetModules() const;
+	const FORCEINLINE FTextureSetDefinitionModuleInfo& GetModuleInfo() const { return ModuleInfo; }
+	const FORCEINLINE FTextureSetPackingInfo& GetPackingInfo() const { return PackingInfo; }
 
 	TArray<TSubclassOf<UTextureSetAssetParams>> GetRequiredAssetParamClasses() const;
 	TArray<TSubclassOf<UTextureSetSampleParams>> GetRequiredSampleParamClasses() const;
@@ -96,9 +90,6 @@ private:
 
 	UPROPERTY()
 	FTextureSetPackingInfo PackingInfo;
-
-	UPROPERTY()
-	TArray<const UTextureSetModule*> Modules;
 	
 	UPROPERTY(VisibleAnywhere, Category="Debug")
 	uint32 CookingHash;
@@ -106,6 +97,8 @@ private:
 #if WITH_EDITOR
 	void ApplyEdits();
 	void ResetEdits();
+
+	FTextureSetPackingInfo CreatePackingInfo(const TArray<FTextureSetPackedTextureDef>& PackedTextures, const FTextureSetProcessingGraph& ProcessingGraph);
 #endif
 
 };

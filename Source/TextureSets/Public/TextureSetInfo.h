@@ -7,6 +7,22 @@
 
 #include "TextureSetInfo.generated.h"
 
+struct FTextureSetPackedTextureDef;
+class FTextureSetProcessingGraph;
+class UTextureSetModule;
+
+UENUM(meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor="true"))
+enum class ETextureSetTextureFlags : uint8
+{
+	None = 0,
+	// If this flag is set, default flags will also be set (default flags can be altered by the texture set modules)
+	Default = 1 << 0,
+	
+	Array = 1 << 1,
+	// Additional texture flags such as 1D, 3D, cubemaps, etc. could be supported
+};
+ENUM_CLASS_FLAGS(ETextureSetTextureFlags);
+
 // Processed texture map ready for packing
 USTRUCT()
 struct FTextureSetProcessedTextureDef
@@ -16,9 +32,10 @@ struct FTextureSetProcessedTextureDef
 public:
 	FTextureSetProcessedTextureDef() : FTextureSetProcessedTextureDef(1, false) {}
 
-	FTextureSetProcessedTextureDef(int ChannelCount, bool SRGB)
+	FTextureSetProcessedTextureDef(int ChannelCount, bool SRGB, ETextureSetTextureFlags Flags = ETextureSetTextureFlags::Default)
 		: ChannelCount(ChannelCount)
 		, SRGB(SRGB)
+		, Flags(Flags)
 	{}
 
 	UPROPERTY(EditAnywhere, meta=(ClampMin = 1, ClampMax = 4))
@@ -26,11 +43,20 @@ public:
 
 	UPROPERTY(EditAnywhere)
 	bool SRGB = false; // Used for correct packing and sampling
+
+	UPROPERTY(EditAnywhere)
+	ETextureSetTextureFlags Flags;
 };
 
 inline uint32 GetTypeHash(const FTextureSetProcessedTextureDef& Def)
 {
-	return HashCombine(GetTypeHash(Def.SRGB), GetTypeHash(Def.ChannelCount));
+	uint32 Hash = 0;
+
+	Hash = HashCombine(Hash, GetTypeHash(Def.ChannelCount));
+	Hash = HashCombine(Hash, GetTypeHash(Def.SRGB));
+	Hash = HashCombine(Hash, GetTypeHash(Def.Flags));
+
+	return Hash;
 }
 
 // A texture map input
@@ -56,7 +82,7 @@ inline uint32 GetTypeHash(const FTextureSetSourceTextureDef& Def)
 	return HashCombine(GetTypeHash((FTextureSetProcessedTextureDef)Def), GetTypeHash(Def.DefaultValue));
 }
 
-// Info which is provided by the definition modules, and is needed both for cooking and sampling from a texture set
+// Info about and derived from the definition modules. It's needed both for cooking and sampling from a texture set
 USTRUCT()
 struct FTextureSetDefinitionModuleInfo
 {
@@ -64,12 +90,25 @@ struct FTextureSetDefinitionModuleInfo
 
 	GENERATED_BODY()
 public:
+#if WITH_EDITOR
+	FTextureSetDefinitionModuleInfo(const TArray<const UTextureSetModule*>& Modules);
+#endif
+	FTextureSetDefinitionModuleInfo();
 	virtual ~FTextureSetDefinitionModuleInfo() {}
 
 	const TMap<FName, FTextureSetProcessedTextureDef>& GetSourceTextures() const { return SourceTextures; }
 	const TMap<FName, FTextureSetProcessedTextureDef>& GetProcessedTextures() const { return ProcessedTextures; }
 
+	const TArray<const UTextureSetModule*>& GetModules() const { return Modules; }
+
+#if WITH_EDITOR
+	const FTextureSetProcessingGraph* GetProcessingGraph() const;
+#endif
+
 private:
+	UPROPERTY(VisibleAnywhere)
+	TArray<const UTextureSetModule*> Modules;
+
 	// Input texture maps which are to be processed
 	UPROPERTY(VisibleAnywhere)
 	TMap<FName, FTextureSetProcessedTextureDef> SourceTextures;
@@ -77,6 +116,10 @@ private:
 	// Processed texture maps which are to be packed
 	UPROPERTY(VisibleAnywhere)
 	TMap<FName, FTextureSetProcessedTextureDef> ProcessedTextures;
+
+#if WITH_EDITOR
+	TSharedPtr<FTextureSetProcessingGraph> ProcessingGraph;
+#endif
 };
 
 // Info used for packing, not exposed to the modules
@@ -118,6 +161,7 @@ public:
 	FTextureSetPackedTextureInfo()
 		: ChannelCount(0)
 		, HardwareSRGB(false)
+		, Flags(ETextureSetTextureFlags::None)
 	{}
 
 	UPROPERTY(VisibleAnywhere)
@@ -130,12 +174,16 @@ public:
 	bool HardwareSRGB;
 
 	UPROPERTY(VisibleAnywhere)
+	ETextureSetTextureFlags Flags;
+
+	UPROPERTY(VisibleAnywhere)
 	FName RangeCompressMulName;
 
 	UPROPERTY(VisibleAnywhere)
 	FName RangeCompressAddName;
 };
 
+// Info about and derived from the packing definition
 USTRUCT()
 struct FTextureSetPackingInfo
 {
@@ -143,7 +191,10 @@ struct FTextureSetPackingInfo
 
 	GENERATED_BODY()
 public:
-
+#if WITH_EDITOR
+	FTextureSetPackingInfo(const TArray<FTextureSetPackedTextureDef>& PackedTextures, const FTextureSetDefinitionModuleInfo& ModuleInfo);
+#endif
+	FTextureSetPackingInfo() {}
 	const int NumPackedTextures() const { return PackedTextureDefs.Num(); }
 
 	const FTextureSetPackedTextureDef& GetPackedTextureDef(int Index) const { return PackedTextureDefs[Index]; }
@@ -155,4 +206,12 @@ private:
 
 	UPROPERTY(VisibleAnywhere)
 	TArray<FTextureSetPackedTextureInfo> PackedTextureInfos;
+
+#if WITH_EDITORONLY_DATA
+	UPROPERTY(VisibleAnywhere)
+	TArray<FText> Errors;
+
+	UPROPERTY(VisibleAnywhere)
+	TArray<FText> Warnings;
+#endif
 };

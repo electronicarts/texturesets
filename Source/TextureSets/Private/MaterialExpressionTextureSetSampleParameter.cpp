@@ -78,7 +78,7 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 		Hash = HashCombine(Hash, GetTypeHash(PackingInfo.GetPackedTextureDef(i)));
 	}
 
-	for (const UTextureSetModule* Module : Definition->GetModules())
+	for (const UTextureSetModule* Module : Definition->GetModuleInfo().GetModules())
 	{
 		Hash = HashCombine(Hash, Module->ComputeSamplingHash(this));
 	}

@@ -7,6 +7,8 @@
 #include "MaterialExpressionTextureStreamingDef.h"
 #include "MaterialGraph/MaterialGraphNode.h"
 #include "Materials/MaterialExpressionAppendVector.h"
+#include "Materials/MaterialExpressionCameraVectorWS.h"
+#include "Materials/MaterialExpressionConstant3Vector.h"
 #include "Materials/MaterialExpressionCustom.h"
 #include "Materials/MaterialExpressionDDX.h"
 #include "Materials/MaterialExpressionDDY.h"
@@ -14,17 +16,16 @@
 #include "Materials/MaterialExpressionNamedReroute.h"
 #include "Materials/MaterialExpressionTextureObjectParameter.h"
 #include "Materials/MaterialExpressionTextureProperty.h"
-#include "Materials/MaterialExpressionTransform.h"
 #include "Materials/MaterialExpressionTextureSample.h"
+#include "Materials/MaterialExpressionTransform.h"
 #include "Materials/MaterialExpressionVectorParameter.h"
 #include "Materials/MaterialExpressionVertexNormalWS.h"
 #include "Materials/MaterialExpressionVertexTangentWS.h"
-#include "Materials/MaterialExpressionCameraVectorWS.h"
-#include "Materials/MaterialExpressionConstant3Vector.h"
 #include "Materials/MaterialExpressionWorldPosition.h"
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetModule.h"
+#include "TextureSetsHelpers.h"
 
 FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFunction* MaterialFunction, const UMaterialExpressionTextureSetSampleParameter* Node)
 	: Node(Node)
@@ -114,7 +115,7 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 		// Only support 1-4 channels
 		check(TextureChannels >= 1 && TextureChannels <= 4);
 
-		FName TextureSampleName = FName(TextureName.ToString() + UTextureSetDefinition::ChannelSuffixes[0]);
+		FName TextureSampleName = FName(TextureName.ToString() + TextureSetsHelpers::ChannelSuffixes[0]);
 
 		checkf(ProcessedTextureSamples.Contains(TextureSampleName), TEXT("Processed texture sample not found. This can happen if the texture was not packed into a valid channel."));
 
@@ -131,7 +132,7 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 			for (int i = 1; i < TextureChannels; i++)
 			{
 				UMaterialExpression* AppendNode = CreateExpression<UMaterialExpressionAppendVector>();
-				UMaterialExpression* NextChannel = ProcessedTextureSamples.FindChecked(FName(TextureName.ToString() + UTextureSetDefinition::ChannelSuffixes[i]));
+				UMaterialExpression* NextChannel = ProcessedTextureSamples.FindChecked(FName(TextureName.ToString() + TextureSetsHelpers::ChannelSuffixes[i]));
 				WorkingNode->ConnectExpression(AppendNode->GetInput(0), 0);
 				NextChannel->ConnectExpression(AppendNode->GetInput(1), 0);
 				WorkingNode = AppendNode;
@@ -144,7 +145,7 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 	}
 
 	// Call out to modules to do the work of connecting processed texture samples to outputs
-	for (const UTextureSetModule* Module : Definition->GetModules())
+	for (const UTextureSetModule* Module : Definition->GetModuleInfo().GetModules())
 	{
 		Module->GenerateSamplingGraph(Node, *this);
 	}

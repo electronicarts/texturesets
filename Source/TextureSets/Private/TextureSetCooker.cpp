@@ -12,6 +12,8 @@
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetDerivedData.h"
+#include "Engine/Texture2D.h"
+#include "Engine/Texture2DArray.h"
 
 static TAutoConsoleVariable<int32> CVarTextureSetParallelCook(
 	TEXT("r.TextureSet.ParallelCook"),
@@ -72,7 +74,7 @@ public:
 	virtual FString GetDebugContextString() const override { return Cooker.TextureSetFullName; }
 	virtual bool Build(TArray<uint8>& OutData) override
 	{
-		TSharedRef<IParameterProcessingNode> Parameter = Cooker.Graph.GetOutputParameters().FindChecked(ParameterName);
+		TSharedRef<IParameterProcessingNode> Parameter = Cooker.GraphInstance->GetOutputParameters().FindChecked(ParameterName);
 
 		Parameter->Initialize(Cooker.Context);
 
@@ -94,9 +96,9 @@ private:
 FTextureSetCooker::FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerivedData& DerivedData)
 	: DerivedData(DerivedData)
 	, Context(TextureSet)
-	, Graph(FTextureSetProcessingGraph(TextureSet->Definition->GetModules()))
-	, ModuleInfo(TextureSet->Definition->GetModuleInfo())
+	, GraphInstance(nullptr)
 	, PackingInfo(TextureSet->Definition->GetPackingInfo())
+	, ModuleInfo(TextureSet->Definition->GetModuleInfo())
 	, AsyncTask(nullptr)
 {
 	check(IsInGameThread());
@@ -107,10 +109,14 @@ FTextureSetCooker::FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerived
 	TextureSetFullName = TextureSet->GetFullName();
 	UserKey = TextureSet->GetUserKey();
 
-	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
-		DerivedTextureIds.Add(ComputeTextureDataId(i));
+	// Compute all IDs using the instance of the processing graph already created in the module info.
+	// This saves us having to create a new processing graph just to do our hashing.
+	const FTextureSetProcessingGraph* Graph = ModuleInfo.GetProcessingGraph();
 
-	for (const auto& [Name, Parameter] : Graph.GetOutputParameters())
+	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
+		DerivedTextureIds.Add(ComputeTextureDataId(i, Graph->GetOutputTextures()));
+
+	for (const auto& [Name, Parameter] : Graph->GetOutputParameters())
 		ParameterIds.Add(Name, ComputeParameterDataId(Parameter));
 }
 
@@ -197,7 +203,7 @@ bool FTextureSetCooker::TryCancel()
 		return true;
 }
 
-FGuid FTextureSetCooker::ComputeTextureDataId(int PackedTextureIndex) const
+FGuid FTextureSetCooker::ComputeTextureDataId(int PackedTextureIndex, const TMap<FName, const ITextureProcessingNode*>& ProcessedTextures) const
 {
 	check(PackedTextureIndex < PackingInfo.NumPackedTextures());
 
@@ -217,7 +223,7 @@ FGuid FTextureSetCooker::ComputeTextureDataId(int PackedTextureIndex) const
 	// Only hash on source textures that contribute to this packed texture
 	for (const FName& TextureName : TextureDependencies)
 	{
-		TSharedRef<ITextureProcessingNode> TextureNode = Graph.GetOutputTextures().FindChecked(TextureName);
+		const ITextureProcessingNode* TextureNode = ProcessedTextures.FindChecked(TextureName);
 		IdBuilder << TextureNode->ComputeGraphHash();
 		IdBuilder << TextureNode->ComputeDataHash(Context);
 	}
@@ -225,7 +231,7 @@ FGuid FTextureSetCooker::ComputeTextureDataId(int PackedTextureIndex) const
 	return IdBuilder.Build();
 }
 
-FGuid FTextureSetCooker::ComputeParameterDataId(const TSharedRef<IParameterProcessingNode> Parameter) const
+FGuid FTextureSetCooker::ComputeParameterDataId(const IParameterProcessingNode* Parameter) const
 {
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
 	IdBuilder << FString("TextureSetParameter_V0.1"); // Version string, bump this to invalidate everything
@@ -248,19 +254,35 @@ void FTextureSetCooker::Prepare()
 
 	for (int t = 0; t < DerivedData.Textures.Num(); t++)
 	{
-		FName TextureName = FName(TextureSetName + TEXT("_DerivedTexture_") + FString::FromInt(t));
+		ETextureSetTextureFlags Flags = PackingInfo.GetPackedTextureInfo(t).Flags;
 
-		if (!IsValid(DerivedData.Textures[t]))
+		TSubclassOf<UTexture> DerivedTextureClass;
+		FString DerivedTextureSuffix;
+
+		if (EnumHasAnyFlags(Flags, ETextureSetTextureFlags::Array))
+		{
+			DerivedTextureSuffix = "2DA";
+			DerivedTextureClass = UTexture2DArray::StaticClass();
+		}
+		else
+		{
+			DerivedTextureSuffix = "2D";
+			DerivedTextureClass = UTexture2D::StaticClass();
+		}
+
+		FName TextureName = FName(FString::Format(TEXT("{0}_Texture{1}_{2}"), {TextureSetName, DerivedTextureSuffix, t}));
+
+		if (!IsValid(DerivedData.Textures[t]) || DerivedData.Textures[t].GetClass() != DerivedTextureClass)
 		{
 			// Try to find an existing texture stored in our package that may have become unreferenced, but still exists.
 			// This could happen if the number of derived textures was higher, became lower, and then was set higher again,
 			// before the previous texture was garbage-collected.
 			DerivedData.Textures[t] = static_cast<UTexture*>(FindObjectWithOuter(OuterObject, nullptr, TextureName));
 
-			// No existing texture, create a new one
-			if (!IsValid(DerivedData.Textures[t]))
+			// No existing texture or texture was of the wrong type, create a new one
+			if (!IsValid(DerivedData.Textures[t]) || DerivedData.Textures[t].GetClass() != DerivedTextureClass)
 			{
-				DerivedData.Textures[t] = NewObject<UTexture2D>(OuterObject, TextureName, RF_Public);
+				DerivedData.Textures[t] = NewObject<UTexture>(OuterObject, DerivedTextureClass,TextureName, RF_Public);
 			}
 		}
 
@@ -276,11 +298,14 @@ void FTextureSetCooker::Prepare()
 		ConfigureTexture(t);
 	}
 
+	// Create a new instance of the processing graph that we'll then initialize on the most recent data.
+	GraphInstance = MakeShared<FTextureSetProcessingGraph>(ModuleInfo.GetModules());
+
 	// Load all resources required by the graph
-	for (const auto& [Name, TextureNode] : Graph.GetOutputTextures())
+	for (const auto& [Name, TextureNode] : GraphInstance->GetOutputTextures())
 		TextureNode->LoadResources(Context);
 
-	for (const auto& [Name, ParameterNode] : Graph.GetOutputParameters())
+	for (const auto& [Name, ParameterNode] : GraphInstance->GetOutputParameters())
 		ParameterNode->LoadResources(Context);
 }
 
@@ -372,7 +397,7 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 	int Height = 4;
 	float Ratio = 0;
 
-	const TMap<FName, TSharedRef<ITextureProcessingNode>>& OutputTextures = Graph.GetOutputTextures();
+	const TMap<FName, TSharedRef<ITextureProcessingNode>>& OutputTextures = GraphInstance->GetOutputTextures();
 
 	for (int c = 0; c < TextureInfo.ChannelCount; c++)
 	{
