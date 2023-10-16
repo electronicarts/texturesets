@@ -10,11 +10,26 @@ class UFlipbookAssetParams : public UTextureSetAssetParams
 {
 	GENERATED_BODY()
 public:
+	// Default flipbook framerate, in frames per second. Used when flipbook frame interpolation time is set to "seconds".
 	UPROPERTY(EditAnywhere)
-	int FlipbookFramecount = 0;
+	float FlipbookFramerate = 15.0f;
 
+	// Is this a looping flipbook animation, or a one-off.
 	UPROPERTY(EditAnywhere)
-	float FlipbookFramerate = 1.0f;
+	bool bFlipbookLooping = true;
+
+	// Scale applied to the motion vectors, if they're enabled.
+	UPROPERTY(EditAnywhere)
+	float MotionVectorScale = 1.0f;
+};
+
+
+UENUM()
+enum class EFlipbookTime : uint8
+{
+	Seconds UMETA(ToolTip = "Flipbook time is specified in seconds."),
+	Frames UMETA(ToolTip = "Flipbook time is specified in whole frames."),
+	Normalized UMETA(ToolTip = "Flipbook time is normalized between 0 and 1, where 0 is the first frame and 1 is the last frame."),
 };
 
 UCLASS()
@@ -24,6 +39,9 @@ class UFlipbookSampleParams : public UTextureSetSampleParams
 public:
 	UPROPERTY(EditAnywhere);
 	bool bBlendFrames = false;
+
+	UPROPERTY(EditAnywhere);
+	EFlipbookTime FlipbookTimeType = EFlipbookTime::Seconds;
 };
 
 UCLASS()
@@ -42,5 +60,8 @@ public:
 	virtual void GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
+
+	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+		FTextureSetMaterialGraphBuilder& Builder) const override;
 #endif
 };

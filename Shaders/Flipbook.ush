@@ -1,0 +1,52 @@
+#pragma once
+
+// Needs to match EFlipbookTime in FlipbookModule.h
+#define E_FLIPBOOK_TIME_SECONDS 0
+#define E_FLIPBOOK_TIME_FRAMES 1
+#define E_FLIPBOOK_TIME_NORMALIZED 2
+
+void FlipbookFrame(float FlipbookTime, int FlipbookTimeType, float4 FlipbookParams, out float Frame0, out float Frame1, out float FrameBlend)
+{
+	const float NumFrames = floor(FlipbookParams.x);
+	const float Framerate = FlipbookParams.y;
+	const bool bLooping = FlipbookParams.z != 0;
+	
+	float FlipbookFrame = FlipbookTime;
+	
+	if (FlipbookTimeType == E_FLIPBOOK_TIME_SECONDS)
+	{
+		FlipbookFrame *= Framerate;
+	}
+	else if (FlipbookTimeType == E_FLIPBOOK_TIME_NORMALIZED)
+	{
+		FlipbookFrame *= NumFrames;
+	}
+
+	Frame0 = floor(FlipbookFrame);
+	Frame1 = Frame0 + 1.0f;
+	
+	if (bLooping)
+	{
+		Frame0 = fmod(Frame0, NumFrames);
+		Frame1 = fmod(Frame1, NumFrames);
+	}
+	else
+	{
+		Frame0 = max(Frame0, NumFrames - 1);
+		Frame1 = max(Frame0, NumFrames - 1);
+	}
+	
+	FrameBlend = fmod(FlipbookFrame, 1.0f);
+}
+
+#undef E_FLIPBOOK_TIME_SECONDS
+#undef E_FLIPBOOK_TIME_FRAMES
+#undef E_FLIPBOOK_TIME_NORMALIZED
+
+void FlipbookMotionVector(float2 Frame0UV, float2 Frame1UV, float2 MotionVector0Sample, float2 MotionVector1Sample, float4 FlipbookParams, float FrameBlend, out float2 Frame0UV_Out, out float2 Frame1UV_Out)
+{
+	const float MotionVectorScale = FlipbookParams.w;
+	
+	Frame0UV_Out = Frame0UV + (MotionVector0Sample * MotionVectorScale * FrameBlend);
+	Frame1UV_Out = Frame1UV + (MotionVector1Sample * MotionVectorScale * (1-FrameBlend));
+}
