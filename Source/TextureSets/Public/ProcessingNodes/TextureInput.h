@@ -25,12 +25,12 @@ public:
 	virtual const uint32 ComputeGraphHash() const override;
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override;
 
-	virtual int GetWidth() const override { return Image.GetWidth(); }
-	virtual int GetHeight() const override { return Image.GetHeight(); }
+	virtual int GetWidth() const override { check(bInitialized); return Image.SizeX; }
+	virtual int GetHeight() const override { check(bInitialized); return Image.SizeY; }
+	virtual int GetSlices() const override { check(bInitialized); return Image.NumSlices; }
 	virtual const FTextureSetProcessedTextureDef& GetTextureDef() override { return SourceDefinition; }
 
-	virtual float GetPixel(int X, int Y, int Channel) const override;
-
+	virtual float GetPixel(int X, int Y, int Z, int Channel) const override;
 
 private:
 	FName SourceName;

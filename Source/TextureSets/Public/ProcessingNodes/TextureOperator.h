@@ -22,6 +22,7 @@ public:
 
 	virtual int GetWidth() const override { return SourceImage->GetWidth(); }
 	virtual int GetHeight() const override { return SourceImage->GetHeight(); }
+	virtual int GetSlices() const override { return SourceImage->GetSlices(); }
 	virtual const FTextureSetProcessedTextureDef& GetTextureDef() override { return SourceImage->GetTextureDef(); }
 
 	const TSharedRef<ITextureProcessingNode> SourceImage;

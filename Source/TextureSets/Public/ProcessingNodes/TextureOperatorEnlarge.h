@@ -10,9 +10,10 @@
 class FTextureOperatorEnlarge : public FTextureOperator
 {
 public:
-	FTextureOperatorEnlarge(TSharedRef<ITextureProcessingNode> I, int NewWidth, int newHeight) : FTextureOperator(I)
+	FTextureOperatorEnlarge(TSharedRef<ITextureProcessingNode> I, int NewWidth, int NewHeight, int NewSlices) : FTextureOperator(I)
 		, Width(NewWidth)
-		, Height(newHeight)
+		, Height(NewHeight)
+		, Slices(NewSlices)
 	{}
 
 	virtual FName GetNodeTypeName() const  { return "Enlarge"; }
@@ -30,17 +31,19 @@ public:
 	virtual int GetWidth() const override { return Width; }
 	virtual int GetHeight() const override { return Height; }
 
-	virtual float GetPixel(int X, int Y, int Channel) const override
+	virtual float GetPixel(int X, int Y, int Z, int Channel) const override
 	{
-		// TODO: Bilinear interpolation
+		// TODO: Bilinear/Trilinear interpolation
 		const int SourceX = X * (SourceImage->GetWidth() / Width);
 		const int SourceY = Y * (SourceImage->GetHeight() / Height);
+		const int SourceZ = Y * (SourceImage->GetSlices() / Slices);
 
-		return SourceImage->GetPixel(SourceX, SourceY, Channel);
+		return SourceImage->GetPixel(SourceX, SourceY, SourceZ, Channel);
 	}
 
 private:
 	const int Width;
 	const int Height;
+	const int Slices;
 };
 #endif

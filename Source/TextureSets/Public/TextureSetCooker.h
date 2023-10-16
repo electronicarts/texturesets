@@ -94,9 +94,10 @@ private:
 
 	FDerivedTextureData BuildTextureData(int Index) const;
 
-	static inline int GetPixelIndex(int X, int Y, int Channel, int Width, int Height)
+	static inline int GetPixelIndex(int X, int Y, int Z, int Channel, int Width, int Height)
 	{
-		return Y * Width * 4
+		return Z * Width * Height * 4 +
+			Y * Width * 4
 			+ X * 4
 			+ Channel;
 	}

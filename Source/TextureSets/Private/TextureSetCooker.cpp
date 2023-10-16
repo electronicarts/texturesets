@@ -395,6 +395,7 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
 	int Width = 4;
 	int Height = 4;
+	int Slices = 1;
 	float Ratio = 0;
 
 	const TMap<FName, TSharedRef<ITextureProcessingNode>>& OutputTextures = GraphInstance->GetOutputTextures();
@@ -412,11 +413,13 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 
 		const int ChannelWidth = OutputTexture->GetWidth();
 		const int ChannelHeight = OutputTexture->GetHeight();
+		const int ChannelSlices = OutputTexture->GetSlices();
 		const float NewRatio = (float)Width / (float)Height;
 
 		// Calculate the maximum size of all of our processed textures. We'll use this as our packed texture size.
 		Width = FMath::Max(Width, ChannelWidth);
 		Height = FMath::Max(Height, ChannelHeight);
+		Slices = FMath::Max(Slices, ChannelSlices);
 		// Verify that all processed textures have the same aspect ratio
 		check(NewRatio == Ratio || Ratio == 0.0f);
 		Ratio = NewRatio;
@@ -424,7 +427,8 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 
 	// Copy pixel data into the texture's source
 	UTexture* Texture = DerivedData.Textures[Index];
-	Texture->Source.Init(Width, Height, 1, 1, TSF_RGBA16F);
+	Texture->Source.Init(Width, Height, Slices, 1, TSF_RGBA16F);
+
 	FFloat16* PixelValues = (FFloat16*)Texture->Source.LockMip(0);
 
 	float MaxPixelValues[4] {};
@@ -445,7 +449,7 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 
 			if (ProcessedTexture->GetWidth() < Width || ProcessedTexture->GetHeight() < Height)
 			{
-				ProcessedTexture = MakeShared<FTextureOperatorEnlarge>(ProcessedTexture, Width, Height);
+				ProcessedTexture = MakeShared<FTextureOperatorEnlarge>(ProcessedTexture, Width, Height, Slices);
 			}
 
 			// Initialize the max and min pixel values so they will be overridden by the first pixel
@@ -456,12 +460,15 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 			{
 				for (int y = 0; y < Height; y++)
 				{
-					int PixelIndex = GetPixelIndex(x, y, c, Width, Height);
+					for (int z = 0; z < Slices; z++)
+					{
+						int PixelIndex = GetPixelIndex(x, y, z, c, Width, Height);
 
-					float PixelValue = ProcessedTexture->GetPixel(x, y, ChanelInfo.ProessedTextureChannel);
-					MaxPixelValues[c] = FMath::Max(MaxPixelValues[c], PixelValue);
-					MinPixelValues[c] = FMath::Min(MinPixelValues[c], PixelValue);
-					PixelValues[PixelIndex] = PixelValue;
+						float PixelValue = ProcessedTexture->GetPixel(x, y, z, ChanelInfo.ProessedTextureChannel);
+						MaxPixelValues[c] = FMath::Max(MaxPixelValues[c], PixelValue);
+						MinPixelValues[c] = FMath::Min(MinPixelValues[c], PixelValue);
+						PixelValues[PixelIndex] = PixelValue;
+					}
 				}
 			}
 		}
@@ -472,9 +479,12 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 			{
 				for (int y = 0; y < Height; y++)
 				{
-					int PixelIndex = GetPixelIndex(x, y, c, Width, Height);
+					for (int z = 0; z < Slices; z++)
+					{
+						int PixelIndex = GetPixelIndex(x, y, z, c, Width, Height);
 
-					PixelValues[PixelIndex] = 0.0f;
+						PixelValues[PixelIndex] = 0.0f;
+					}
 				}
 			}
 		}
@@ -499,9 +509,12 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 				{
 					for (int y = 0; y < Height; y++)
 					{
-						const int PixelIndex = GetPixelIndex(x, y, c, Width, Height);
+						for (int z = 0; z < Slices; z++)
+						{
+							const int PixelIndex = GetPixelIndex(x, y, z, c, Width, Height);
 
-						PixelValues[PixelIndex] = (PixelValues[PixelIndex] - Min) * Max - Min;
+							PixelValues[PixelIndex] = (PixelValues[PixelIndex] - Min) * Max - Min;
+						}
 					}
 				}
 
@@ -514,9 +527,12 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 				{
 					for (int y = 0; y < Height; y++)
 					{
-						const int PixelIndex = GetPixelIndex(x, y, c, Width, Height);
+						for (int z = 0; z < Slices; z++)
+						{
+							const int PixelIndex = GetPixelIndex(x, y, z, c, Width, Height);
 
-						PixelValues[PixelIndex] = FMath::Pow(PixelValues[PixelIndex], 1.0f / 2.2f);
+							PixelValues[PixelIndex] = FMath::Pow(PixelValues[PixelIndex], 1.0f / 2.2f);
+						}
 					}
 				}
 			}

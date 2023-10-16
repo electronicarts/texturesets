@@ -34,10 +34,11 @@ class ITextureProcessingNode : public IProcessingNode
 public:
 	virtual int GetWidth() const = 0;
 	virtual int GetHeight() const = 0;
+	virtual int GetSlices() const = 0;
 	virtual const struct FTextureSetProcessedTextureDef& GetTextureDef() = 0;
 
 	// Initialize must be called before calls to GetPixel
-	virtual float GetPixel(int X, int Y, int Channel) const = 0;
+	virtual float GetPixel(int X, int Y, int Z, int Channel) const = 0;
 };
 
 class IParameterProcessingNode : public IProcessingNode

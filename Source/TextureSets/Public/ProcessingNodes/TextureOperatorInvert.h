@@ -15,9 +15,9 @@ public:
 
 	virtual FName GetNodeTypeName() const  { return "Invert"; }
 
-	virtual float GetPixel(int X, int Y, int Channel) const override
+	virtual float GetPixel(int X, int Y, int Z, int Channel) const override
 	{
-		return 1.0f - SourceImage->GetPixel(X, Y, Channel);
+		return 1.0f - SourceImage->GetPixel(X, Y, Z, Channel);
 	}
 };
 #endif

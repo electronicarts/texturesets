@@ -144,7 +144,7 @@ const uint32 FTextureInput::ComputeDataHash(const FTextureSetProcessingContext& 
 	return Hash;
 }
 
-float FTextureInput::GetPixel(int X, int Y, int Channel) const
+float FTextureInput::GetPixel(int X, int Y, int Z, int Channel) const
 {
 #ifdef UE_BUILD_DEBUG
 	// Too slow to be used in development builds
@@ -155,11 +155,13 @@ float FTextureInput::GetPixel(int X, int Y, int Channel) const
 	// TODO: Can we avoid a branch on every pixel?
 	if (bValidImage)
 	{
+		const int I = Z * Image.GetWidth() * Image.GetHeight() + Y * Image.GetWidth() + X;
 #ifdef UE_BUILD_DEBUG
 		check(X < Image.GetWidth());
 		check(Y < Image.GetHeight());
+		check(Z < Image.NumSlices);
+		check(I < Image.GetNumPixels());
 #endif
-		const int I = Y * Image.GetWidth() + X;
 		return Image.AsRGBA32F()[I].Component(ChannelSwizzle[Channel]);
 	}
 	else
