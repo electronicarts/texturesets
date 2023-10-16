@@ -2,12 +2,13 @@
 
 #pragma once
 
+#if WITH_EDITOR
+
 #include "MaterialEditingLibrary.h"
 #include "MaterialGraphBuilder/GraphBuilderGraphAddress.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "TextureSetInfo.h"
 
-#if WITH_EDITOR
 class UTextureSetDefinition;
 class UMaterialExpressionTextureSetSampleParameter;
 class UMaterialExpressionFunctionOutput;

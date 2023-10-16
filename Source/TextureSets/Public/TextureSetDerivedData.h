@@ -24,6 +24,7 @@ public:
 	{
 		Ar << Data.TextureParameters;
 		Ar << Data.Id;
+		return Ar;
 	}
 };
 
@@ -44,6 +45,7 @@ public:
 	{
 		Ar << Data.Value;
 		Ar << Data.Id;
+		return Ar;
 	}
 };
 
