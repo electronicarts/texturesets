@@ -3,11 +3,13 @@
 #include "TextureSetMaterialGraphBuilder.h"
 
 #if WITH_EDITOR
+#include "MaterialGraphBuilder/HLSLFunctionCallNodeBuilder.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "MaterialExpressionTextureStreamingDef.h"
 #include "MaterialGraph/MaterialGraphNode.h"
 #include "Materials/MaterialExpressionAppendVector.h"
 #include "Materials/MaterialExpressionCameraVectorWS.h"
+#include "Materials/MaterialExpressionConstant.h"
 #include "Materials/MaterialExpressionConstant3Vector.h"
 #include "Materials/MaterialExpressionCustom.h"
 #include "Materials/MaterialExpressionDDX.h"
@@ -33,16 +35,8 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 	, MaterialFunction(MaterialFunction)
 	, ModuleInfo(Definition->GetModuleInfo())
 	, PackingInfo(Definition->GetPackingInfo())
+	, RawUV(CreateInput("UV", EFunctionInputType::FunctionInput_Vector2, EInputSort::UV), 0)
 {
-	TexcoordRaw = CreateInput("UV", EFunctionInputType::FunctionInput_Vector2, EInputSort::UV);
-	TexcoordReroute = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
-	TexcoordReroute->Name = "Texcoord";
-	TexcoordStreamingReroute = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
-	TexcoordStreamingReroute->Name = "Streaming Texcoord";
-	TexcoordDerivativeX = CreateExpression<UMaterialExpressionDDX>();
-	TexcoordDerivativeY = CreateExpression<UMaterialExpressionDDY>();
-	
-	OverrideTexcoord(TexcoordRaw, true, true);
 
 	const UTextureSet* DefaultTextureSet = Definition->GetDefaultTextureSet();
 
@@ -150,197 +144,69 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 		Module->GenerateSamplingGraph(Node, *this);
 	}
 
-	// Hook up proper inputs to any reroute nodes that were used.
-	// Note: Order here is important, as we have some dependencies
+	SetupSharedValues();
 
-	const bool TangentUsed = IsValid(TangentReroute) && TangentReroute->HasConnectedOutputs();
-	const bool BitangentUsed = IsValid(BitangentReroute) && BitangentReroute->HasConnectedOutputs();
-
-	if (TangentUsed || BitangentUsed)
+	// Connect deferred connections
+	for (const auto& [Input, Output] : DeferredConnections)
 	{
-		switch (Node->TangentSource)
-		{
-		case ETangentSource::Explicit:
-		{
-			CreateInput("Tangent", EFunctionInputType::FunctionInput_Vector3, EInputSort::Tangent)->ConnectExpression(GetTangent()->GetInput(0), 0);
-			CreateInput("Bitangent", EFunctionInputType::FunctionInput_Vector3, EInputSort::Tangent)->ConnectExpression(GetBitangent()->GetInput(0), 0);
-			break;
-		}
-		case ETangentSource::Synthesized:
-		{
-			// Important this is done before doing the base normal reroute below, because MakeSynthesizeTangentCustomNode calls GetBaseNormal()
-			UMaterialExpression* SynthesizeTangentNode = MakeSynthesizeTangentCustomNode();
-			SynthesizeTangentNode->ConnectExpression(GetTangent()->GetInput(0), 1);
-			SynthesizeTangentNode->ConnectExpression(GetBitangent()->GetInput(0), 2);
-			break;
-		}
-		case ETangentSource::Vertex:
-		{
-			CreateExpression<UMaterialExpressionVertexTangentWS>()->ConnectExpression(GetTangent()->GetInput(0), 0);
-			// Don't have a node explicitly for the vertex bitangent, so we create it by transforming a vector from tangent to world space
-			UMaterialExpressionConstant3Vector* BitangentConstant = CreateExpression<UMaterialExpressionConstant3Vector>();
-			BitangentConstant->Constant = FLinearColor(0, 1, 0);
-			UMaterialExpressionTransform* TransformBitangent = CreateExpression<UMaterialExpressionTransform>();
-			TransformBitangent->TransformSourceType = EMaterialVectorCoordTransformSource::TRANSFORMSOURCE_Tangent;
-			TransformBitangent->TransformType = EMaterialVectorCoordTransform::TRANSFORM_World;
-			BitangentConstant->ConnectExpression(TransformBitangent->GetInput(0), 0);
-			TransformBitangent->ConnectExpression(GetBitangent()->GetInput(0), 0);
-			break;
-		}
-		default:
-			unimplemented();
-			break;
-		}
-	}
-
-	if (IsValid(BaseNormalReroute) && BaseNormalReroute->HasConnectedOutputs())
-	{
-		switch (Node->BaseNormalSource)
-		{
-		case EBaseNormalSource::Explicit:
-			CreateInput("Base Normal", EFunctionInputType::FunctionInput_Vector3, EInputSort::BaseNormal)->ConnectExpression(BaseNormalReroute->GetInput(0), 0);
-			break;
-		case EBaseNormalSource::Vertex:
-			CreateExpression<UMaterialExpressionVertexNormalWS>()->ConnectExpression(BaseNormalReroute->GetInput(0), 0);
-			break;
-		default:
-			unimplemented();
-			break;
-		}
-	}
-
-	if (IsValid(CameraVectorReroute) && CameraVectorReroute->HasConnectedOutputs())
-	{
-		switch (Node->CameraVectorSource)
-		{
-		case ECameraVectorSource::Explicit:
-			CreateInput("Camera Vector", EFunctionInputType::FunctionInput_Vector3, EInputSort::CameraVector)->ConnectExpression(CameraVectorReroute->GetInput(0), 0);
-			break;
-		case ECameraVectorSource::World:
-			CreateExpression<UMaterialExpressionCameraVectorWS>()->ConnectExpression(CameraVectorReroute->GetInput(0), 0);
-			break;
-		default:
-			unimplemented();
-			break;
-		}
-	}
-
-	if (IsValid(PositionReroute) && PositionReroute->HasConnectedOutputs())
-	{
-		switch (Node->PositionSource)
-		{
-		case EPositionSource::Explicit:
-			CreateInput("Position", EFunctionInputType::FunctionInput_Vector3, EInputSort::Position)->ConnectExpression(PositionReroute->GetInput(0), 0);
-			break;
-		case EPositionSource::World:
-			CreateExpression<UMaterialExpressionWorldPosition>()->ConnectExpression(PositionReroute->GetInput(0), 0);
-			break;
-		default:
-			unimplemented();
-			break;
-		}
+		check(Input.IsValid());
+		check(Output.IsValid());
+		Output.GetExpression()->ConnectExpression(Input.GetExpression()->GetInput(Input.GetIndex()), Output.GetIndex());
 	}
 }
 
-UMaterialExpression* FTextureSetMaterialGraphBuilder::GetTexcoord()
+const FGraphBuilderOutputAddress& FTextureSetMaterialGraphBuilder::GetSharedValue(EGraphBuilderSharedValueType Value)
 {
-	return TexcoordReroute;
-}
+	FGraphBuilderOutputAddress* Address = SharedValueReroute.Find(Value);
 
-UMaterialExpression* FTextureSetMaterialGraphBuilder::GetRawTexcoord() const
-{
-	return TexcoordRaw;
-}
-
-UMaterialExpression* FTextureSetMaterialGraphBuilder::GetTexcoordDerivativeX() const
-{
-	return TexcoordDerivativeX;
-}
-
-UMaterialExpression* FTextureSetMaterialGraphBuilder::GetTexcoordDerivativeY() const
-{
-	return TexcoordDerivativeY;
-}
-
-UMaterialExpression* FTextureSetMaterialGraphBuilder::GetTexcoordStreaming() const
-{
-	return TexcoordStreamingReroute;
-}
-
-void FTextureSetMaterialGraphBuilder::OverrideTexcoord(UMaterialExpression* NewTexcoord, bool OverrideDerivatives, bool OverrideStreaming)
-{
-	NewTexcoord->ConnectExpression(TexcoordReroute->GetInput(0), 0);
-
-	if (OverrideDerivatives)
+	if (Address)
 	{
-		NewTexcoord->ConnectExpression(TexcoordDerivativeX->GetInput(0), 0);
-		NewTexcoord->ConnectExpression(TexcoordDerivativeY->GetInput(0), 0);
+		return *Address;
 	}
-
-	if (OverrideStreaming)
+	else
 	{
-		NewTexcoord->ConnectExpression(TexcoordStreamingReroute->GetInput(0), 0);
+		// First time shared value was requested, create a reroute node for it and use that as the output
+		UMaterialExpressionNamedRerouteDeclaration* Reroute = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
+		Reroute->Name = UEnum::GetValueAsName(Value);
+		FGraphBuilderOutputAddress NewAddress(Reroute, 0);
+		return SharedValueReroute.Add(Value, NewAddress);
 	}
 }
 
-UMaterialExpression* FTextureSetMaterialGraphBuilder::GetBaseNormal()
+const void FTextureSetMaterialGraphBuilder::SetSharedValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType Value)
 {
-	if (!IsValid(BaseNormalReroute))
-	{
-		BaseNormalReroute = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
-		BaseNormalReroute->Name = "Base Normal";
-	}
-
-	return BaseNormalReroute;
+	if (ensureMsgf(!SharedValueSources.Contains(Value), TEXT("Standard shared value has already been set. Multiple overrides are not currently supported")))
+		SharedValueSources.Add(Value, Address);
 }
 
-UMaterialExpression* FTextureSetMaterialGraphBuilder::GetTangent()
+void FTextureSetMaterialGraphBuilder::Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, UMaterialExpression* InputNode, uint32 InputIndex)
 {
-	if (!IsValid(TangentReroute))
-	{
-		TangentReroute = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
-		TangentReroute->Name = "Tangent";
-	}
-
-	return TangentReroute;
+	Connect(FGraphBuilderOutputAddress(OutputNode, OutputIndex), FGraphBuilderInputAddress(InputNode, InputIndex));
 }
 
-UMaterialExpression* FTextureSetMaterialGraphBuilder::GetBitangent()
+void FTextureSetMaterialGraphBuilder::Connect(const FGraphBuilderOutputAddress& Output, UMaterialExpression* InputNode, uint32 InputIndex)
 {
-	if (!IsValid(BitangentReroute))
-	{
-		BitangentReroute = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
-		BitangentReroute->Name = "Bitangent";
-	}
-
-	return BitangentReroute;
+	Connect(Output, FGraphBuilderInputAddress(InputNode, InputIndex));
 }
 
-UMaterialExpression* FTextureSetMaterialGraphBuilder::GetCameraVector()
+void FTextureSetMaterialGraphBuilder::Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, const FGraphBuilderInputAddress& Input)
 {
-	if (!IsValid(CameraVectorReroute))
-	{
-		CameraVectorReroute = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
-		CameraVectorReroute->Name = "CameraVector";
-	}
-
-	return CameraVectorReroute;
+	Connect(FGraphBuilderOutputAddress(OutputNode, OutputIndex), Input);
 }
 
-UMaterialExpression* FTextureSetMaterialGraphBuilder::GetPosition()
+void FTextureSetMaterialGraphBuilder::Connect(const FGraphBuilderOutputAddress& Output, const FGraphBuilderInputAddress& Input)
 {
-	if (!IsValid(PositionReroute))
-	{
-		PositionReroute = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
-		PositionReroute->Name = "Position";
-	}
-
-	return PositionReroute;
+	DeferredConnections.Add(Input, Output);
 }
 
-UMaterialExpression* FTextureSetMaterialGraphBuilder::GetProcessedTextureSample(FName Name)
+const FGraphBuilderOutputAddress& FTextureSetMaterialGraphBuilder::GetRawUV() const
 {
-	return ProcessedTextureSamples.FindChecked(Name);
+	return RawUV;
+}
+
+const FGraphBuilderOutputAddress FTextureSetMaterialGraphBuilder::GetProcessedTextureSample(FName Name)
+{
+	return FGraphBuilderOutputAddress(ProcessedTextureSamples.FindChecked(Name), 0);
 }
 
 UMaterialExpressionTextureObjectParameter* FTextureSetMaterialGraphBuilder::GetPackedTextureObject(int Index)
@@ -348,7 +214,7 @@ UMaterialExpressionTextureObjectParameter* FTextureSetMaterialGraphBuilder::GetP
 	return PackedTextureObjects[Index];
 }
 
-UMaterialExpression* FTextureSetMaterialGraphBuilder::GetPackedTextureSize(int Index)
+const FGraphBuilderOutputAddress FTextureSetMaterialGraphBuilder::GetPackedTextureSize(int Index)
 {
 	if (PackedTextureSizes[Index] == nullptr)
 	{
@@ -358,7 +224,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::GetPackedTextureSize(int I
 		PackedTextureSizes[Index] = TextureProp;
 	}
 
-	return PackedTextureSizes[Index];
+	return FGraphBuilderOutputAddress(PackedTextureSizes[Index], 0);
 }
 
 TTuple<int, int> FTextureSetMaterialGraphBuilder::GetPackingSource(FName ProcessedTextureChannel)
@@ -422,17 +288,206 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeConstantParameter(FNam
 	return AppendNode;
 }
 
+void FTextureSetMaterialGraphBuilder::SetupSharedValues()
+{
+	// Hook up proper inputs to any reroute nodes that were used.
+	// Note: Order here is important, as we have some dependencies
+
+	const auto NeedsValue = [this](EGraphBuilderSharedValueType Type) {
+		return SharedValueReroute.Contains(Type) && !SharedValueSources.Contains(Type);
+	};
+
+	const bool NeedsTangent = NeedsValue(EGraphBuilderSharedValueType::Tangent);
+	const bool NeedsBitangent = NeedsValue(EGraphBuilderSharedValueType::BiTangent);
+
+	if (NeedsTangent || NeedsBitangent)
+	{
+		FGraphBuilderOutputAddress TangentSource;
+		FGraphBuilderOutputAddress BitangentSource;
+		switch (Node->TangentSource)
+		{
+		case ETangentSource::Explicit:
+		{
+			TangentSource = FGraphBuilderOutputAddress(CreateInput("Tangent", EFunctionInputType::FunctionInput_Vector3, EInputSort::Tangent), 0);
+			BitangentSource = FGraphBuilderOutputAddress(CreateInput("Bitangent", EFunctionInputType::FunctionInput_Vector3, EInputSort::Tangent), 0);
+			break;
+		}
+		case ETangentSource::Synthesized:
+		{
+			UMaterialExpression* SynthesizeTangentNode = MakeSynthesizeTangentCustomNode();
+			TangentSource = FGraphBuilderOutputAddress(SynthesizeTangentNode, 1);
+			BitangentSource = FGraphBuilderOutputAddress(SynthesizeTangentNode, 2);
+			break;
+		}
+		case ETangentSource::Vertex:
+		{
+			TangentSource = FGraphBuilderOutputAddress(CreateExpression<UMaterialExpressionVertexTangentWS>(), 0);
+
+			if (NeedsBitangent)
+			{
+				// Don't have a node explicitly for the vertex bitangent, so we create it by transforming a vector from tangent to world space
+				UMaterialExpressionConstant3Vector* BitangentConstant = CreateExpression<UMaterialExpressionConstant3Vector>();
+				BitangentConstant->Constant = FLinearColor(0, 1, 0);
+				UMaterialExpressionTransform* TransformBitangent = CreateExpression<UMaterialExpressionTransform>();
+				TransformBitangent->TransformSourceType = EMaterialVectorCoordTransformSource::TRANSFORMSOURCE_Tangent;
+				TransformBitangent->TransformType = EMaterialVectorCoordTransform::TRANSFORM_World;
+				Connect(BitangentConstant, 0, TransformBitangent, 0);
+				BitangentSource = FGraphBuilderOutputAddress(TransformBitangent, 0);
+			}
+			break;
+		}
+		default:
+			unimplemented();
+			break;
+		}
+
+		if (NeedsTangent)
+			SetSharedValue(TangentSource, EGraphBuilderSharedValueType::Tangent);
+
+		if (NeedsBitangent)
+			SetSharedValue(BitangentSource, EGraphBuilderSharedValueType::BiTangent);
+	}
+
+	if (NeedsValue(EGraphBuilderSharedValueType::BaseNormal))
+	{
+		FGraphBuilderOutputAddress BaseNormalSource;
+
+		switch (Node->BaseNormalSource)
+		{
+		case EBaseNormalSource::Explicit:
+			BaseNormalSource = FGraphBuilderOutputAddress(CreateInput("Base Normal", EFunctionInputType::FunctionInput_Vector3, EInputSort::BaseNormal), 0);
+			break;
+		case EBaseNormalSource::Vertex:
+			BaseNormalSource = FGraphBuilderOutputAddress(CreateExpression<UMaterialExpressionVertexNormalWS>(), 0);
+			break;
+		default:
+			unimplemented();
+			break;
+		}
+
+		SetSharedValue(BaseNormalSource, EGraphBuilderSharedValueType::BaseNormal);
+	}
+
+	if (NeedsValue(EGraphBuilderSharedValueType::CameraVector))
+	{
+		FGraphBuilderOutputAddress CameraVectorSource;
+
+		switch (Node->CameraVectorSource)
+		{
+		case ECameraVectorSource::Explicit:
+			CameraVectorSource = FGraphBuilderOutputAddress(CreateInput("Camera Vector", EFunctionInputType::FunctionInput_Vector3, EInputSort::CameraVector), 0);
+			break;
+		case ECameraVectorSource::World:
+			CameraVectorSource = FGraphBuilderOutputAddress(CreateExpression<UMaterialExpressionCameraVectorWS>(), 0);
+			break;
+		default:
+			unimplemented();
+			break;
+		}
+
+		SetSharedValue(CameraVectorSource, EGraphBuilderSharedValueType::CameraVector);
+	}
+
+	if (NeedsValue(EGraphBuilderSharedValueType::Position))
+	{
+		FGraphBuilderOutputAddress PositionSource;
+
+		switch (Node->PositionSource)
+		{
+		case EPositionSource::Explicit:
+			PositionSource = FGraphBuilderOutputAddress(CreateInput("Position", EFunctionInputType::FunctionInput_Vector3, EInputSort::Position), 0);
+			break;
+		case EPositionSource::World:
+			PositionSource = FGraphBuilderOutputAddress(CreateExpression<UMaterialExpressionWorldPosition>(), 0);
+			break;
+		default:
+			unimplemented();
+			break;
+		}
+
+		SetSharedValue(PositionSource, EGraphBuilderSharedValueType::Position);
+	}
+	
+	if (NeedsValue(EGraphBuilderSharedValueType::UV_Streaming))
+	{
+		SetSharedValue(GetSharedValue(EGraphBuilderSharedValueType::UV_Sampling), EGraphBuilderSharedValueType::UV_Streaming);
+	}
+
+	if (NeedsValue(EGraphBuilderSharedValueType::UV_DDX))
+	{
+		UMaterialExpression* DDX = CreateExpression<UMaterialExpressionDDX>();
+		Connect(GetSharedValue(EGraphBuilderSharedValueType::UV_Mip), FGraphBuilderInputAddress(DDX, 0));
+		SetSharedValue(FGraphBuilderOutputAddress(DDX, 0), EGraphBuilderSharedValueType::UV_DDX);
+	}
+
+	if (NeedsValue(EGraphBuilderSharedValueType::UV_DDY))
+	{
+		UMaterialExpression* DDY = CreateExpression<UMaterialExpressionDDY>();
+		Connect(GetSharedValue(EGraphBuilderSharedValueType::UV_Mip), FGraphBuilderInputAddress(DDY, 0));
+		SetSharedValue(FGraphBuilderOutputAddress(DDY, 0), EGraphBuilderSharedValueType::UV_DDY);
+	}
+
+	if (NeedsValue(EGraphBuilderSharedValueType::UV_Mip))
+	{
+		SetSharedValue(GetSharedValue(EGraphBuilderSharedValueType::UV_Sampling), EGraphBuilderSharedValueType::UV_Mip);
+	}
+
+	if (NeedsValue(EGraphBuilderSharedValueType::UV_Sampling))
+	{
+		SetSharedValue(RawUV, EGraphBuilderSharedValueType::UV_Sampling);
+	}
+
+	if (NeedsValue(EGraphBuilderSharedValueType::ArrayIndex))
+	{
+		FGraphBuilderOutputAddress IndexInput(CreateInput("Array Index", EFunctionInputType::FunctionInput_Scalar, EInputSort::UV), 0);
+		SetSharedValue(IndexInput, EGraphBuilderSharedValueType::ArrayIndex);
+	}
+
+	// Link all shared value sources to the reroute nodes
+	for (auto& [Type, RerouteOutput] : SharedValueReroute)
+	{
+		FGraphBuilderOutputAddress ValueSource = SharedValueSources.FindChecked(Type);
+		check(RerouteOutput.IsValid());
+		FGraphBuilderInputAddress RerouteInput = FGraphBuilderInputAddress(RerouteOutput.GetExpression(), 0);
+
+		Connect(ValueSource, RerouteInput);
+	}
+}
+
 UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode(int Index)
 {
 	const FTextureSetPackedTextureDef& TextureDef = PackingInfo.GetPackedTextureDef(Index);
 	const FTextureSetPackedTextureInfo& TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
 	UMaterialExpressionTextureObjectParameter* TextureObject = PackedTextureObjects[Index];
 
+	FGraphBuilderOutputAddress SampleCoord = GetSharedValue(EGraphBuilderSharedValueType::UV_Sampling);
+	FGraphBuilderOutputAddress StreamingCoord = GetSharedValue(EGraphBuilderSharedValueType::UV_Streaming);
+
+	if (EnumHasAnyFlags(TextureInfo.Flags, ETextureSetTextureFlags::Array))
+	{
+		// Append the array index to out UV to get the sample coordinate
+		{
+			UMaterialExpression* AppendNode = CreateExpression<UMaterialExpressionAppendVector>();
+			Connect(SampleCoord, AppendNode, 0);
+			Connect(GetSharedValue(EGraphBuilderSharedValueType::ArrayIndex), AppendNode, 1);
+			SampleCoord = FGraphBuilderOutputAddress(AppendNode, 0);
+		}
+
+		// Just do a dummy value for the streaming since it thinks it needs a float3
+		{
+			UMaterialExpression* AppendNode = CreateExpression<UMaterialExpressionAppendVector>();
+			Connect(StreamingCoord, AppendNode, 0);
+			UMaterialExpressionConstant* ConstantNode = CreateExpression<UMaterialExpressionConstant>();
+			Connect(ConstantNode, 0, AppendNode, 1);
+			StreamingCoord = FGraphBuilderOutputAddress(AppendNode, 0);
+		}
+	}
+
 	UMaterialExpressionTextureStreamingDef* TextureStreamingDef = CreateExpression<UMaterialExpressionTextureStreamingDef>();
 	TextureStreamingDef->SamplerType = TextureObject->SamplerType;
 	TextureStreamingDef->SamplerSource = ESamplerSourceMode::SSM_Wrap_WorldGroupSettings;// So we don't allocate a sampler
-	GetTexcoordStreaming()->ConnectExpression(TextureStreamingDef->GetInput(0), 0);
-	TextureObject->ConnectExpression(TextureStreamingDef->GetInput(1), 0);
+	Connect(StreamingCoord, TextureStreamingDef, 0);
+	Connect(TextureObject, 0, TextureStreamingDef, 1);
 
 	UMaterialExpressionCustom* CustomExp = CreateExpression<UMaterialExpressionCustom>();
 
@@ -446,12 +501,25 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 
 	static const FString ChannelSuffixLower[4] {"r", "g", "b", "a"};
 	static const FString ChannelSuffixUpper[4] {"R", "G", "B", "A"};
+	
+	CustomExp->Code = "";
 
-	CustomExp->Code = "FloatDeriv2 UV = {Texcoord, DDX, DDY};\n";
+	if (!EnumHasAnyFlags(TextureInfo.Flags, ETextureSetTextureFlags::Array))
+		CustomExp->Code += "FloatDeriv2 UV = {Texcoord.xy, DDX, DDY};\n";
 
-	// Do the sample and set in the correct size of float for how many channels we have
-	CustomExp->Code += FString::Format(TEXT("MaterialFloat{0} Sample = Texture2DSample(Tex, TexSampler, UV)."),
+	// Set the correct size of float for how many channels we have
+	CustomExp->Code += FString::Format(TEXT("MaterialFloat{0} Sample = "),
 		{(TextureInfo.ChannelCount > 1) ? FString::FromInt(TextureInfo.ChannelCount) : ""});
+
+	// Do the appropriate sample
+	if (EnumHasAnyFlags(TextureInfo.Flags, ETextureSetTextureFlags::Array))
+	{
+		CustomExp->Code += TEXT("Texture2DArraySampleGrad(Tex, TexSampler, Texcoord.xyz, DDX, DDY).");
+	}
+	else
+	{
+		CustomExp->Code += TEXT("Texture2DSample(Tex, TexSampler, UV).");
+	}
 	
 	for (int c = 0; c < TextureInfo.ChannelCount; c++)
 		CustomExp->Code += ChannelSuffixLower[c];
@@ -497,10 +565,10 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 
 	CustomExp->RebuildOutputs();
 
-	GetTexcoord()->ConnectExpression(CustomExp->GetInput(0), 0);
-	TextureStreamingDef->ConnectExpression(CustomExp->GetInput(1), 0);
-	GetTexcoordDerivativeX()->ConnectExpression(CustomExp->GetInput(2), 0);
-	GetTexcoordDerivativeY()->ConnectExpression(CustomExp->GetInput(3), 0);
+	Connect(SampleCoord, CustomExp, 0);
+	Connect(TextureStreamingDef, 0, CustomExp, 1);
+	Connect(GetSharedValue(EGraphBuilderSharedValueType::UV_DDX), CustomExp, 2);
+	Connect(GetSharedValue(EGraphBuilderSharedValueType::UV_DDY), CustomExp, 3);
 
 	if (RangeCompressMulInput != 0)
 	{
@@ -517,93 +585,13 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeSynthesizeTangentCusto
 {
 	HLSLFunctionCallNodeBuilder FunctionCall("SynthesizeTangents", "/Plugin/TextureSets/NormalSynthesis.ush");
 
-	FunctionCall.InArgument("Position", GetPosition(), 0);
-	FunctionCall.InArgument("Texcoord", GetRawTexcoord(), 0);
-	FunctionCall.InArgument("Normal", GetBaseNormal(), 0);
+	FunctionCall.InArgument("Position", GetSharedValue(EGraphBuilderSharedValueType::Position));
+	FunctionCall.InArgument("Texcoord", RawUV);
+	FunctionCall.InArgument("Normal", GetSharedValue(EGraphBuilderSharedValueType::BaseNormal));
 
 	FunctionCall.OutArgument("Tangent", ECustomMaterialOutputType::CMOT_Float3);
 	FunctionCall.OutArgument("Bitangent", ECustomMaterialOutputType::CMOT_Float3);
 
 	return FunctionCall.Build(*this);
 }
-
-HLSLFunctionCallNodeBuilder::HLSLFunctionCallNodeBuilder(FString FunctionName, FString IncludePath)
-	: FunctionName(FunctionName)
-	, IncludePath(IncludePath)
-	, ReturnType(ECustomMaterialOutputType::CMOT_MAX)
-{
-
-}
-
-void HLSLFunctionCallNodeBuilder::SetReturnType(ECustomMaterialOutputType NewReturnType)
-{
-	ReturnType = NewReturnType;
-}
-
-void HLSLFunctionCallNodeBuilder::InArgument(FString ArgName, UMaterialExpression* OutExpression, int32 OutIndex)
-{
-	FunctionArguments.Add(ArgName);
-	InputConnections.Add(InputConnection(ArgName, OutExpression, OutIndex));
-}
-
-void HLSLFunctionCallNodeBuilder::InArgument(FString ArgName, FString ArgValue)
-{
-	FunctionArguments.Add(FString::Format(TEXT("/*{0}*/ {1}"), {ArgName, ArgValue}));
-}
-
-void HLSLFunctionCallNodeBuilder::OutArgument(FString ArgName, ECustomMaterialOutputType OutType)
-{
-	FunctionArguments.Add(ArgName);
-	Outputs.Add(Output(ArgName, OutType));
-}
-
-UMaterialExpression* HLSLFunctionCallNodeBuilder::Build(FTextureSetMaterialGraphBuilder& GraphBuilder)
-{
-	UMaterialExpressionCustom* CustomExp = GraphBuilder.CreateExpression<UMaterialExpressionCustom>();
-
-	CustomExp->Description = FunctionName;
-
-	CustomExp->Inputs.Empty(); // required: class initializes with one input by default
-
-	for (int i = 0; i < InputConnections.Num(); i++)
-	{
-		FCustomInput CustomInput;
-		CustomInput.InputName = FName(InputConnections[i].Get<FString>());
-		CustomExp->Inputs.Add(CustomInput);
-	}
-
-	CustomExp->OutputType = ReturnType;
-
-	for (int i = 0; i < Outputs.Num(); i++)
-	{
-		FCustomOutput CustomInput;
-		CustomInput.OutputName = FName(Outputs[i].Get<FString>());
-		CustomInput.OutputType = Outputs[i].Get<ECustomMaterialOutputType>();
-		CustomExp->AdditionalOutputs.Add(CustomInput);
-	}
-
-	CustomExp->RebuildOutputs();
-
-	for (int i = 0; i < InputConnections.Num(); i++)
-	{
-		UMaterialExpression* SourceConnection = InputConnections[i].Get<UMaterialExpression*>();
-		const int32& SourceIndex = InputConnections[i].Get<int32>();
-		SourceConnection->ConnectExpression(CustomExp->GetInput(i), SourceIndex);
-	}
-
-	CustomExp->IncludeFilePaths.Add(IncludePath);
-	CustomExp->Code = FString::Format(TEXT("{0}{1}({2});"),
-		{
-			ReturnType != ECustomMaterialOutputType::CMOT_MAX ? "return " : "",
-			FunctionName,
-			FString::Join(FunctionArguments, TEXT(", "))
-		});
-
-	// Custom exp nodes always have to return something, so just return 0.
-	if (ReturnType == ECustomMaterialOutputType::CMOT_MAX)
-		CustomExp->Code += "\nreturn 0;";
-
-	return CustomExp;
-}
-
 #endif // WITH_EDITOR

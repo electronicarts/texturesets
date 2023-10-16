@@ -107,14 +107,14 @@ void UPBRSurfaceModule::GenerateSamplingGraph(const UMaterialExpressionTextureSe
 		switch (Paramaterization)
 		{
 		case EPBRParamaterization::Basecolor_Metal:
-			Builder.GetProcessedTextureSample(MetalName)->ConnectExpression(Builder.CreateOutput(MetalName)->GetInput(0), 0);
+			Builder.Connect(Builder.GetProcessedTextureSample(MetalName), Builder.CreateOutput(MetalName), 0);
 			// Falls through
 		case EPBRParamaterization::Dielectric:
-			Builder.GetProcessedTextureSample(BaseColorName)->ConnectExpression(Builder.CreateOutput(BaseColorName)->GetInput(0), 0);
+			Builder.Connect(Builder.GetProcessedTextureSample(BaseColorName), Builder.CreateOutput(BaseColorName), 0);
 			break;
 		case EPBRParamaterization::Albedo_Spec:
-			Builder.GetProcessedTextureSample(AlbedoName)->ConnectExpression(Builder.CreateOutput(AlbedoName)->GetInput(0), 0);
-			Builder.GetProcessedTextureSample(SpecularName)->ConnectExpression(Builder.CreateOutput(SpecularName)->GetInput(0), 0);
+			Builder.Connect(Builder.GetProcessedTextureSample(AlbedoName), Builder.CreateOutput(AlbedoName), 0);
+			Builder.Connect(Builder.GetProcessedTextureSample(SpecularName), Builder.CreateOutput(SpecularName), 0);
 			break;
 		default:
 			unimplemented()
@@ -124,11 +124,11 @@ void UPBRSurfaceModule::GenerateSamplingGraph(const UMaterialExpressionTextureSe
 
 	// Microsurface
 	{
-		TObjectPtr<UMaterialExpression> ProcessedNode = nullptr;
+		FGraphBuilderOutputAddress MicrosurfaceSample;
 		if (Microsurface == EPBRMicrosurface::Roughness)
-			ProcessedNode = Builder.GetProcessedTextureSample(RoughnessName);
+			MicrosurfaceSample = Builder.GetProcessedTextureSample(RoughnessName);
 		else if (Microsurface == EPBRMicrosurface::Smoothness)
-			ProcessedNode = Builder.GetProcessedTextureSample(SmoothnessName);
+			MicrosurfaceSample = Builder.GetProcessedTextureSample(SmoothnessName);
 		else
 			unimplemented()
 
@@ -145,41 +145,33 @@ void UPBRSurfaceModule::GenerateSamplingGraph(const UMaterialExpressionTextureSe
 		if (bNeedsInversion)
 		{
 			UMaterialExpressionOneMinus* OneMinus = Builder.CreateExpression<UMaterialExpressionOneMinus>();
-			ProcessedNode->ConnectExpression(OneMinus->GetInput(0), 0);
-			OneMinus->ConnectExpression(ResultNode->GetInput(0), 0);
+			Builder.Connect(MicrosurfaceSample, OneMinus, 0);
+			Builder.Connect(OneMinus, 0, ResultNode, 0);
 		}
 		else
 		{
-			ProcessedNode->ConnectExpression(ResultNode->GetInput(0), 0);
+			Builder.Connect(MicrosurfaceSample, ResultNode, 0);
 		}
 	}
 
 	// Normals
-	if (Normal != EPBRNormal::None)
+	if (Normal == EPBRNormal::Tangent)
 	{
-		UMaterialExpression* TangentNormal = Builder.GetProcessedTextureSample(TangentNormalName);
+		FGraphBuilderOutputAddress TangentNormal = Builder.GetProcessedTextureSample(TangentNormalName);
 
-		if (Normal == EPBRNormal::Tangent)
-		{
-			// Unpack tangent normal X and Y
-			UMaterialExpressionMultiply* Mul = Builder.CreateExpression<UMaterialExpressionMultiply>();
-			TangentNormal->ConnectExpression(Mul->GetInput(0), 0);
-			Mul->ConstB = 2.0f;
+		// Unpack tangent normal X and Y
+		UMaterialExpressionMultiply* Mul = Builder.CreateExpression<UMaterialExpressionMultiply>();
+		Builder.Connect(TangentNormal, Mul, 0);
+		Mul->ConstB = 2.0f;
 
-			UMaterialExpressionAdd* Add = Builder.CreateExpression<UMaterialExpressionAdd>();
-			Mul->ConnectExpression(&Add->A, 0);
-			Add->ConstB = -1.0f;
+		UMaterialExpressionAdd* Add = Builder.CreateExpression<UMaterialExpressionAdd>();
+		Builder.Connect(Mul, 0, Add, 0);
+		Add->ConstB = -1.0f;
 
-			UMaterialExpressionDeriveNormalZ* DeriveZ = Builder.CreateExpression<UMaterialExpressionDeriveNormalZ>();
-			Add->ConnectExpression(DeriveZ->GetInput(0), 0);
+		UMaterialExpressionDeriveNormalZ* DeriveZ = Builder.CreateExpression<UMaterialExpressionDeriveNormalZ>();
+		Builder.Connect(Add, 0, DeriveZ, 0);
 
-			// Now use this as our unpacked tangent normal
-			TangentNormal = DeriveZ;
-
-			TangentNormal->ConnectExpression(Builder.CreateOutput(TangentNormalName)->GetInput(0), 0);
-		}
-		else
-			unimplemented();
+		Builder.Connect(DeriveZ, 0, Builder.CreateOutput(TangentNormalName), 0);
 	}
 }
 #endif

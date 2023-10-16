@@ -10,10 +10,10 @@ template <class ParameterClass>
 class ParameterPassThrough : public IParameterProcessingNode
 {
 public:
-	ParameterPassThrough(FName Name, int Dimension)
+	ParameterPassThrough(FName Name, TFunction<FVector4f(const ParameterClass*)> GetValueCallback)
 		: Name(Name)
-		, Dimension(Dimension)
 		, bInitialized(false)
+		, Callback(GetValueCallback)
 	{}
 
 	virtual FName GetNodeTypeName() const override { return Name; }
@@ -26,7 +26,7 @@ public:
 	virtual void Initialize(const FTextureSetProcessingContext& Context) override
 	{
 		check(!bInitialized);
-		Value = GetValue(Context.GetAssetParam<ParameterClass>());
+		Value = Callback(Context.GetAssetParam<ParameterClass>());
 		bInitialized = true;
 	}
 
@@ -37,17 +37,15 @@ public:
 
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override
 	{
-		return GetTypeHash(GetValue(Context.GetAssetParam<ParameterClass>()));
+		return GetTypeHash(Callback(Context.GetAssetParam<ParameterClass>()));
 	}
 
 	virtual FVector4f GetValue() const override { return Value; }
 
-	virtual FVector4f GetValue(const ParameterClass* Parameter) const = 0;
-
 private:
 	FName Name;
-	int Dimension;
 	bool bInitialized;
+	TFunction<FVector4f(const ParameterClass*)> Callback;
 	FVector4f Value;
 };
 

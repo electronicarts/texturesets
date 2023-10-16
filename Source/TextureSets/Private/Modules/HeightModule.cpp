@@ -3,13 +3,14 @@
 #include "Modules/HeightModule.h"
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
+#include "MaterialGraphBuilder/HLSLFunctionCallNodeBuilder.h"
 #include "Materials/MaterialExpression.h"
+#include "Materials/MaterialExpressionAdd.h"
+#include "Materials/MaterialExpressionComponentMask.h"
 #include "Materials/MaterialExpressionCustom.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
-#include "Materials/MaterialExpressionAdd.h"
 #include "Materials/MaterialExpressionMultiply.h"
-#include "Materials/MaterialExpressionComponentMask.h"
 #include "Materials/MaterialExpressionTextureObjectParameter.h"
 #include "ProcessingNodes/ParameterPassthrough.h"
 
@@ -18,22 +19,17 @@ void UHeightModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) c
 {
 	const FTextureSetSourceTextureDef HeightDef(1, false, FVector4(1, 0, 0, 0));
 
-	class HeightmapParametersPassThrough : public ParameterPassThrough<UHeightAssetParams>
-	{
-	public:
-		HeightmapParametersPassThrough() : ParameterPassThrough<UHeightAssetParams>("HeightParams", 1) {}
-
-		virtual FVector4f GetValue(const UHeightAssetParams* Parameter) const override
+	Graph.AddOutputParameter("HeightParams", TSharedRef<IParameterProcessingNode>(new ParameterPassThrough<UHeightAssetParams>(
+		"HeightParams", 
+		[](const UHeightAssetParams* Parameter) -> FVector4f
 		{
 			return FVector4f(
 				Parameter->HeightmapScale,
 				Parameter->HeightmapReferencePlane,
 				0,
 				0);
-		};
-	};
-
-	Graph.AddOutputParameter("HeightParams", TSharedRef<HeightmapParametersPassThrough>(new HeightmapParametersPassThrough()));
+		}
+		)));
 
 	Graph.AddOutputTexture("Height", Graph.AddInputTexture("Height", HeightDef));
 }
@@ -59,53 +55,62 @@ void UHeightModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSam
 {
 	const UHeightSampleParams* HeightSampleParams = SampleExpression->SampleParams.Get<UHeightSampleParams>();
 
-	TObjectPtr<UMaterialExpression> TextureExpression = Builder.GetProcessedTextureSample("Height");
-	TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = Builder.CreateOutput("Height");
-	TextureExpression->ConnectExpression(OutputExpression->GetInput(0), 0);
+	Builder.Connect(Builder.GetProcessedTextureSample("Height"), Builder.CreateOutput("Height"), 0);
 
 	if (HeightSampleParams->bEnableParallaxOcclusionMapping)
 	{
-		UMaterialExpression* HeightParams = Builder.MakeConstantParameter("HeightParams", FVector4f::One());
+		FGraphBuilderOutputAddress HeightParams = FGraphBuilderOutputAddress(Builder.MakeConstantParameter("HeightParams", FVector4f::One()), 0);
 
-		UMaterialExpressionMultiply* HeightScale = Builder.CreateExpression<UMaterialExpressionMultiply>();
+		FGraphBuilderOutputAddress HeightScale;
 		{
 			// Reading the parameter that comes from UHeightAssetParams::HeightmapScale
-			UMaterialExpressionComponentMask* HeightScaleParam = Builder.CreateExpression<UMaterialExpressionComponentMask>();
-			HeightParams->ConnectExpression(HeightScaleParam->GetInput(0), 0);
-			HeightScaleParam->R = true;
-			HeightScaleParam->G = false;
-			HeightScaleParam->B = false;
-			HeightScaleParam->A = false;
+			UMaterialExpressionComponentMask* HeightScaleMask = Builder.CreateExpression<UMaterialExpressionComponentMask>();
+			HeightScaleMask->R = true;
+			HeightScaleMask->G = false;
+			HeightScaleMask->B = false;
+			HeightScaleMask->A = false;
+			Builder.Connect(HeightParams, HeightScaleMask, 0);
 
 			UMaterialExpressionFunctionInput* StrengthInput = Builder.CreateInput("HeightModifier", EFunctionInputType::FunctionInput_Scalar);
 			StrengthInput->PreviewValue = FVector4f(1.0f);
 			StrengthInput->bUsePreviewValueAsDefault = true;
 
-			HeightScaleParam->ConnectExpression(HeightScale->GetInput(0), 0);
-			StrengthInput->ConnectExpression(HeightScale->GetInput(1), 0);
+			UMaterialExpressionMultiply* Multiply = Builder.CreateExpression<UMaterialExpressionMultiply>();
+			Builder.Connect(HeightScaleMask, 0, Multiply, 0);
+			Builder.Connect(StrengthInput, 0, Multiply, 1);
+
+			HeightScale = FGraphBuilderOutputAddress(Multiply, 0);
 		}
 
-		UMaterialExpressionAdd* ReferencePlane = Builder.CreateExpression<UMaterialExpressionAdd>();
+		FGraphBuilderOutputAddress ReferencePlane;
 		{
 			// Reading the parameter that comes from UHeightAssetParams::HeightmapReferencePlane
-			UMaterialExpressionComponentMask* ReferencePlaneParam = Builder.CreateExpression<UMaterialExpressionComponentMask>();
-			HeightParams->ConnectExpression(ReferencePlaneParam->GetInput(0), 0);
-			ReferencePlaneParam->R = false;
-			ReferencePlaneParam->G = true;
-			ReferencePlaneParam->B = false;
-			ReferencePlaneParam->A = false;
+			UMaterialExpressionComponentMask* ReferencePlaneMask = Builder.CreateExpression<UMaterialExpressionComponentMask>();
+			ReferencePlaneMask->R = false;
+			ReferencePlaneMask->G = true;
+			ReferencePlaneMask->B = false;
+			ReferencePlaneMask->A = false;
+			Builder.Connect(HeightParams, ReferencePlaneMask, 0);
 			
 			UMaterialExpressionFunctionInput* ReferencePlaneOffsetInput = Builder.CreateInput("ReferencePlaneOffset", EFunctionInputType::FunctionInput_Scalar);
 			ReferencePlaneOffsetInput->PreviewValue = FVector4f(0.0f);
 			ReferencePlaneOffsetInput->bUsePreviewValueAsDefault = true;
-		
-			ReferencePlaneParam->ConnectExpression(ReferencePlane->GetInput(0), 0);
-			ReferencePlaneOffsetInput->ConnectExpression(ReferencePlane->GetInput(1), 0);
+
+			UMaterialExpressionAdd* Add = Builder.CreateExpression<UMaterialExpressionAdd>();
+			Builder.Connect(ReferencePlaneMask, 0, Add, 0);
+			Builder.Connect(ReferencePlaneOffsetInput, 0, Add, 1);
+
+			ReferencePlane = FGraphBuilderOutputAddress(Add, 0);
 		}
 
-		UMaterialExpressionFunctionInput* IterationsInput = Builder.CreateInput("ParallaxIterations", EFunctionInputType::FunctionInput_Scalar);
-		IterationsInput->PreviewValue = FVector4f(16.0f);
-		IterationsInput->bUsePreviewValueAsDefault = true;
+		FGraphBuilderOutputAddress Iterations;
+		{
+			UMaterialExpressionFunctionInput* IterationsInput = Builder.CreateInput("ParallaxIterations", EFunctionInputType::FunctionInput_Scalar);
+			IterationsInput->PreviewValue = FVector4f(16.0f);
+			IterationsInput->bUsePreviewValueAsDefault = true;
+
+			Iterations = FGraphBuilderOutputAddress(IterationsInput, 0);
+		}
 
 		auto [PackedTextureIndex, PackedTextureChannel] = Builder.GetPackingSource("Height.r");
 
@@ -113,19 +118,19 @@ void UHeightModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSam
 		
 		FunctionCall.SetReturnType(ECustomMaterialOutputType::CMOT_Float2);
 
-		FunctionCall.InArgument("Texcoord", Builder.GetRawTexcoord(), 0);
-		FunctionCall.InArgument("WSNormal", Builder.GetBaseNormal(), 0);
-		FunctionCall.InArgument("WSView", Builder.GetCameraVector(), 0);
-		FunctionCall.InArgument("Strength", HeightScale, 0);
-		FunctionCall.InArgument("ReferencePlane", ReferencePlane, 0);
-		FunctionCall.InArgument("Position", Builder.GetPosition(), 0);
-		FunctionCall.InArgument("SampleCount", IterationsInput, 0);
-		FunctionCall.InArgument("Heightmap", Builder.GetPackedTextureObject(PackedTextureIndex), 0);
+		FunctionCall.InArgument("Texcoord", Builder.GetRawUV());
+		FunctionCall.InArgument("WSNormal", Builder.GetSharedValue(EGraphBuilderSharedValueType::BaseNormal));
+		FunctionCall.InArgument("WSView", Builder.GetSharedValue(EGraphBuilderSharedValueType::CameraVector));
+		FunctionCall.InArgument("Strength", HeightScale);
+		FunctionCall.InArgument("ReferencePlane", ReferencePlane);
+		FunctionCall.InArgument("Position", Builder.GetSharedValue(EGraphBuilderSharedValueType::Position));
+		FunctionCall.InArgument("SampleCount", Iterations);
+		FunctionCall.InArgument("Heightmap", FGraphBuilderOutputAddress(Builder.GetPackedTextureObject(PackedTextureIndex), 0));
 		FunctionCall.InArgument("HeightmapSampler", "HeightmapSampler");
 		FunctionCall.InArgument("HeightmapChannel", FString::FromInt(PackedTextureChannel)); // Hard-coded (in the shader) based on packing
-		FunctionCall.InArgument("HeightmapSize", Builder.GetPackedTextureSize(PackedTextureIndex), 0);
-		FunctionCall.InArgument("Tangent", Builder.GetTangent(), 0);
-		FunctionCall.InArgument("Bitangent", Builder.GetBitangent(), 0);
+		FunctionCall.InArgument("HeightmapSize", Builder.GetPackedTextureSize(PackedTextureIndex));
+		FunctionCall.InArgument("Tangent", Builder.GetSharedValue(EGraphBuilderSharedValueType::Tangent));
+		FunctionCall.InArgument("Bitangent", Builder.GetSharedValue(EGraphBuilderSharedValueType::BiTangent));
 
 		FunctionCall.OutArgument("TexcoordOffset", ECustomMaterialOutputType::CMOT_Float2);
 		FunctionCall.OutArgument("DepthOffset", ECustomMaterialOutputType::CMOT_Float1);
@@ -133,10 +138,10 @@ void UHeightModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSam
 
 		UMaterialExpression* FunctionCallExp = FunctionCall.Build(Builder);
 
-		Builder.OverrideTexcoord(FunctionCallExp, false, false);
+		Builder.SetSharedValue(FGraphBuilderOutputAddress(FunctionCallExp, 0), EGraphBuilderSharedValueType::UV_Sampling);
 
 		UMaterialExpressionFunctionOutput* OffsetOutput = Builder.CreateOutput("ParallaxOffset");
-		FunctionCallExp->ConnectExpression(OffsetOutput->GetInput(0), 1);
+		Builder.Connect(FunctionCallExp, 1, OffsetOutput, 0);
 	}
 
 }

@@ -36,9 +36,7 @@ void UTextureSetElementCollection::GenerateSamplingGraph(const UMaterialExpressi
 	for (const FElementDefinition& Element: Elements)
 	{
 		// Simply connect texture sample to the matching output.
-		TObjectPtr<UMaterialExpression> TextureExpression = Builder.GetProcessedTextureSample(Element.ElementName);
-		TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = Builder.CreateOutput(Element.ElementName);
-		TextureExpression->ConnectExpression(OutputExpression->GetInput(0), 0);
+		Builder.Connect(Builder.GetProcessedTextureSample(Element.ElementName), Builder.CreateOutput(Element.ElementName), 0);
 	}
 }
 #endif

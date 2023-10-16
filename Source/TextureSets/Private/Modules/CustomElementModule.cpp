@@ -29,8 +29,6 @@ void UCustomElementModule::GenerateSamplingGraph(const UMaterialExpressionTextur
 	FTextureSetMaterialGraphBuilder& Builder) const
 {
 	// Simply connect texture sample to the matching output.
-	TObjectPtr<UMaterialExpression> TextureExpression = Builder.GetProcessedTextureSample(ElementName);
-	TObjectPtr<UMaterialExpressionFunctionOutput> OutputExpression = Builder.CreateOutput(ElementName);
-	TextureExpression->ConnectExpression(OutputExpression->GetInput(0), 0);
+	Builder.Connect(Builder.GetProcessedTextureSample(ElementName), Builder.CreateOutput(ElementName), 0);
 }
 #endif

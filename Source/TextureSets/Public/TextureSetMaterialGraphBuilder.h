@@ -3,17 +3,41 @@
 #pragma once
 
 #include "MaterialEditingLibrary.h"
+#include "MaterialGraphBuilder/GraphBuilderGraphAddress.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
-#include "Materials/MaterialExpressionCustom.h"
 #include "TextureSetInfo.h"
 
 #if WITH_EDITOR
-
 class UTextureSetDefinition;
 class UMaterialExpressionTextureSetSampleParameter;
 class UMaterialExpressionFunctionOutput;
 class UMaterialExpressionTextureObjectParameter;
 class UMaterialExpressionNamedRerouteDeclaration;
+
+UENUM()
+enum class EGraphBuilderSharedValueType : uint8
+{
+	// UV used for doing texture reads
+	UV_Sampling,
+	// UV used to inform the streaming system for non-virtual textures
+	UV_Streaming,
+	// UV used to look up mips for texture reads
+	UV_Mip,
+	// DDX and DDY of UV used to look up mips for texture reads
+	UV_DDX,
+	UV_DDY,
+	// Index used for sampling from texture arrays
+	ArrayIndex,
+	// Base normal used for tangent space transforms
+	BaseNormal,
+	// Tangent and Bitangent used for tangent space transforms
+	Tangent,
+	BiTangent,
+	// Per-pixel position value. Typically in world space, but also valid to be in view or object
+	Position,
+	// Pixel to camera vector. Should be in the same space as the position
+	CameraVector,
+};
 
 // Class responsible for building the material graph of a texture set sampler node.
 // Texture set modules use this node to customize the sampling logic.
@@ -31,8 +55,6 @@ public:
 		Custom,
 	};
 
-public:
-
 	FTextureSetMaterialGraphBuilder(UMaterialFunction* MaterialFunction, const UMaterialExpressionTextureSetSampleParameter* Node);
 
 	template <class T> T* CreateExpression()
@@ -41,25 +63,23 @@ public:
 	}
 
 	// Change this to regenerate all texture set material graphs
-	static FString GetGraphBuilderVersion() { return "1.0"; }
+	static FString GetGraphBuilderVersion() { return "0.1"; }
 
-	UMaterialExpression* GetTexcoord();
-	void OverrideTexcoord(UMaterialExpression* NewTexcoord, bool OverrideDerivatives, bool OverrideStreaming);
-	UMaterialExpression* GetRawTexcoord() const;
-	UMaterialExpression* GetTexcoordDerivativeX() const;
-	UMaterialExpression* GetTexcoordDerivativeY() const;
-	UMaterialExpression* GetTexcoordStreaming() const;
+	const FGraphBuilderOutputAddress& GetSharedValue(EGraphBuilderSharedValueType Value);
+	const void SetSharedValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType Value);
 
-	UMaterialExpression* GetBaseNormal();
-	UMaterialExpression* GetTangent();
-	UMaterialExpression* GetBitangent();
-	UMaterialExpression* GetCameraVector();
-	UMaterialExpression* GetPosition();
+	void Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, UMaterialExpression* InputNode, uint32 InputIndex);
+	void Connect(const FGraphBuilderOutputAddress& Output, UMaterialExpression* InputNode, uint32 InputIndex);
+	void Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, const FGraphBuilderInputAddress& Input);
+	void Connect(const FGraphBuilderOutputAddress& Output, const FGraphBuilderInputAddress& Input);
+	
+	// This is the texture coordinate input via the UV pin, without any modifications
+	const FGraphBuilderOutputAddress& GetRawUV() const;
 
-	UMaterialExpression* GetProcessedTextureSample(FName Name);
+	const FGraphBuilderOutputAddress GetProcessedTextureSample(FName Name);
 	
 	UMaterialExpressionTextureObjectParameter* GetPackedTextureObject(int Index);
-	UMaterialExpression* GetPackedTextureSize(int Index);
+	const FGraphBuilderOutputAddress GetPackedTextureSize(int Index);
 
 	TTuple<int, int> GetPackingSource(FName ProcessedTextureChannel);
 
@@ -95,68 +115,18 @@ private:
 	TMap<FName, TObjectPtr<UMaterialExpressionFunctionInput>> SampleInputs;
 	TMap<FName, TObjectPtr<UMaterialExpressionFunctionOutput>> SampleOutputs;
 
-	TObjectPtr<UMaterialExpressionNamedRerouteDeclaration> TexcoordReroute;
-	TObjectPtr<UMaterialExpressionNamedRerouteDeclaration> TexcoordStreamingReroute;
-	TObjectPtr<UMaterialExpression> TexcoordRaw;
-	TObjectPtr<UMaterialExpression> TexcoordDerivativeX;
-	TObjectPtr<UMaterialExpression> TexcoordDerivativeY;
+	const FGraphBuilderOutputAddress RawUV;
 
-	TObjectPtr<UMaterialExpressionNamedRerouteDeclaration> BaseNormalReroute;
-	TObjectPtr<UMaterialExpressionNamedRerouteDeclaration> TangentReroute;
-	TObjectPtr<UMaterialExpressionNamedRerouteDeclaration> BitangentReroute;
-	TObjectPtr<UMaterialExpressionNamedRerouteDeclaration> CameraVectorReroute;
-	TObjectPtr<UMaterialExpressionNamedRerouteDeclaration> PositionReroute;
+	TMap<EGraphBuilderSharedValueType, FGraphBuilderOutputAddress> SharedValueSources;
+	TMap<EGraphBuilderSharedValueType, FGraphBuilderOutputAddress> SharedValueReroute;
+
+	// Key is input address, and value is output
+	TMap<FGraphBuilderInputAddress, FGraphBuilderOutputAddress> DeferredConnections;
+
+	void SetupSharedValues();
 
 	UMaterialExpression* MakeTextureSamplerCustomNode(int Index);
 
 	UMaterialExpression* MakeSynthesizeTangentCustomNode();
-};
-
-struct HLSLFunctionCallNodeBuilder
-{
-public:
-	HLSLFunctionCallNodeBuilder(FString FunctionName, FString IncludePath);
-
-	void SetReturnType(ECustomMaterialOutputType ReturnType);
-
-	void InArgument(FString ArgName, UMaterialExpression* OutExpression, int32 OutIndex);
-	void InArgument(FString ArgName, FString ArgValue);
-	void OutArgument(FString ArgName, ECustomMaterialOutputType OutType);
-
-	UMaterialExpression* Build(FTextureSetMaterialGraphBuilder& GraphBuilder);
-
-private:
-	FString FunctionName;
-	FString IncludePath;
-	ECustomMaterialOutputType ReturnType;
-
-	TArray<FString> FunctionArguments;
-
-	typedef TTuple<FString, UMaterialExpression*, int32> InputConnection;
-	TArray<InputConnection> InputConnections;
-
-	typedef TTuple<FString, ECustomMaterialOutputType> Output;
-	TArray<Output> Outputs;
-
-	struct NodeConnection
-	{
-	public:
-		NodeConnection(UMaterialExpression* OutExpression, int32 OutIndex, UMaterialExpression* InExpression, int32 InIndex)
-			: OutExpression(OutExpression)
-			, OutIndex(OutIndex)
-			, InExpression(InExpression)
-			, InIndex(InIndex)
-		{}
-
-		void Connect() const
-		{
-			OutExpression->ConnectExpression(InExpression->GetInput(InIndex), OutIndex);
-		}
-
-		UMaterialExpression* OutExpression;
-		int32 OutIndex;
-		UMaterialExpression* InExpression;
-		int32 InIndex;
-	};
 };
 #endif // WITH_EDITOR
