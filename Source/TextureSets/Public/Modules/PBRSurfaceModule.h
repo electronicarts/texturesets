@@ -8,6 +8,7 @@
 UENUM()
 enum class EPBRParamaterization
 {
+	None,
 	Basecolor_Metal,
 	Albedo_Spec,
 	Dielectric,
@@ -16,6 +17,7 @@ enum class EPBRParamaterization
 UENUM()
 enum class EPBRMicrosurface
 {
+	None,
 	Roughness,
 	Smoothness,
 };
@@ -31,9 +33,8 @@ UENUM()
 enum class EPBRNormalSpace
 {
 	Tangent,
-	// TODO: Support alternative normal sample outputs
-	//World,
-	//SurfaceGradient,
+	World,
+	SurfaceGradient,
 };
 
 UCLASS()
@@ -43,6 +44,9 @@ class UPBRSampleParams : public UTextureSetSampleParams
 public:
 	UPROPERTY(EditAnywhere);
 	EPBRMicrosurface MicrosurfaceOutput;
+
+	UPROPERTY(EditAnywhere);
+	EPBRNormalSpace NormalOutput;
 };
 
 UCLASS()
@@ -81,5 +85,5 @@ private:
 	EPBRMicrosurface Microsurface = EPBRMicrosurface::Roughness;
 
 	UPROPERTY(EditAnywhere)
-	EPBRNormal Normal = EPBRNormal::None;
+	EPBRNormal Normal = EPBRNormal::Tangent;
 };

@@ -130,7 +130,7 @@ void UHeightModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSam
 		FunctionCall.InArgument("HeightmapChannel", FString::FromInt(PackedTextureChannel)); // Hard-coded (in the shader) based on packing
 		FunctionCall.InArgument("HeightmapSize", Builder.GetPackedTextureSize(PackedTextureIndex));
 		FunctionCall.InArgument("Tangent", Builder.GetSharedValue(EGraphBuilderSharedValueType::Tangent));
-		FunctionCall.InArgument("Bitangent", Builder.GetSharedValue(EGraphBuilderSharedValueType::BiTangent));
+		FunctionCall.InArgument("Bitangent", Builder.GetSharedValue(EGraphBuilderSharedValueType::Bitangent));
 
 		FunctionCall.OutArgument("TexcoordOffset", ECustomMaterialOutputType::CMOT_Float2);
 		FunctionCall.OutArgument("DepthOffset", ECustomMaterialOutputType::CMOT_Float1);

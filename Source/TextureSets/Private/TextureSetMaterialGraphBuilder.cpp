@@ -3,10 +3,10 @@
 #include "TextureSetMaterialGraphBuilder.h"
 
 #if WITH_EDITOR
-#include "MaterialGraphBuilder/HLSLFunctionCallNodeBuilder.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "MaterialExpressionTextureStreamingDef.h"
 #include "MaterialGraph/MaterialGraphNode.h"
+#include "MaterialGraphBuilder/HLSLFunctionCallNodeBuilder.h"
 #include "Materials/MaterialExpressionAppendVector.h"
 #include "Materials/MaterialExpressionCameraVectorWS.h"
 #include "Materials/MaterialExpressionConstant.h"
@@ -15,6 +15,7 @@
 #include "Materials/MaterialExpressionDDX.h"
 #include "Materials/MaterialExpressionDDY.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
+#include "Materials/MaterialExpressionMaterialFunctionCall.h"
 #include "Materials/MaterialExpressionNamedReroute.h"
 #include "Materials/MaterialExpressionTextureObjectParameter.h"
 #include "Materials/MaterialExpressionTextureProperty.h"
@@ -24,6 +25,7 @@
 #include "Materials/MaterialExpressionVertexNormalWS.h"
 #include "Materials/MaterialExpressionVertexTangentWS.h"
 #include "Materials/MaterialExpressionWorldPosition.h"
+#include "Materials/MaterialFunction.h"
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetModule.h"
@@ -155,6 +157,23 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 	}
 }
 
+UMaterialExpression* FTextureSetMaterialGraphBuilder::CreateFunctionCall(FSoftObjectPath FunctionPath)
+{
+	UMaterialFunction* FunctionObject = Cast<UMaterialFunction>(FunctionPath.ResolveObject());
+
+	if (!FunctionObject)
+		FunctionObject = Cast<UMaterialFunction>(FunctionPath.TryLoad());
+	
+	if (IsValid(FunctionObject))
+	{
+		UMaterialExpressionMaterialFunctionCall* FunctionCall = CreateExpression<UMaterialExpressionMaterialFunctionCall>();
+		FunctionCall->SetMaterialFunction(FunctionObject);
+		return FunctionCall;
+	}
+	
+	return nullptr;
+}
+
 const FGraphBuilderOutputAddress& FTextureSetMaterialGraphBuilder::GetSharedValue(EGraphBuilderSharedValueType Value)
 {
 	FGraphBuilderOutputAddress* Address = SharedValueReroute.Find(Value);
@@ -192,6 +211,31 @@ void FTextureSetMaterialGraphBuilder::Connect(const FGraphBuilderOutputAddress& 
 void FTextureSetMaterialGraphBuilder::Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, const FGraphBuilderInputAddress& Input)
 {
 	Connect(FGraphBuilderOutputAddress(OutputNode, OutputIndex), Input);
+}
+
+void FTextureSetMaterialGraphBuilder::Connect(UMaterialExpression* OutputNode, FName OutputName, UMaterialExpression* InputNode, FName InputName)
+{
+	Connect(OutputNode, FindOutputIndexChecked(OutputNode, OutputName), InputNode, FindInputIndexChecked(InputNode, InputName));
+}
+
+void FTextureSetMaterialGraphBuilder::Connect(const FGraphBuilderOutputAddress& Output, UMaterialExpression* InputNode, FName InputName)
+{
+	Connect(Output, InputNode, FindInputIndexChecked(InputNode, InputName));
+}
+
+void FTextureSetMaterialGraphBuilder::Connect(UMaterialExpression* OutputNode, FName OutputName, const FGraphBuilderInputAddress& Input)
+{
+	Connect(OutputNode, FindOutputIndexChecked(OutputNode, OutputName), Input);
+}
+
+void FTextureSetMaterialGraphBuilder::Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, UMaterialExpression* InputNode, FName InputName)
+{
+	Connect(OutputNode, OutputIndex, InputNode, FindInputIndexChecked(InputNode, InputName));
+}
+
+void FTextureSetMaterialGraphBuilder::Connect(UMaterialExpression* OutputNode, FName OutputName, UMaterialExpression* InputNode, uint32 InputIndex)
+{
+	Connect(OutputNode, FindOutputIndexChecked(OutputNode, OutputName), InputNode, InputIndex);
 }
 
 void FTextureSetMaterialGraphBuilder::Connect(const FGraphBuilderOutputAddress& Output, const FGraphBuilderInputAddress& Input)
@@ -298,7 +342,7 @@ void FTextureSetMaterialGraphBuilder::SetupSharedValues()
 	};
 
 	const bool NeedsTangent = NeedsValue(EGraphBuilderSharedValueType::Tangent);
-	const bool NeedsBitangent = NeedsValue(EGraphBuilderSharedValueType::BiTangent);
+	const bool NeedsBitangent = NeedsValue(EGraphBuilderSharedValueType::Bitangent);
 
 	if (NeedsTangent || NeedsBitangent)
 	{
@@ -345,7 +389,7 @@ void FTextureSetMaterialGraphBuilder::SetupSharedValues()
 			SetSharedValue(TangentSource, EGraphBuilderSharedValueType::Tangent);
 
 		if (NeedsBitangent)
-			SetSharedValue(BitangentSource, EGraphBuilderSharedValueType::BiTangent);
+			SetSharedValue(BitangentSource, EGraphBuilderSharedValueType::Bitangent);
 	}
 
 	if (NeedsValue(EGraphBuilderSharedValueType::BaseNormal))
@@ -593,5 +637,39 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeSynthesizeTangentCusto
 	FunctionCall.OutArgument("Bitangent", ECustomMaterialOutputType::CMOT_Float3);
 
 	return FunctionCall.Build(*this);
+}
+
+int32 FTextureSetMaterialGraphBuilder::FindInputIndexChecked(UMaterialExpression* InputNode, FName InputName)
+{
+	const TArray<FExpressionInput*> Inputs = InputNode->GetInputs();
+
+	int32 InputIndex = -1;
+	for (int i = 0; i < Inputs.Num(); i++)
+	{
+		if (Inputs[i]->InputName == InputName)
+		{
+			InputIndex = i;
+			break;
+		}
+	}
+	checkf(InputIndex >= 0, TEXT("Could not find input with name {0}"), InputName);
+	return InputIndex;
+}
+
+int32 FTextureSetMaterialGraphBuilder::FindOutputIndexChecked(UMaterialExpression* OutputNode, FName OutputName)
+{
+	const TArray<FExpressionOutput>& Outputs = OutputNode->GetOutputs();
+	
+	int32 OutputIndex = -1;
+	for (int i = 0; i < Outputs.Num(); i++)
+	{
+		if (Outputs[i].OutputName == OutputName)
+		{
+			OutputIndex = i;
+			break;
+		}
+	}
+	checkf(OutputIndex >= 0, TEXT("Could not find output with name {0}"), OutputName);
+	return OutputIndex;
 }
 #endif // WITH_EDITOR

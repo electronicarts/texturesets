@@ -14,7 +14,7 @@ class UMaterialExpressionTextureSetSampleParameter;
 class UMaterialExpressionFunctionOutput;
 class UMaterialExpressionTextureObjectParameter;
 class UMaterialExpressionNamedRerouteDeclaration;
-
+class UMaterialExpressionMaterialFunctionCall;
 UENUM()
 enum class EGraphBuilderSharedValueType : uint8
 {
@@ -33,7 +33,7 @@ enum class EGraphBuilderSharedValueType : uint8
 	BaseNormal,
 	// Tangent and Bitangent used for tangent space transforms
 	Tangent,
-	BiTangent,
+	Bitangent,
 	// Per-pixel position value. Typically in world space, but also valid to be in view or object
 	Position,
 	// Pixel to camera vector. Should be in the same space as the position
@@ -63,15 +63,26 @@ public:
 		return Cast<T>(UMaterialEditingLibrary::CreateMaterialExpressionInFunction(MaterialFunction, T::StaticClass()));
 	}
 
+	UMaterialExpression* CreateFunctionCall(FSoftObjectPath FunctionPath);
+
 	// Change this to regenerate all texture set material graphs
 	static FString GetGraphBuilderVersion() { return "0.1"; }
 
 	const FGraphBuilderOutputAddress& GetSharedValue(EGraphBuilderSharedValueType Value);
 	const void SetSharedValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType Value);
 
+	// Whole bunch of overloads for connecting stuff, hopefully makes it easy
 	void Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, UMaterialExpression* InputNode, uint32 InputIndex);
 	void Connect(const FGraphBuilderOutputAddress& Output, UMaterialExpression* InputNode, uint32 InputIndex);
 	void Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, const FGraphBuilderInputAddress& Input);
+
+	void Connect(UMaterialExpression* OutputNode, FName OutputName, UMaterialExpression* InputNode, FName InputName);
+	void Connect(const FGraphBuilderOutputAddress& Output, UMaterialExpression* InputNode, FName InputName);
+	void Connect(UMaterialExpression* OutputNode, FName OutputName, const FGraphBuilderInputAddress& Input);
+
+	void Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, UMaterialExpression* InputNode, FName InputName);
+	void Connect(UMaterialExpression* OutputNode, FName OutputName, UMaterialExpression* InputNode, uint32 InputIndex);
+
 	void Connect(const FGraphBuilderOutputAddress& Output, const FGraphBuilderInputAddress& Input);
 	
 	// This is the texture coordinate input via the UV pin, without any modifications
@@ -129,5 +140,8 @@ private:
 	UMaterialExpression* MakeTextureSamplerCustomNode(int Index);
 
 	UMaterialExpression* MakeSynthesizeTangentCustomNode();
+
+	static int32 FindInputIndexChecked(UMaterialExpression* InputNode, FName InputName);
+	static int32 FindOutputIndexChecked(UMaterialExpression* OutputNode, FName OutputName);
 };
 #endif // WITH_EDITOR
