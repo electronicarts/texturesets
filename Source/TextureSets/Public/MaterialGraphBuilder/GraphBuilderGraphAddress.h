@@ -40,6 +40,7 @@ FORCEINLINE uint32 GetTypeHash(const FGraphBuilderGraphAddress& Address)
 	return Address.GetHash();
 }
 
+// Address of an input pin to a material expression
 struct FGraphBuilderInputAddress : public FGraphBuilderGraphAddress
 {
 public:
@@ -56,6 +57,7 @@ public:
 	bool IsValid() const;
 };
 
+// Address of an output pin of a material expression
 struct FGraphBuilderOutputAddress : public FGraphBuilderGraphAddress
 {
 public:

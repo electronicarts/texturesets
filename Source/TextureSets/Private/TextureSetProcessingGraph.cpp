@@ -28,7 +28,7 @@ void FTextureSetProcessingGraph::Regenerate(const TArray<const UTextureSetModule
 	for (const UTextureSetModule* Module : Modules)
 	{
 		if (IsValid(Module))
-			Module->GenerateProcessingGraph(*this);
+			Module->ConfigureProcessingGraph(*this);
 	}
 
 	bHasGenerated = true;

@@ -8,6 +8,8 @@
 #include "MaterialGraph/MaterialGraphNode.h"
 #include "MaterialGraphBuilder/HLSLFunctionCallNodeBuilder.h"
 #include "Materials/MaterialExpressionAppendVector.h"
+#include "Materials/MaterialExpressionAdd.h"
+#include "Materials/MaterialExpressionMultiply.h"
 #include "Materials/MaterialExpressionCameraVectorWS.h"
 #include "Materials/MaterialExpressionConstant.h"
 #include "Materials/MaterialExpressionConstant3Vector.h"
@@ -37,9 +39,7 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 	, MaterialFunction(MaterialFunction)
 	, ModuleInfo(Definition->GetModuleInfo())
 	, PackingInfo(Definition->GetPackingInfo())
-	, RawUV(CreateInput("UV", EFunctionInputType::FunctionInput_Vector2, EInputSort::UV), 0)
 {
-
 	const UTextureSet* DefaultTextureSet = Definition->GetDefaultTextureSet();
 
 	// Create Texture Parameters for each packed texture
@@ -71,82 +71,26 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 		}
 	}
 
-	// Sample each packed texture
-	for (int t = 0; t < PackingInfo.NumPackedTextures(); t++)
-	{
-		const FTextureSetPackedTextureDef& TextureDef = PackingInfo.GetPackedTextureDef(t);
-		TObjectPtr<UMaterialExpression> TextureSample = MakeTextureSamplerCustomNode(t);
-		PackedTextureSamples.Add(TextureSample);
-
-		const TArray<FName> SourceChannels = TextureDef.GetSources();
-		for (int c = 0; c < SourceChannels.Num(); c++)
-		{
-			if (SourceChannels[c].IsNone())
-				continue;
-
-			UMaterialExpression* ChannelNode = TextureSample;
-			int ChannelNodeOutput = c + 1;
-
-			// Create a named node for this channel
-			TObjectPtr<UMaterialExpressionNamedRerouteDeclaration> NamedNode = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
-			NamedNode->Name = SourceChannels[c];
-			ChannelNode->ConnectExpression(NamedNode->GetInput(0), ChannelNodeOutput);
-
-			ProcessedTextureSamples.Add(SourceChannels[c], NamedNode);
-
-			// Record packing sources for lookup later.
-			PackingSource.Add(SourceChannels[c], TTuple<int, int>(t, c));
-		}
-	}
-
 	// Created on demand
 	PackedTextureSizes.Init(nullptr, PackingInfo.NumPackedTextures());
-
-	// Append vectors back into their equivalent processed map samples
-	for (const auto& [Name, ProcessedTexture] : ModuleInfo.GetProcessedTextures())
-	{
-		const FName TextureName = Name;
-		const int TextureChannels = ProcessedTexture.ChannelCount;
-
-		// Only support 1-4 channels
-		check(TextureChannels >= 1 && TextureChannels <= 4);
-
-		FName TextureSampleName = FName(TextureName.ToString() + TextureSetsHelpers::ChannelSuffixes[0]);
-
-		checkf(ProcessedTextureSamples.Contains(TextureSampleName), TEXT("Processed texture sample not found. This can happen if the texture was not packed into a valid channel."));
-
-		UMaterialExpression* WorkingNode = ProcessedTextureSamples.FindChecked(TextureSampleName);
-
-		if (TextureChannels == 1)
-		{
-			// For single channel textures, we can re-use the same node.
-			// Just add it a second time to the map with a different key
-			ProcessedTextureSamples.Add(TextureName, WorkingNode);
-		}
-		else
-		{
-			for (int i = 1; i < TextureChannels; i++)
-			{
-				UMaterialExpression* AppendNode = CreateExpression<UMaterialExpressionAppendVector>();
-				UMaterialExpression* NextChannel = ProcessedTextureSamples.FindChecked(FName(TextureName.ToString() + TextureSetsHelpers::ChannelSuffixes[i]));
-				WorkingNode->ConnectExpression(AppendNode->GetInput(0), 0);
-				NextChannel->ConnectExpression(AppendNode->GetInput(1), 0);
-				WorkingNode = AppendNode;
-			}
-			TObjectPtr<UMaterialExpressionNamedRerouteDeclaration> NamedNode = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
-			NamedNode->Name = TextureName;
-			WorkingNode->ConnectExpression(NamedNode->GetInput(0), 0);
-			ProcessedTextureSamples.Add(TextureName, NamedNode);
-		}
-	}
 
 	// Call out to modules to do the work of connecting processed texture samples to outputs
 	for (const UTextureSetModule* Module : Definition->GetModuleInfo().GetModules())
 	{
-		Module->GenerateSamplingGraph(Node, *this);
+		Module->ConfigureSamplingGraphBuilder(Node, this);
 	}
 
-	SetupSharedValues();
+	// Build all the sub-samples
+	TMap<FName, FGraphBuilderOutputAddress> SampleResults = BuildSubsamplesRecursive(FSubSampleAddress::Root());
+
+	// Create outputs for each of the blended subsample results
+	for (const auto& [Name, Address] : SampleResults)
+	{
+		UMaterialExpressionFunctionOutput* Output = CreateOutput(Name);
+		Connect(Address, Output, 0);
+	}
+
+	SetupFallbackValues();
 
 	// Connect deferred connections
 	for (const auto& [Input, Output] : DeferredConnections)
@@ -155,6 +99,19 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 		check(Output.IsValid());
 		Output.GetExpression()->ConnectExpression(Input.GetExpression()->GetInput(Input.GetIndex()), Output.GetIndex());
 	}
+}
+
+const TArray<SubSampleHandle>& FTextureSetMaterialGraphBuilder::AddSubsampleGroup(TArray<FSubSampleDefinition> SampleGroup)
+{
+	TArray<SubSampleHandle>& SampleGroupHandles = SampleGroups.AddDefaulted_GetRef();
+
+	for (const FSubSampleDefinition& SampleDef : SampleGroup)
+	{
+		const SubSampleHandle& Handle = SampleGroupHandles.Add_GetRef(SubSampleHandle::NewGuid());
+		SubsampleDefinitions.Add(Handle, SampleDef);
+	}
+
+	return SampleGroupHandles;
 }
 
 UMaterialExpression* FTextureSetMaterialGraphBuilder::CreateFunctionCall(FSoftObjectPath FunctionPath)
@@ -174,28 +131,37 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::CreateFunctionCall(FSoftOb
 	return nullptr;
 }
 
-const FGraphBuilderOutputAddress& FTextureSetMaterialGraphBuilder::GetSharedValue(EGraphBuilderSharedValueType Value)
+UMaterialExpressionNamedRerouteDeclaration* FTextureSetMaterialGraphBuilder::CreateReroute(FName Name)
 {
-	FGraphBuilderOutputAddress* Address = SharedValueReroute.Find(Value);
-
-	if (Address)
-	{
-		return *Address;
-	}
-	else
-	{
-		// First time shared value was requested, create a reroute node for it and use that as the output
-		UMaterialExpressionNamedRerouteDeclaration* Reroute = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
-		Reroute->Name = UEnum::GetValueAsName(Value);
-		FGraphBuilderOutputAddress NewAddress(Reroute, 0);
-		return SharedValueReroute.Add(Value, NewAddress);
-	}
+	UMaterialExpressionNamedRerouteDeclaration* Reroute = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
+	Reroute->Name = Name;
+	return Reroute;
 }
 
-const void FTextureSetMaterialGraphBuilder::SetSharedValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType Value)
+UMaterialExpressionNamedRerouteDeclaration* FTextureSetMaterialGraphBuilder::CreateReroute(const FString& Name, const FString& Namespace)
 {
-	if (ensureMsgf(!SharedValueSources.Contains(Value), TEXT("Standard shared value has already been set. Multiple overrides are not currently supported")))
-		SharedValueSources.Add(Value, Address);
+	return CreateReroute(FName(FString::Format(TEXT("{0}::{1}"), { Namespace, Name })));
+}
+
+const FGraphBuilderOutputAddress& FTextureSetMaterialGraphBuilder::GetFallbackValue(EGraphBuilderSharedValueType ValueType)
+{
+	FGraphBuilderValue& Value = FallbackValues.FindOrAdd(ValueType);
+
+	if (!Value.Reroute.IsValid())
+	{
+		// First time shared value was requested, create a reroute node for it and use that as the output
+		Value.Reroute = FGraphBuilderOutputAddress(CreateReroute(UEnum::GetValueAsName(ValueType)), 0);
+	}
+
+	return Value.Reroute;
+}
+
+const void FTextureSetMaterialGraphBuilder::SetFallbackValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType ValueType)
+{
+	FGraphBuilderValue& Value = FallbackValues.FindOrAdd(ValueType);
+
+	if (ensureMsgf(!Value.Source.IsValid(), TEXT("Shared value has already been set. Multiple overrides are not currently supported")))
+		Value.Source = Address;
 }
 
 void FTextureSetMaterialGraphBuilder::Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, UMaterialExpression* InputNode, uint32 InputIndex)
@@ -243,16 +209,6 @@ void FTextureSetMaterialGraphBuilder::Connect(const FGraphBuilderOutputAddress& 
 	DeferredConnections.Add(Input, Output);
 }
 
-const FGraphBuilderOutputAddress& FTextureSetMaterialGraphBuilder::GetRawUV() const
-{
-	return RawUV;
-}
-
-const FGraphBuilderOutputAddress FTextureSetMaterialGraphBuilder::GetProcessedTextureSample(FName Name)
-{
-	return FGraphBuilderOutputAddress(ProcessedTextureSamples.FindChecked(Name), 0);
-}
-
 UMaterialExpressionTextureObjectParameter* FTextureSetMaterialGraphBuilder::GetPackedTextureObject(int Index)
 {
 	return PackedTextureObjects[Index];
@@ -271,47 +227,33 @@ const FGraphBuilderOutputAddress FTextureSetMaterialGraphBuilder::GetPackedTextu
 	return FGraphBuilderOutputAddress(PackedTextureSizes[Index], 0);
 }
 
-TTuple<int, int> FTextureSetMaterialGraphBuilder::GetPackingSource(FName ProcessedTextureChannel)
+void FTextureSetMaterialGraphBuilder::AddSampleBuilder(SampleBuilderFunction SampleBuilder)
 {
-	return PackingSource.FindChecked(ProcessedTextureChannel);
+	SampleBuilders.Add(SampleBuilder);
 }
 
 UMaterialExpressionFunctionInput* FTextureSetMaterialGraphBuilder::CreateInput(FName Name, EFunctionInputType Type, EInputSort Sort)
 {
-	check(!SampleInputs.Contains(Name));
+	if (GraphInputs.Contains(Name))
+		LogError(FText::Format(INVTEXT("Input {0} already exists; an input can only be created once."), FText::FromName(Name)));
 
 	UMaterialExpressionFunctionInput* NewInput = CreateExpression<UMaterialExpressionFunctionInput>();
 	NewInput->InputName = Name;
 	NewInput->InputType = Type;
 	NewInput->SortPriority = (int)Sort;
-	SampleInputs.Add(Name, NewInput);
+	GraphInputs.Add(Name, NewInput);
 	return NewInput;
-}
-
-UMaterialExpressionFunctionInput* FTextureSetMaterialGraphBuilder::GetInput(FName Name) const
-{
-	if (!SampleInputs.Contains(Name))
-		return nullptr;
-
-	return SampleInputs.FindChecked(Name);
 }
 
 UMaterialExpressionFunctionOutput* FTextureSetMaterialGraphBuilder::CreateOutput(FName Name)
 {
-	check(!SampleOutputs.Contains(Name));
+	if (GraphOutputs.Contains(Name))
+		LogError(FText::Format(INVTEXT("Output {0} already exists; an input can only be created once."), FText::FromName(Name)));
 
 	UMaterialExpressionFunctionOutput* NewOutput = CreateExpression<UMaterialExpressionFunctionOutput>();
 	NewOutput->OutputName = Name;
-	SampleOutputs.Add(Name, NewOutput);
+	GraphOutputs.Add(Name, NewOutput);
 	return NewOutput;
-}
-
-UMaterialExpressionFunctionOutput* FTextureSetMaterialGraphBuilder::GetOutput(FName Name) const
-{
-	if (!SampleOutputs.Contains(Name))
-		return nullptr;
-
-	return SampleOutputs.FindChecked(Name);
 }
 
 UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeConstantParameter(FName Name, FVector4f Default)
@@ -332,13 +274,90 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeConstantParameter(FNam
 	return AppendNode;
 }
 
-void FTextureSetMaterialGraphBuilder::SetupSharedValues()
+TMap<FName, FGraphBuilderOutputAddress> FTextureSetMaterialGraphBuilder::BuildSubsamplesRecursive(const FSubSampleAddress& Address)
+{
+	const int32 Depth = Address.GetHandleChain().Num();
+	check(Depth <= SampleGroups.Num());
+	const bool IsLeaf = Depth == SampleGroups.Num();
+
+	if (IsLeaf)
+	{
+		FTextureSetSubsampleContext Context(this, Address);
+
+		for (SampleBuilderFunction SampleBuilder : SampleBuilders)
+		{
+			SampleBuilder(Context);
+		}
+
+		SetupTextureValues(Context);
+		SetupSharedValues(Context);
+
+		return Context.Results;
+	}
+	else
+	{
+		const TArray<SubSampleHandle>& SampleGroup = SampleGroups[Depth];
+
+		TArray<TMap<FName, FGraphBuilderOutputAddress>> Results;
+
+		for (SubSampleHandle SampleHandle : SampleGroup)
+		{
+			Results.Add(BuildSubsamplesRecursive(FSubSampleAddress(Address, SampleHandle)));
+		}
+
+		return BlendSubsampleResults(Address, Results);
+	}
+}
+
+TMap<FName, FGraphBuilderOutputAddress> FTextureSetMaterialGraphBuilder::BlendSubsampleResults(const FSubSampleAddress& Address, TArray<TMap<FName, FGraphBuilderOutputAddress>> Results)
+{
+	TMap<FName, FGraphBuilderOutputAddress> BlendedResult;
+
+	// Validate all results share the same elements
+	for (const auto& [Name, Output] : Results[0])
+	{
+		for (int i = 1; i < Results.Num(); i++)
+			check(Results[i].Contains(Name));
+	}
+
+	// For each set of results
+	for (int i = 0; i < Results.Num(); i++)
+	{
+		const FGraphBuilderOutputAddress& SampleWeight = SubsampleDefinitions.FindChecked(SampleGroups[Address.GetHandleChain().Num()][i]).Weight;
+
+		for (const auto& [Name, Result] : Results[i])
+		{
+			// Multiply each result by the sample weight
+			UMaterialExpressionMultiply* Mul = CreateExpression<UMaterialExpressionMultiply>();
+			Connect(Result, Mul, 0);
+			Connect(SampleWeight, Mul, 1);
+
+			if (FGraphBuilderOutputAddress* PrevBlended = BlendedResult.Find(Name))
+			{
+				// Add the weighted results together
+				UMaterialExpressionAdd* Add = CreateExpression<UMaterialExpressionAdd>();
+				Connect(*PrevBlended, Add, 0);
+				Connect(FGraphBuilderOutputAddress(Mul, 0), Add, 1);
+				BlendedResult.Add(Name, FGraphBuilderOutputAddress(Add, 0));
+			}
+			else
+			{
+				BlendedResult.Add(Name, FGraphBuilderOutputAddress(Mul, 0));
+			}
+		}
+	}
+
+	return BlendedResult;
+}
+
+void FTextureSetMaterialGraphBuilder::SetupFallbackValues()
 {
 	// Hook up proper inputs to any reroute nodes that were used.
 	// Note: Order here is important, as we have some dependencies
 
-	const auto NeedsValue = [this](EGraphBuilderSharedValueType Type) {
-		return SharedValueReroute.Contains(Type) && !SharedValueSources.Contains(Type);
+	const auto NeedsValue = [this](EGraphBuilderSharedValueType ValueType) {
+		FGraphBuilderValue* Value = FallbackValues.Find(ValueType);
+		return Value != nullptr && Value->Reroute.IsValid() && !Value->Source.IsValid();
 	};
 
 	const bool NeedsTangent = NeedsValue(EGraphBuilderSharedValueType::Tangent);
@@ -358,7 +377,11 @@ void FTextureSetMaterialGraphBuilder::SetupSharedValues()
 		}
 		case ETangentSource::Synthesized:
 		{
-			UMaterialExpression* SynthesizeTangentNode = MakeSynthesizeTangentCustomNode();
+			UMaterialExpression* SynthesizeTangentNode = MakeSynthesizeTangentCustomNode(
+				GetFallbackValue(EGraphBuilderSharedValueType::Position),
+				GetFallbackValue(EGraphBuilderSharedValueType::Texcoord_Raw),
+				GetFallbackValue(EGraphBuilderSharedValueType::BaseNormal));
+
 			TangentSource = FGraphBuilderOutputAddress(SynthesizeTangentNode, 1);
 			BitangentSource = FGraphBuilderOutputAddress(SynthesizeTangentNode, 2);
 			break;
@@ -386,10 +409,10 @@ void FTextureSetMaterialGraphBuilder::SetupSharedValues()
 		}
 
 		if (NeedsTangent)
-			SetSharedValue(TangentSource, EGraphBuilderSharedValueType::Tangent);
+			SetFallbackValue(TangentSource, EGraphBuilderSharedValueType::Tangent);
 
 		if (NeedsBitangent)
-			SetSharedValue(BitangentSource, EGraphBuilderSharedValueType::Bitangent);
+			SetFallbackValue(BitangentSource, EGraphBuilderSharedValueType::Bitangent);
 	}
 
 	if (NeedsValue(EGraphBuilderSharedValueType::BaseNormal))
@@ -409,7 +432,7 @@ void FTextureSetMaterialGraphBuilder::SetupSharedValues()
 			break;
 		}
 
-		SetSharedValue(BaseNormalSource, EGraphBuilderSharedValueType::BaseNormal);
+		SetFallbackValue(BaseNormalSource, EGraphBuilderSharedValueType::BaseNormal);
 	}
 
 	if (NeedsValue(EGraphBuilderSharedValueType::CameraVector))
@@ -429,7 +452,7 @@ void FTextureSetMaterialGraphBuilder::SetupSharedValues()
 			break;
 		}
 
-		SetSharedValue(CameraVectorSource, EGraphBuilderSharedValueType::CameraVector);
+		SetFallbackValue(CameraVectorSource, EGraphBuilderSharedValueType::CameraVector);
 	}
 
 	if (NeedsValue(EGraphBuilderSharedValueType::Position))
@@ -449,63 +472,127 @@ void FTextureSetMaterialGraphBuilder::SetupSharedValues()
 			break;
 		}
 
-		SetSharedValue(PositionSource, EGraphBuilderSharedValueType::Position);
+		SetFallbackValue(PositionSource, EGraphBuilderSharedValueType::Position);
 	}
 	
-	if (NeedsValue(EGraphBuilderSharedValueType::UV_Streaming))
+	if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_Streaming))
 	{
-		SetSharedValue(GetSharedValue(EGraphBuilderSharedValueType::UV_Sampling), EGraphBuilderSharedValueType::UV_Streaming);
+		SetFallbackValue(GetFallbackValue(EGraphBuilderSharedValueType::Texcoord_Sampling), EGraphBuilderSharedValueType::Texcoord_Streaming);
 	}
 
-	if (NeedsValue(EGraphBuilderSharedValueType::UV_DDX))
+	if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_DDX))
 	{
 		UMaterialExpression* DDX = CreateExpression<UMaterialExpressionDDX>();
-		Connect(GetSharedValue(EGraphBuilderSharedValueType::UV_Mip), FGraphBuilderInputAddress(DDX, 0));
-		SetSharedValue(FGraphBuilderOutputAddress(DDX, 0), EGraphBuilderSharedValueType::UV_DDX);
+		Connect(GetFallbackValue(EGraphBuilderSharedValueType::Texcoord_Mip), FGraphBuilderInputAddress(DDX, 0));
+		SetFallbackValue(FGraphBuilderOutputAddress(DDX, 0), EGraphBuilderSharedValueType::Texcoord_DDX);
 	}
 
-	if (NeedsValue(EGraphBuilderSharedValueType::UV_DDY))
+	if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_DDY))
 	{
 		UMaterialExpression* DDY = CreateExpression<UMaterialExpressionDDY>();
-		Connect(GetSharedValue(EGraphBuilderSharedValueType::UV_Mip), FGraphBuilderInputAddress(DDY, 0));
-		SetSharedValue(FGraphBuilderOutputAddress(DDY, 0), EGraphBuilderSharedValueType::UV_DDY);
+		Connect(GetFallbackValue(EGraphBuilderSharedValueType::Texcoord_Mip), FGraphBuilderInputAddress(DDY, 0));
+		SetFallbackValue(FGraphBuilderOutputAddress(DDY, 0), EGraphBuilderSharedValueType::Texcoord_DDY);
 	}
 
-	if (NeedsValue(EGraphBuilderSharedValueType::UV_Mip))
+	if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_Mip))
 	{
-		SetSharedValue(GetSharedValue(EGraphBuilderSharedValueType::UV_Sampling), EGraphBuilderSharedValueType::UV_Mip);
+		SetFallbackValue(GetFallbackValue(EGraphBuilderSharedValueType::Texcoord_Sampling), EGraphBuilderSharedValueType::Texcoord_Mip);
 	}
 
-	if (NeedsValue(EGraphBuilderSharedValueType::UV_Sampling))
+	if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_Sampling))
 	{
-		SetSharedValue(RawUV, EGraphBuilderSharedValueType::UV_Sampling);
+		SetFallbackValue(GetFallbackValue(EGraphBuilderSharedValueType::Texcoord_Raw), EGraphBuilderSharedValueType::Texcoord_Sampling);
+	}
+
+	if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_Raw))
+	{
+		UMaterialExpression* UVInput = CreateInput("UV", EFunctionInputType::FunctionInput_Vector2, EInputSort::UV);
+		SetFallbackValue(FGraphBuilderOutputAddress(UVInput, 0), EGraphBuilderSharedValueType::Texcoord_Raw);
 	}
 
 	if (NeedsValue(EGraphBuilderSharedValueType::ArrayIndex))
 	{
 		FGraphBuilderOutputAddress IndexInput(CreateInput("Array Index", EFunctionInputType::FunctionInput_Scalar, EInputSort::UV), 0);
-		SetSharedValue(IndexInput, EGraphBuilderSharedValueType::ArrayIndex);
+		SetFallbackValue(IndexInput, EGraphBuilderSharedValueType::ArrayIndex);
 	}
 
 	// Link all shared value sources to the reroute nodes
-	for (auto& [Type, RerouteOutput] : SharedValueReroute)
-	{
-		FGraphBuilderOutputAddress ValueSource = SharedValueSources.FindChecked(Type);
-		check(RerouteOutput.IsValid());
-		FGraphBuilderInputAddress RerouteInput = FGraphBuilderInputAddress(RerouteOutput.GetExpression(), 0);
-
-		Connect(ValueSource, RerouteInput);
+	for (auto& [Type, Value] : FallbackValues)
+	{			
+		check(Value.Source.IsValid());
+		check(Value.Reroute.IsValid());
+		Connect(Value.Source, Value.Reroute.GetExpression(), 0);
 	}
 }
 
-UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode(int Index)
+void FTextureSetMaterialGraphBuilder::SetupSharedValues(FTextureSetSubsampleContext& Context)
+{
+	for (auto& [Type, Value] : Context.SubsampleValues)
+	{
+		// Fall back to shared value if this subsample value hasn't been set explicitly
+		const FGraphBuilderOutputAddress& SourceAddress = Value.Source.IsValid() ? Value.Source : GetFallbackValue(Type);
+
+		check(SourceAddress.IsValid());
+		if (Value.Reroute.IsValid())
+			Connect(SourceAddress, Value.Reroute.GetExpression(), 0);
+	}
+}
+
+void FTextureSetMaterialGraphBuilder::SetupTextureValues(FTextureSetSubsampleContext& Context)
+{
+	TMap<FName, FGraphBuilderValue>& TextureValues = Context.ProcessedTextureValues;
+
+	// Sample each packed texture
+	for (int t = 0; t < PackingInfo.NumPackedTextures(); t++)
+	{
+		UMaterialExpression* TextureSample = MakeTextureSamplerCustomNode(t, Context);
+
+		const TArray<FName> SourceChannels = PackingInfo.GetPackedTextureDef(t).GetSources();
+		for (int c = 0; c < SourceChannels.Num(); c++)
+		{
+			if (SourceChannels[c].IsNone())
+				continue;
+
+			FGraphBuilderValue& Value = TextureValues.FindOrAdd(SourceChannels[c]);
+			Value.Source = FGraphBuilderOutputAddress(TextureSample, c + 1);
+		}
+	}
+
+	// Append vectors back into their equivalent processed map samples
+	for (const auto& [TextureName, ProcessedTexture] : ModuleInfo.GetProcessedTextures())
+	{
+		FGraphBuilderOutputAddress WorkingAddress = TextureValues.FindChecked(FName(TextureName.ToString() + TextureSetsHelpers::ChannelSuffixes[0])).Source;
+
+		for (int i = 1; i < ProcessedTexture.ChannelCount; i++)
+		{
+			UMaterialExpression* AppendNode = CreateExpression<UMaterialExpressionAppendVector>();
+			FGraphBuilderOutputAddress NextChannel = TextureValues.FindChecked(FName(TextureName.ToString() + TextureSetsHelpers::ChannelSuffixes[i])).Source;
+			Connect(WorkingAddress, AppendNode, 0);
+			Connect(NextChannel, AppendNode, 1);
+			WorkingAddress = FGraphBuilderOutputAddress(AppendNode, 0);
+		}
+
+		FGraphBuilderValue& Value = TextureValues.FindOrAdd(TextureName);
+		Value.Source = WorkingAddress;
+	}
+
+	// Link all shared value sources to the reroute nodes
+	for (auto& [Type, Value] : TextureValues)
+	{			
+		check(Value.Source.IsValid());
+		if (Value.Reroute.IsValid())
+			Connect(Value.Source, Value.Reroute.GetExpression(), 0);
+	}
+}
+
+UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode(int Index, FTextureSetSubsampleContext& Context)
 {
 	const FTextureSetPackedTextureDef& TextureDef = PackingInfo.GetPackedTextureDef(Index);
 	const FTextureSetPackedTextureInfo& TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
 	UMaterialExpressionTextureObjectParameter* TextureObject = PackedTextureObjects[Index];
 
-	FGraphBuilderOutputAddress SampleCoord = GetSharedValue(EGraphBuilderSharedValueType::UV_Sampling);
-	FGraphBuilderOutputAddress StreamingCoord = GetSharedValue(EGraphBuilderSharedValueType::UV_Streaming);
+	FGraphBuilderOutputAddress SampleCoord = Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Sampling);
+	FGraphBuilderOutputAddress StreamingCoord = Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming);
 
 	if (EnumHasAnyFlags(TextureInfo.Flags, ETextureSetTextureFlags::Array))
 	{
@@ -513,7 +600,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 		{
 			UMaterialExpression* AppendNode = CreateExpression<UMaterialExpressionAppendVector>();
 			Connect(SampleCoord, AppendNode, 0);
-			Connect(GetSharedValue(EGraphBuilderSharedValueType::ArrayIndex), AppendNode, 1);
+			Connect(Context.GetSharedValue(EGraphBuilderSharedValueType::ArrayIndex), AppendNode, 1);
 			SampleCoord = FGraphBuilderOutputAddress(AppendNode, 0);
 		}
 
@@ -611,8 +698,8 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 
 	Connect(SampleCoord, CustomExp, 0);
 	Connect(TextureStreamingDef, 0, CustomExp, 1);
-	Connect(GetSharedValue(EGraphBuilderSharedValueType::UV_DDX), CustomExp, 2);
-	Connect(GetSharedValue(EGraphBuilderSharedValueType::UV_DDY), CustomExp, 3);
+	Connect(Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_DDX), CustomExp, 2);
+	Connect(Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_DDY), CustomExp, 3);
 
 	if (RangeCompressMulInput != 0)
 	{
@@ -625,18 +712,18 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 	return CustomExp;
 }
 
-UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeSynthesizeTangentCustomNode()
+UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeSynthesizeTangentCustomNode(const FGraphBuilderOutputAddress& Position, const FGraphBuilderOutputAddress& Texcoord, const FGraphBuilderOutputAddress& Normal)
 {
 	HLSLFunctionCallNodeBuilder FunctionCall("SynthesizeTangents", "/Plugin/TextureSets/NormalSynthesis.ush");
 
-	FunctionCall.InArgument("Position", GetSharedValue(EGraphBuilderSharedValueType::Position));
-	FunctionCall.InArgument("Texcoord", RawUV);
-	FunctionCall.InArgument("Normal", GetSharedValue(EGraphBuilderSharedValueType::BaseNormal));
+	FunctionCall.InArgument("Position", Position);
+	FunctionCall.InArgument("Texcoord", Texcoord);
+	FunctionCall.InArgument("Normal", Normal);
 
 	FunctionCall.OutArgument("Tangent", ECustomMaterialOutputType::CMOT_Float3);
 	FunctionCall.OutArgument("Bitangent", ECustomMaterialOutputType::CMOT_Float3);
 
-	return FunctionCall.Build(*this);
+	return FunctionCall.Build(this);
 }
 
 int32 FTextureSetMaterialGraphBuilder::FindInputIndexChecked(UMaterialExpression* InputNode, FName InputName)
@@ -671,5 +758,20 @@ int32 FTextureSetMaterialGraphBuilder::FindOutputIndexChecked(UMaterialExpressio
 	}
 	checkf(OutputIndex >= 0, TEXT("Could not find output with name {0}"), OutputName);
 	return OutputIndex;
+}
+
+FString FTextureSetMaterialGraphBuilder::SubsampleAddressToString(const FSubSampleAddress& Address)
+{
+	if (Address.GetHandleChain().Num() == 0)
+		return "Root";
+	else
+	{
+		FString Result = SubsampleDefinitions.FindChecked(Address.GetHandleChain()[0]).Name.ToString();
+		for (int i = 1; i < Address.GetHandleChain().Num(); i++)
+		{
+			Result += "::" + SubsampleDefinitions.FindChecked(Address.GetHandleChain()[i]).Name.ToString();
+		}
+		return Result;
+	}
 }
 #endif // WITH_EDITOR

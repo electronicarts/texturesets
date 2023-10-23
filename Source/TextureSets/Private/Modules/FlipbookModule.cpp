@@ -5,6 +5,7 @@
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "MaterialGraphBuilder/HLSLFunctionCallNodeBuilder.h"
 #include "Materials/MaterialExpressionNamedReroute.h"
+#include "Materials/MaterialExpressionOneMinus.h"
 #include "ProcessingNodes/ParameterPassthrough.h"
 
 #if WITH_EDITOR
@@ -92,7 +93,7 @@ private:
 };
 
 
-void UFlipbookModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
+void UFlipbookModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	// Flag textures as an array
 	Graph.SetTextureFlagDefault(ETextureSetTextureFlags::Array);
@@ -122,17 +123,17 @@ int32 UFlipbookModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSa
 	return Hash;
 }
 
-void UFlipbookModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression, FTextureSetMaterialGraphBuilder& Builder) const
+void UFlipbookModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression, FTextureSetMaterialGraphBuilder* Builder) const
 {
 	const UFlipbookSampleParams* SampleParams = SampleExpression->SampleParams.Get<UFlipbookSampleParams>();
 
-	UMaterialExpressionFunctionInput* TimeInputExpression = Builder.CreateInput("FlipbookTime", EFunctionInputType::FunctionInput_Scalar);
+	UMaterialExpressionFunctionInput* TimeInputExpression = Builder->CreateInput("FlipbookTime", EFunctionInputType::FunctionInput_Scalar);
 	TimeInputExpression->PreviewValue = FVector4f(0.0f);
 	TimeInputExpression->bUsePreviewValueAsDefault = true;
 
 	HLSLFunctionCallNodeBuilder FlipbookFunctionCall("FlipbookFrame", "/Plugin/TextureSets/Flipbook.ush");
 
-	FGraphBuilderOutputAddress FlipbookParams = FGraphBuilderOutputAddress(Builder.MakeConstantParameter("FlipbookParams", FVector4f(1.0f, 15.0f, 0.0f, 1.0f)), 0);
+	FGraphBuilderOutputAddress FlipbookParams = FGraphBuilderOutputAddress(Builder->MakeConstantParameter("FlipbookParams", FVector4f(1.0f, 15.0f, 0.0f, 1.0f)), 0);
 
 	FlipbookFunctionCall.InArgument("FlipbookTime", FGraphBuilderOutputAddress(TimeInputExpression, 0));
 	FlipbookFunctionCall.InArgument("FlipbookTimeType", FString::FromInt((uint32)SampleParams->FlipbookTimeType));
@@ -144,13 +145,36 @@ void UFlipbookModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetS
 
 	UMaterialExpression* FlipbookFunctionCallExp = FlipbookFunctionCall.Build(Builder);
 
+	FGraphBuilderOutputAddress Frame0 = FGraphBuilderOutputAddress(FlipbookFunctionCallExp, 1);
+	FGraphBuilderOutputAddress Frame1 = FGraphBuilderOutputAddress(FlipbookFunctionCallExp, 2);
+	FGraphBuilderOutputAddress FrameBlend = FGraphBuilderOutputAddress(FlipbookFunctionCallExp, 3);
+
 	if (SampleParams->bBlendFrames)
 	{
-		// Not yet implemented
+		UMaterialExpressionOneMinus* OneMinusNode = Builder->CreateExpression<UMaterialExpressionOneMinus>();
+		Builder->Connect(FrameBlend, OneMinusNode, 0);
+		FGraphBuilderOutputAddress OneMinusFrameBlend = FGraphBuilderOutputAddress(OneMinusNode, 0);
+
+
+		const TArray<SubSampleHandle> SubsampleHandles = Builder->AddSubsampleGroup({
+			FSubSampleDefinition("Flipbook Frame 0", OneMinusFrameBlend),
+			FSubSampleDefinition("Flipbook Frame 1", FrameBlend)
+		});
+
+		Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder, SubsampleHandles, Frame0, Frame1](FTextureSetSubsampleContext& SampleContext)
+		{
+			if (SampleContext.GetAddress().GetHandleChain().Contains(SubsampleHandles[0]))
+				SampleContext.SetSharedValue(Frame0, EGraphBuilderSharedValueType::ArrayIndex);
+			else if (SampleContext.GetAddress().GetHandleChain().Contains(SubsampleHandles[1]))
+				SampleContext.SetSharedValue(Frame1, EGraphBuilderSharedValueType::ArrayIndex);
+		}));
 	}
 	else
 	{
-		Builder.SetSharedValue(FGraphBuilderOutputAddress(FlipbookFunctionCallExp, 1), EGraphBuilderSharedValueType::ArrayIndex);
+		Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder, Frame0](FTextureSetSubsampleContext& SampleContext)
+		{
+			SampleContext.SetSharedValue(Frame0, EGraphBuilderSharedValueType::ArrayIndex);
+		}));
 	}
 }
 #endif

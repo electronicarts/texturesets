@@ -6,6 +6,8 @@
 
 #include "MaterialEditingLibrary.h"
 #include "MaterialGraphBuilder/GraphBuilderGraphAddress.h"
+#include "MaterialGraphBuilder/GraphBuilderValue.h"
+#include "MaterialGraphBuilder/TextureSetSubsampleContext.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "TextureSetInfo.h"
 
@@ -15,30 +17,6 @@ class UMaterialExpressionFunctionOutput;
 class UMaterialExpressionTextureObjectParameter;
 class UMaterialExpressionNamedRerouteDeclaration;
 class UMaterialExpressionMaterialFunctionCall;
-UENUM()
-enum class EGraphBuilderSharedValueType : uint8
-{
-	// UV used for doing texture reads
-	UV_Sampling,
-	// UV used to inform the streaming system for non-virtual textures
-	UV_Streaming,
-	// UV used to look up mips for texture reads
-	UV_Mip,
-	// DDX and DDY of UV used to look up mips for texture reads
-	UV_DDX,
-	UV_DDY,
-	// Index used for sampling from texture arrays
-	ArrayIndex,
-	// Base normal used for tangent space transforms
-	BaseNormal,
-	// Tangent and Bitangent used for tangent space transforms
-	Tangent,
-	Bitangent,
-	// Per-pixel position value. Typically in world space, but also valid to be in view or object
-	Position,
-	// Pixel to camera vector. Should be in the same space as the position
-	CameraVector,
-};
 
 // Class responsible for building the material graph of a texture set sampler node.
 // Texture set modules use this node to customize the sampling logic.
@@ -58,52 +36,49 @@ public:
 
 	FTextureSetMaterialGraphBuilder(UMaterialFunction* MaterialFunction, const UMaterialExpressionTextureSetSampleParameter* Node);
 
+	// Change this to regenerate all texture set material graphs
+	static FString GetGraphBuilderVersion() { return "0.2"; }
+
 	template <class T> T* CreateExpression()
 	{
 		return Cast<T>(UMaterialEditingLibrary::CreateMaterialExpressionInFunction(MaterialFunction, T::StaticClass()));
 	}
 
 	UMaterialExpression* CreateFunctionCall(FSoftObjectPath FunctionPath);
+	UMaterialExpressionFunctionInput* CreateInput(FName Name, EFunctionInputType Type, EInputSort Sort = EInputSort::Custom);
+	UMaterialExpressionFunctionOutput* CreateOutput(FName Name);
+	UMaterialExpression* MakeConstantParameter(FName Name, FVector4f Default);
 
-	// Change this to regenerate all texture set material graphs
-	static FString GetGraphBuilderVersion() { return "0.1"; }
+	UMaterialExpressionNamedRerouteDeclaration* CreateReroute(FName Name);
+	UMaterialExpressionNamedRerouteDeclaration* CreateReroute(const FString& Name, const FString& Namespace);
 
-	const FGraphBuilderOutputAddress& GetSharedValue(EGraphBuilderSharedValueType Value);
-	const void SetSharedValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType Value);
+	const TArray<SubSampleHandle>& AddSubsampleGroup(TArray<FSubSampleDefinition> SampleGroup);
+	void AddSampleBuilder(SampleBuilderFunction SampleBuilder);
 
 	// Whole bunch of overloads for connecting stuff, hopefully makes it easy
 	void Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, UMaterialExpression* InputNode, uint32 InputIndex);
 	void Connect(const FGraphBuilderOutputAddress& Output, UMaterialExpression* InputNode, uint32 InputIndex);
 	void Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, const FGraphBuilderInputAddress& Input);
-
 	void Connect(UMaterialExpression* OutputNode, FName OutputName, UMaterialExpression* InputNode, FName InputName);
 	void Connect(const FGraphBuilderOutputAddress& Output, UMaterialExpression* InputNode, FName InputName);
 	void Connect(UMaterialExpression* OutputNode, FName OutputName, const FGraphBuilderInputAddress& Input);
-
 	void Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, UMaterialExpression* InputNode, FName InputName);
 	void Connect(UMaterialExpression* OutputNode, FName OutputName, UMaterialExpression* InputNode, uint32 InputIndex);
-
 	void Connect(const FGraphBuilderOutputAddress& Output, const FGraphBuilderInputAddress& Input);
-	
-	// This is the texture coordinate input via the UV pin, without any modifications
-	const FGraphBuilderOutputAddress& GetRawUV() const;
-
-	const FGraphBuilderOutputAddress GetProcessedTextureSample(FName Name);
 	
 	UMaterialExpressionTextureObjectParameter* GetPackedTextureObject(int Index);
 	const FGraphBuilderOutputAddress GetPackedTextureSize(int Index);
+	const TTuple<int, int> GetPackingSource(FName ProcessedTextureChannel) { return PackingInfo.GetPackingSource(ProcessedTextureChannel); }
 
-	TTuple<int, int> GetPackingSource(FName ProcessedTextureChannel);
+	void LogError(FText ErrorText) { Errors.Add(ErrorText); }
+	const TArray<FText>& GetErrors() { return Errors; }
 
-	UMaterialExpressionFunctionInput* CreateInput(FName Name, EFunctionInputType Type, EInputSort Sort = EInputSort::Custom);
-	UMaterialExpressionFunctionInput* GetInput(FName Name) const;
-
-	UMaterialExpressionFunctionOutput* CreateOutput(FName Name);
-	UMaterialExpressionFunctionOutput* GetOutput(FName Name) const;
-
-	UMaterialExpression* MakeConstantParameter(FName Name, FVector4f Default);
-
+	FString SubsampleAddressToString(const FSubSampleAddress& Address);
 private:
+
+	TArray<TArray<SubSampleHandle>> SampleGroups;
+	TMap<SubSampleHandle, FSubSampleDefinition> SubsampleDefinitions;
+
 	TObjectPtr<const UMaterialExpressionTextureSetSampleParameter> Node;
 	TObjectPtr<const UTextureSetDefinition> Definition;
 	TObjectPtr<UMaterialFunction> MaterialFunction;
@@ -112,34 +87,33 @@ private:
 	const FTextureSetPackingInfo PackingInfo;
 
 	TArray<TObjectPtr<UMaterialExpressionTextureObjectParameter>> PackedTextureObjects;
-	TArray<TObjectPtr<UMaterialExpression>> PackedTextureSamples;
 	TArray<TObjectPtr<UMaterialExpression>> PackedTextureSizes;
-
-	// Valid for both texture names "BaseColor" and with channel suffix "BaseColor.g"
-	TMap<FName, TObjectPtr<UMaterialExpression>> ProcessedTextureSamples;
 
 	TMap<FName, TObjectPtr<UMaterialExpression>> ConstantParameters;
 
-	// Key is the channel you want to find (e.g. "Roughness.r" or "Normal.g")
-	// Value is a tuple of the packed texture and channel where you'll find it
-	TMap<FName, TTuple<int, int>> PackingSource;
+	TMap<FName, TObjectPtr<UMaterialExpressionFunctionInput>> GraphInputs;
+	TMap<FName, TObjectPtr<UMaterialExpressionFunctionOutput>> GraphOutputs;
 
-	TMap<FName, TObjectPtr<UMaterialExpressionFunctionInput>> SampleInputs;
-	TMap<FName, TObjectPtr<UMaterialExpressionFunctionOutput>> SampleOutputs;
+	TMap<EGraphBuilderSharedValueType, FGraphBuilderValue> FallbackValues;
 
-	const FGraphBuilderOutputAddress RawUV;
-
-	TMap<EGraphBuilderSharedValueType, FGraphBuilderOutputAddress> SharedValueSources;
-	TMap<EGraphBuilderSharedValueType, FGraphBuilderOutputAddress> SharedValueReroute;
-
-	// Key is input address, and value is output
 	TMap<FGraphBuilderInputAddress, FGraphBuilderOutputAddress> DeferredConnections;
 
-	void SetupSharedValues();
+	TArray<SampleBuilderFunction> SampleBuilders;
 
-	UMaterialExpression* MakeTextureSamplerCustomNode(int Index);
+	TArray<FText> Errors;
 
-	UMaterialExpression* MakeSynthesizeTangentCustomNode();
+	TMap<FName, FGraphBuilderOutputAddress> BuildSubsamplesRecursive(const FSubSampleAddress& Address);
+	TMap<FName, FGraphBuilderOutputAddress> BlendSubsampleResults(const FSubSampleAddress& Address, TArray<TMap<FName, FGraphBuilderOutputAddress>>);
+
+	const FGraphBuilderOutputAddress& GetFallbackValue(EGraphBuilderSharedValueType Value);
+	const void SetFallbackValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType Value);
+
+	void SetupFallbackValues();
+	void SetupSharedValues(FTextureSetSubsampleContext& Context);
+	void SetupTextureValues(FTextureSetSubsampleContext& Context);
+
+	UMaterialExpression* MakeTextureSamplerCustomNode(int Index, FTextureSetSubsampleContext& Context);
+	UMaterialExpression* MakeSynthesizeTangentCustomNode(const FGraphBuilderOutputAddress& Position, const FGraphBuilderOutputAddress& Texcoord, const FGraphBuilderOutputAddress& Normal);
 
 	static int32 FindInputIndexChecked(UMaterialExpression* InputNode, FName InputName);
 	static int32 FindOutputIndexChecked(UMaterialExpression* OutputNode, FName OutputName);

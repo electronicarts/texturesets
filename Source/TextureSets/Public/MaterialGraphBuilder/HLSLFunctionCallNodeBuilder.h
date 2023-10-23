@@ -19,7 +19,7 @@ public:
 	void InArgument(FString ArgName, FString ArgValue);
 	void OutArgument(FString ArgName, ECustomMaterialOutputType OutType);
 
-	UMaterialExpression* Build(FTextureSetMaterialGraphBuilder& GraphBuilder);
+	UMaterialExpression* Build(FTextureSetMaterialGraphBuilder* GraphBuilder);
 
 private:
 	FString FunctionName;

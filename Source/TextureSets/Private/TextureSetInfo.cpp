@@ -136,6 +136,9 @@ FTextureSetPackingInfo::FTextureSetPackingInfo(const TArray<FTextureSetPackedTex
 			{
 				Errors.Add(FText::Format(LOCTEXT("MismatchedFlags", "Not all sources in packed texture {0} share the same texture type."), {i}));
 			}
+
+			// Record packing sources for lookup later.
+			PackingSource.Add(Source, TTuple<int, int>(i, c));
 		}
 
 		// Remove default flags, since we just baked it in

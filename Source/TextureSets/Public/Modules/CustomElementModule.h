@@ -16,13 +16,13 @@ public:
 	virtual FString GetInstanceName() const override { return ElementName.ToString(); }
 
 #if WITH_EDITOR
-	virtual void GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
+	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 
-	virtual void GenerateSamplingGraph(
+	virtual void ConfigureSamplingGraphBuilder(
 		const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
-		FTextureSetMaterialGraphBuilder& Builder) const override;
+		FTextureSetMaterialGraphBuilder* Builder) const override;
 #endif
 
 private:

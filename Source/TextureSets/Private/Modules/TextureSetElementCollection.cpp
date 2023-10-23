@@ -6,7 +6,7 @@
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
 #if WITH_EDITOR
-void UTextureSetElementCollection::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
+void UTextureSetElementCollection::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	// Just pass through source texture as processed texture
 	for (const FElementDefinition& Element: Elements)
@@ -30,13 +30,16 @@ int32 UTextureSetElementCollection::ComputeSamplingHash(const UMaterialExpressio
 #endif
 
 #if WITH_EDITOR
-void UTextureSetElementCollection::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
-	FTextureSetMaterialGraphBuilder& Builder) const
+void UTextureSetElementCollection::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+	FTextureSetMaterialGraphBuilder* Builder) const
 {
-	for (const FElementDefinition& Element: Elements)
+	Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder](FTextureSetSubsampleContext& SampleContext)
 	{
-		// Simply connect texture sample to the matching output.
-		Builder.Connect(Builder.GetProcessedTextureSample(Element.ElementName), Builder.CreateOutput(Element.ElementName), 0);
-	}
+		// Create a sample result for each texture
+		for (const FElementDefinition& Element: Elements)
+		{
+			SampleContext.AddResult(Element.ElementName, SampleContext.GetProcessedTextureSample(Element.ElementName));
+		}
+	}));
 }
 #endif

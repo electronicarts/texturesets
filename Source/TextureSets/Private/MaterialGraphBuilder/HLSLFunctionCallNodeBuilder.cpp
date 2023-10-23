@@ -35,9 +35,9 @@ void HLSLFunctionCallNodeBuilder::OutArgument(FString ArgName, ECustomMaterialOu
 	Outputs.Add(Output(ArgName, OutType));
 }
 
-UMaterialExpression* HLSLFunctionCallNodeBuilder::Build(FTextureSetMaterialGraphBuilder& GraphBuilder)
+UMaterialExpression* HLSLFunctionCallNodeBuilder::Build(FTextureSetMaterialGraphBuilder* GraphBuilder)
 {
-	UMaterialExpressionCustom* CustomExp = GraphBuilder.CreateExpression<UMaterialExpressionCustom>();
+	UMaterialExpressionCustom* CustomExp = GraphBuilder->CreateExpression<UMaterialExpressionCustom>();
 
 	CustomExp->Description = FunctionName;
 

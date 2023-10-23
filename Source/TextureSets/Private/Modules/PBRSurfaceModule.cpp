@@ -17,7 +17,7 @@
 #endif
 
 #if WITH_EDITOR
-void UPBRSurfaceModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
+void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	if (Paramaterization == EPBRParamaterization::Basecolor_Metal || Paramaterization == EPBRParamaterization::Dielectric)
 	{
@@ -96,113 +96,116 @@ int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSet
 #endif
 
 #if WITH_EDITOR
-void UPBRSurfaceModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
-	FTextureSetMaterialGraphBuilder& Builder) const
+void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+	FTextureSetMaterialGraphBuilder* Builder) const
 {
 	const UPBRSampleParams* PBRSampleParams = SampleExpression->SampleParams.Get<UPBRSampleParams>();
 
-	// Surface Parameterization
+	Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder, PBRSampleParams](FTextureSetSubsampleContext& SampleContext)
 	{
-		switch (Paramaterization)
+		// Surface Parameterization
 		{
-		case EPBRParamaterization::Basecolor_Metal:
-			Builder.Connect(Builder.GetProcessedTextureSample(MetalName), Builder.CreateOutput(MetalName), 0);
-			// Falls through
-		case EPBRParamaterization::Dielectric:
-			Builder.Connect(Builder.GetProcessedTextureSample(BaseColorName), Builder.CreateOutput(BaseColorName), 0);
-			break;
-		case EPBRParamaterization::Albedo_Spec:
-			Builder.Connect(Builder.GetProcessedTextureSample(AlbedoName), Builder.CreateOutput(AlbedoName), 0);
-			Builder.Connect(Builder.GetProcessedTextureSample(SpecularName), Builder.CreateOutput(SpecularName), 0);
-			break;
-		default:
-			unimplemented()
-			break;
-		}
-	}
-
-	// Microsurface
-	{
-		FGraphBuilderOutputAddress MicrosurfaceSample;
-		if (Microsurface == EPBRMicrosurface::Roughness)
-			MicrosurfaceSample = Builder.GetProcessedTextureSample(RoughnessName);
-		else if (Microsurface == EPBRMicrosurface::Smoothness)
-			MicrosurfaceSample = Builder.GetProcessedTextureSample(SmoothnessName);
-		else
-			unimplemented()
-
-		TObjectPtr<UMaterialExpressionFunctionOutput> ResultNode;
-		if (PBRSampleParams->MicrosurfaceOutput == EPBRMicrosurface::Roughness)
-			ResultNode = Builder.CreateOutput(RoughnessName);
-		else if (PBRSampleParams->MicrosurfaceOutput == EPBRMicrosurface::Smoothness)
-			ResultNode = Builder.CreateOutput(SmoothnessName);
-		else
-			unimplemented()
-
-		bool bNeedsInversion = Microsurface != PBRSampleParams->MicrosurfaceOutput;
-
-		if (bNeedsInversion)
-		{
-			UMaterialExpressionOneMinus* OneMinus = Builder.CreateExpression<UMaterialExpressionOneMinus>();
-			Builder.Connect(MicrosurfaceSample, OneMinus, 0);
-			Builder.Connect(OneMinus, 0, ResultNode, 0);
-		}
-		else
-		{
-			Builder.Connect(MicrosurfaceSample, ResultNode, 0);
-		}
-	}
-
-	// Normals
-	if (Normal == EPBRNormal::Tangent)
-	{
-		FGraphBuilderOutputAddress TangentNormal = Builder.GetProcessedTextureSample(TangentNormalName);
-
-		// Unpack tangent normal X and Y
-		UMaterialExpressionMultiply* Mul = Builder.CreateExpression<UMaterialExpressionMultiply>();
-		Builder.Connect(TangentNormal, Mul, 0);
-		Mul->ConstB = 2.0f;
-
-		UMaterialExpressionAdd* Add = Builder.CreateExpression<UMaterialExpressionAdd>();
-		Builder.Connect(Mul, 0, Add, 0);
-		Add->ConstB = -1.0f;
-
-		// Derive Z value
-		UMaterialExpressionDeriveNormalZ* DeriveZ = Builder.CreateExpression<UMaterialExpressionDeriveNormalZ>();
-		Builder.Connect(Add, 0, DeriveZ, 0);
-
-		if (PBRSampleParams->NormalOutput == EPBRNormalSpace::Tangent)
-		{
-			// Output tangent normal
-			Builder.Connect(DeriveZ, 0, Builder.CreateOutput(TangentNormalName), 0);
-		}
-		else
-		{
-			UMaterialExpression* Transform3x3 = Builder.CreateFunctionCall(FSoftObjectPath(TEXT("/Engine/Functions/Engine_MaterialFunctions02/Math/Transform3x3Matrix.Transform3x3Matrix")));
-			Builder.Connect(DeriveZ, 0, Transform3x3, "VectorToTransform");
-			Builder.Connect(Builder.GetSharedValue(EGraphBuilderSharedValueType::Tangent), Transform3x3, "BasisX");
-			Builder.Connect(Builder.GetSharedValue(EGraphBuilderSharedValueType::Bitangent), Transform3x3, "BasisY");
-			Builder.Connect(Builder.GetSharedValue(EGraphBuilderSharedValueType::BaseNormal), Transform3x3, "BasisZ");
-
-			if (PBRSampleParams->NormalOutput == EPBRNormalSpace::World)
+			switch (Paramaterization)
 			{
-				// Output world normal
-				Builder.Connect(Transform3x3, 0, Builder.CreateOutput(WorldNormalName), 0);
+			case EPBRParamaterization::Basecolor_Metal:
+				SampleContext.AddResult(MetalName, SampleContext.GetProcessedTextureSample(MetalName));
+				// Falls through
+			case EPBRParamaterization::Dielectric:
+				SampleContext.AddResult(BaseColorName, SampleContext.GetProcessedTextureSample(BaseColorName));
+				break;
+			case EPBRParamaterization::Albedo_Spec:
+				SampleContext.AddResult(AlbedoName, SampleContext.GetProcessedTextureSample(AlbedoName));
+				SampleContext.AddResult(SpecularName, SampleContext.GetProcessedTextureSample(SpecularName));
+				break;
+			default:
+				unimplemented()
+				break;
 			}
-			else if (PBRSampleParams->NormalOutput == EPBRNormalSpace::SurfaceGradient)
-			{
-				UMaterialExpressionSubtract* Subtract = Builder.CreateExpression<UMaterialExpressionSubtract>();
-				Builder.Connect(Transform3x3, 0, Subtract, 0);
-				Builder.Connect(Builder.GetSharedValue(EGraphBuilderSharedValueType::BaseNormal), Subtract, 1);
+		}
 
-				// Output surface gradient
-				Builder.Connect(Subtract, 0, Builder.CreateOutput(SurfaceGradientName), 0);
+		// Microsurface
+		if (Microsurface != EPBRMicrosurface::None && PBRSampleParams->MicrosurfaceOutput != EPBRMicrosurface::None)
+		{
+			FGraphBuilderOutputAddress MicrosurfaceSample;
+			if (Microsurface == EPBRMicrosurface::Roughness)
+				MicrosurfaceSample = SampleContext.GetProcessedTextureSample(RoughnessName);
+			else if (Microsurface == EPBRMicrosurface::Smoothness)
+				MicrosurfaceSample = SampleContext.GetProcessedTextureSample(SmoothnessName);
+			else
+				unimplemented()
+
+			FGraphBuilderOutputAddress ResultAddress = MicrosurfaceSample;
+
+			if (Microsurface != PBRSampleParams->MicrosurfaceOutput)
+			{
+				UMaterialExpressionOneMinus* OneMinus = Builder->CreateExpression<UMaterialExpressionOneMinus>();
+				Builder->Connect(ResultAddress, OneMinus, 0);
+				ResultAddress = FGraphBuilderOutputAddress(OneMinus, 0);
+			}
+
+			FName ResultName;
+
+			if (PBRSampleParams->MicrosurfaceOutput == EPBRMicrosurface::Roughness)
+				ResultName = RoughnessName;
+			else if (PBRSampleParams->MicrosurfaceOutput == EPBRMicrosurface::Smoothness)
+				ResultName = SmoothnessName;
+			else
+				unimplemented()
+
+			SampleContext.AddResult(ResultName, ResultAddress);
+		}
+
+		// Normals
+		if (Normal == EPBRNormal::Tangent)
+		{
+			FGraphBuilderOutputAddress TangentNormal = SampleContext.GetProcessedTextureSample(TangentNormalName);
+
+			// Unpack tangent normal X and Y
+			UMaterialExpressionMultiply* Mul = Builder->CreateExpression<UMaterialExpressionMultiply>();
+			Builder->Connect(TangentNormal, Mul, 0);
+			Mul->ConstB = 2.0f;
+
+			UMaterialExpressionAdd* Add = Builder->CreateExpression<UMaterialExpressionAdd>();
+			Builder->Connect(Mul, 0, Add, 0);
+			Add->ConstB = -1.0f;
+
+			// Derive Z value
+			UMaterialExpressionDeriveNormalZ* DeriveZ = Builder->CreateExpression<UMaterialExpressionDeriveNormalZ>();
+			Builder->Connect(Add, 0, DeriveZ, 0);
+
+			if (PBRSampleParams->NormalOutput == EPBRNormalSpace::Tangent)
+			{
+				// Output tangent normal
+				SampleContext.AddResult(TangentNormalName, FGraphBuilderOutputAddress(DeriveZ, 0));
 			}
 			else
 			{
-				unimplemented();
+				UMaterialExpression* Transform3x3 = Builder->CreateFunctionCall(FSoftObjectPath(TEXT("/Engine/Functions/Engine_MaterialFunctions02/Math/Transform3x3Matrix.Transform3x3Matrix")));
+				Builder->Connect(DeriveZ, 0, Transform3x3, "VectorToTransform");
+				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Tangent), Transform3x3, "BasisX");
+				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Bitangent), Transform3x3, "BasisY");
+				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::BaseNormal), Transform3x3, "BasisZ");
+
+				if (PBRSampleParams->NormalOutput == EPBRNormalSpace::World)
+				{
+					// Output world normal
+					SampleContext.AddResult(WorldNormalName, FGraphBuilderOutputAddress(Transform3x3, 0));
+				}
+				else if (PBRSampleParams->NormalOutput == EPBRNormalSpace::SurfaceGradient)
+				{
+					UMaterialExpressionSubtract* Subtract = Builder->CreateExpression<UMaterialExpressionSubtract>();
+					Builder->Connect(Transform3x3, 0, Subtract, 0);
+					Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::BaseNormal), Subtract, 1);
+
+					// Output surface gradient
+					SampleContext.AddResult(SurfaceGradientName, FGraphBuilderOutputAddress(Subtract, 0));
+				}
+				else
+				{
+					unimplemented();
+				}
 			}
 		}
-	}
+	}));
 }
 #endif

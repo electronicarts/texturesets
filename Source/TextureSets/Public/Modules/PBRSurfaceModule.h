@@ -43,10 +43,10 @@ class UPBRSampleParams : public UTextureSetSampleParams
 	GENERATED_BODY()
 public:
 	UPROPERTY(EditAnywhere);
-	EPBRMicrosurface MicrosurfaceOutput;
+	EPBRMicrosurface MicrosurfaceOutput = EPBRMicrosurface::Roughness;
 
 	UPROPERTY(EditAnywhere);
-	EPBRNormalSpace NormalOutput;
+	EPBRNormalSpace NormalOutput = EPBRNormalSpace::Tangent;
 };
 
 UCLASS()
@@ -69,12 +69,12 @@ public:
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UPBRSampleParams::StaticClass(); }
 
 #if WITH_EDITOR
-	virtual void GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
+	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 
-	virtual void GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
-		FTextureSetMaterialGraphBuilder& Builder) const override;
+	virtual void ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+		FTextureSetMaterialGraphBuilder* Builder) const override;
 #endif
 
 private:

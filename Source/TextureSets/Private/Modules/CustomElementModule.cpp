@@ -6,7 +6,7 @@
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
 #if WITH_EDITOR
-void UCustomElementModule::GenerateProcessingGraph(FTextureSetProcessingGraph& Graph) const
+void UCustomElementModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	Graph.AddOutputTexture(ElementName, Graph.AddInputTexture(ElementName, ElementDef));
 }
@@ -25,10 +25,13 @@ int32 UCustomElementModule::ComputeSamplingHash(const UMaterialExpressionTexture
 #endif
 
 #if WITH_EDITOR
-void UCustomElementModule::GenerateSamplingGraph(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
-	FTextureSetMaterialGraphBuilder& Builder) const
+void UCustomElementModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+	FTextureSetMaterialGraphBuilder* Builder) const
 {
-	// Simply connect texture sample to the matching output.
-	Builder.Connect(Builder.GetProcessedTextureSample(ElementName), Builder.CreateOutput(ElementName), 0);
+	Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder](FTextureSetSubsampleContext& SampleContext)
+	{
+		// Simply create a sample result for the element
+		SampleContext.AddResult(ElementName, SampleContext.GetProcessedTextureSample(ElementName));
+	}));
 }
 #endif
