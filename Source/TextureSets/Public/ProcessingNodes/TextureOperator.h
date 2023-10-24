@@ -15,7 +15,7 @@ public:
 	{}
 
 	virtual void LoadResources(const FTextureSetProcessingContext& Context) override { SourceImage->LoadResources(Context); }
-	virtual void Initialize(const FTextureSetProcessingContext& Context) override { SourceImage->Initialize(Context); }
+	virtual void Initialize(const FTextureSetProcessingGraph& Graph) override { SourceImage->Initialize(Graph); }
 
 	virtual const uint32 ComputeGraphHash() const override { return HashCombine(SourceImage->ComputeGraphHash(), GetTypeHash(GetNodeTypeName().ToString())); }
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override { return SourceImage->ComputeDataHash(Context); };
@@ -23,7 +23,7 @@ public:
 	virtual int GetWidth() const override { return SourceImage->GetWidth(); }
 	virtual int GetHeight() const override { return SourceImage->GetHeight(); }
 	virtual int GetSlices() const override { return SourceImage->GetSlices(); }
-	virtual const FTextureSetProcessedTextureDef& GetTextureDef() override { return SourceImage->GetTextureDef(); }
+	virtual const FTextureSetProcessedTextureDef GetTextureDef() override { return SourceImage->GetTextureDef(); }
 
 	const TSharedRef<ITextureProcessingNode> SourceImage;
 };

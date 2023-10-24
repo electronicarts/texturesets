@@ -4,6 +4,7 @@
 
 #include "TextureSetsHelpers.h"
 #include "TextureSetModule.h"
+#include "ProcessingNodes/TextureInput.h"
 
 #define LOCTEXT_NAMESPACE "TextureSets"
 
@@ -121,18 +122,12 @@ FTextureSetPackingInfo::FTextureSetPackingInfo(const TArray<FTextureSetPackedTex
 					TextureInfo.ChannelInfo[c].ChannelEncoding = ETextureSetTextureChannelEncoding::Linear_Raw;
 			}
 
-			ETextureSetTextureFlags SourceFlags = Processed.Flags;
-
-			// Add in the default flags from the processing graph if needed
-			if ((uint8)SourceFlags & (uint8)ETextureSetTextureFlags::Default)
-				SourceFlags |= ModuleInfo.GetProcessingGraph()->GetTextureFlagDefault();
-
 			if (bIsFirstSource)
 			{
-				TextureInfo.Flags = SourceFlags;
+				TextureInfo.Flags = Processed.Flags;
 				bIsFirstSource = false;
 			}
-			else if (TextureInfo.Flags != SourceFlags)
+			else if (TextureInfo.Flags != Processed.Flags)
 			{
 				Errors.Add(FText::Format(LOCTEXT("MismatchedFlags", "Not all sources in packed texture {0} share the same texture type."), {i}));
 			}
@@ -140,9 +135,6 @@ FTextureSetPackingInfo::FTextureSetPackingInfo(const TArray<FTextureSetPackedTex
 			// Record packing sources for lookup later.
 			PackingSource.Add(Source, TTuple<int, int>(i, c));
 		}
-
-		// Remove default flags, since we just baked it in
-		EnumRemoveFlags(TextureInfo.Flags, ETextureSetTextureFlags::Default);
 
 		// Set channel count after loop, incase any channels were removed
 		TextureInfo.ChannelCount = TextureDef.GetSources().Num();

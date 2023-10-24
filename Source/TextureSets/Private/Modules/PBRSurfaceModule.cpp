@@ -7,12 +7,13 @@
 #include "MaterialEditingLibrary.h"
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionAdd.h"
-#include "Materials/MaterialExpressionSubtract.h"
 #include "Materials/MaterialExpressionAppendVector.h"
 #include "Materials/MaterialExpressionDeriveNormalZ.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionMultiply.h"
 #include "Materials/MaterialExpressionOneMinus.h"
+#include "Materials/MaterialExpressionSubtract.h"
+#include "ProcessingNodes/TextureInput.h"
 #include "ProcessingNodes/TextureOperatorInvert.h"
 #endif
 

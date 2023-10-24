@@ -15,10 +15,7 @@ UENUM(meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor="true"))
 enum class ETextureSetTextureFlags : uint8
 {
 	None = 0,
-	// If this flag is set, default flags will also be set (default flags can be altered by the texture set modules)
-	Default = 1 << 0,
-	
-	Array = 1 << 1,
+	Array = 1 << 0,
 	// Additional texture flags such as 1D, 3D, cubemaps, etc. could be supported
 };
 ENUM_CLASS_FLAGS(ETextureSetTextureFlags);
@@ -32,7 +29,7 @@ struct FTextureSetProcessedTextureDef
 public:
 	FTextureSetProcessedTextureDef() : FTextureSetProcessedTextureDef(1, false) {}
 
-	FTextureSetProcessedTextureDef(int ChannelCount, bool SRGB, ETextureSetTextureFlags Flags = ETextureSetTextureFlags::Default)
+	FTextureSetProcessedTextureDef(int ChannelCount, bool SRGB, ETextureSetTextureFlags Flags = ETextureSetTextureFlags::None)
 		: ChannelCount(ChannelCount)
 		, SRGB(SRGB)
 		, Flags(Flags)

@@ -36,7 +36,7 @@ public:
 		// TODO: Bilinear/Trilinear interpolation
 		const int SourceX = X * (SourceImage->GetWidth() / Width);
 		const int SourceY = Y * (SourceImage->GetHeight() / Height);
-		const int SourceZ = Y * (SourceImage->GetSlices() / Slices);
+		const int SourceZ = Z * (SourceImage->GetSlices() / Slices);
 
 		return SourceImage->GetPixel(SourceX, SourceY, SourceZ, Channel);
 	}

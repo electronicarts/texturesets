@@ -13,6 +13,7 @@
 #include "Materials/MaterialExpressionMultiply.h"
 #include "Materials/MaterialExpressionTextureObjectParameter.h"
 #include "ProcessingNodes/ParameterPassthrough.h"
+#include "ProcessingNodes/TextureInput.h"
 
 #if WITH_EDITOR
 void UHeightModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const

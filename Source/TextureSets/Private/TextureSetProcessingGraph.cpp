@@ -4,11 +4,12 @@
 
 #include "TextureSetProcessingGraph.h"
 
+#include "ProcessingNodes/TextureInput.h"
 #include "TextureSetModule.h"
 
 FTextureSetProcessingGraph::FTextureSetProcessingGraph()
-	: TextureFlags(ETextureSetTextureFlags::None)
-	, bHasGenerated(false)
+	: bHasGenerated(false)
+	, bIsGenerating(false)
 {
 }
 
@@ -20,10 +21,11 @@ FTextureSetProcessingGraph::FTextureSetProcessingGraph(const TArray<const UTextu
 
 void FTextureSetProcessingGraph::Regenerate(const TArray<const UTextureSetModule*>& Modules)
 {
+	bIsGenerating = true;
 	InputTextures.Empty();
+	DefaultInputOperators.Empty();
 	OutputTextures.Empty();
 	OutputParameters.Empty();
-	TextureFlags = ETextureSetTextureFlags::None;
 
 	for (const UTextureSetModule* Module : Modules)
 	{
@@ -31,18 +33,21 @@ void FTextureSetProcessingGraph::Regenerate(const TArray<const UTextureSetModule
 			Module->ConfigureProcessingGraph(*this);
 	}
 
+	for (auto& [InputName, InputTexture] : InputTextures)
+	{
+		InputTexture->InstantiateOperators(*this);
+	}
+
+	bIsGenerating = false;
 	bHasGenerated = true;
 }
 
-const TMap<FName, const ITextureProcessingNode*> FTextureSetProcessingGraph::GetOutputTextures() const
+TSharedRef<FTextureInput> FTextureSetProcessingGraph::AddInputTexture(FName Name, const FTextureSetSourceTextureDef& SourceDef)
 {
-	// Copy our array into a const array
-	TMap<FName, const ITextureProcessingNode*> Result;
-	Result.Reserve(OutputTextures.Num());
-	for (auto& [Name, Node] : OutputTextures)
-		Result.Add(Name, &Node.Get());
-
-	return Result;
+	check(bIsGenerating); // Not valid to add inputs after the graph has finished generating
+	TSharedRef<FTextureInput> NewInput = TSharedRef<FTextureInput>(new FTextureInput(Name, SourceDef));
+	InputTextures.Add(Name, NewInput);
+	return NewInput;
 }
 
 const TMap<FName, const IParameterProcessingNode*> FTextureSetProcessingGraph::GetOutputParameters() const
@@ -54,11 +59,5 @@ const TMap<FName, const IParameterProcessingNode*> FTextureSetProcessingGraph::G
 		Result.Add(Name, &Node.Get());
 
 	return Result;
-}
-
-void FTextureSetProcessingGraph::SetTextureFlagDefault(ETextureSetTextureFlags NewFlags)
-{
-	checkf(!(TextureFlags & NewFlags), TEXT("Texture flag has already been set by another module, and intended usage may conflict."));
-	TextureFlags |= NewFlags;
 }
 #endif

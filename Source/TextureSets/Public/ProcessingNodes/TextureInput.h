@@ -8,41 +8,41 @@
 #include "ImageCore.h"
 #include "IProcessingNode.h"
 #include "TextureSetInfo.h"
+#include "TextureSetProcessingGraph.h"
 
-class UTexture;
+class FTextureRead;
 
 class FTextureInput : public ITextureProcessingNode
 {
-public:
+private:
+	// Constructor is private so this node can only be created via FTextureSetProcessingGraph::AddInputTexture
+	friend class FTextureSetProcessingGraph;
 	FTextureInput(FName SourceName, const FTextureSetSourceTextureDef& SourceDefinition);
-
+public:
 	virtual FName GetNodeTypeName() const  { return "TextureInput"; }
 
-	virtual void LoadResources(const FTextureSetProcessingContext& Context) override;
+	virtual void LoadResources(const FTextureSetProcessingContext& Context) override { check(LastNode); LastNode->LoadResources(Context); }
 
-	virtual void Initialize(const FTextureSetProcessingContext& Context) override;
+	virtual void Initialize(const FTextureSetProcessingGraph& Graph) override { check(LastNode); LastNode->Initialize(Graph); }
 
 	virtual const uint32 ComputeGraphHash() const override;
-	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override;
+	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override { check(LastNode); return LastNode->ComputeDataHash(Context); }
 
-	virtual int GetWidth() const override { check(bInitialized); return Image.SizeX; }
-	virtual int GetHeight() const override { check(bInitialized); return Image.SizeY; }
-	virtual int GetSlices() const override { check(bInitialized); return Image.NumSlices; }
-	virtual const FTextureSetProcessedTextureDef& GetTextureDef() override { return SourceDefinition; }
+	virtual int GetWidth() const override { check(LastNode); return LastNode->GetWidth(); }
+	virtual int GetHeight() const override { check(LastNode); return LastNode->GetHeight(); }
+	virtual int GetSlices() const override { check(LastNode); return LastNode->GetSlices(); }
+	virtual const FTextureSetProcessedTextureDef GetTextureDef() override { check(LastNode); return LastNode->GetTextureDef(); }
 
-	virtual float GetPixel(int X, int Y, int Z, int Channel) const override;
+	virtual float GetPixel(int X, int Y, int Z, int Channel) const override { return LastNode->GetPixel(X, Y, Z, Channel); }
+
+	void AddOperator(CreateOperatorFunc Operator) { CreateOperatorFuncs.Add(Operator); }
 
 private:
-	FName SourceName;
-	FTextureSetSourceTextureDef SourceDefinition;
+	void InstantiateOperators(const FTextureSetProcessingGraph& Graph);
 
-	mutable FCriticalSection InitializeCS;
-
-	TObjectPtr<UTexture> Texture;
-	bool bInitialized;
-	uint8 ValidChannels;
-	uint8 ChannelSwizzle[4];
-	FImage Image;
-	bool bValidImage;
+	TArray<CreateOperatorFunc> CreateOperatorFuncs;
+	TArray<TSharedRef<class ITextureProcessingNode>> Operators;
+	TSharedPtr<ITextureProcessingNode> LastNode;
+	TSharedRef<FTextureRead> TextureRead;
 };
 #endif

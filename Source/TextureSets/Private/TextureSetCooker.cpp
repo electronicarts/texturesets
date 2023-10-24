@@ -7,13 +7,14 @@
 #include "Async/Async.h"
 #include "DerivedDataBuildVersion.h"
 #include "DerivedDataCacheInterface.h"
+#include "Engine/Texture2D.h"
+#include "Engine/Texture2DArray.h"
 #include "ProcessingNodes/TextureInput.h"
 #include "ProcessingNodes/TextureOperatorEnlarge.h"
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetDerivedData.h"
-#include "Engine/Texture2D.h"
-#include "Engine/Texture2DArray.h"
+#include "TextureSetProcessingContext.h"
 
 static TAutoConsoleVariable<int32> CVarTextureSetParallelCook(
 	TEXT("r.TextureSet.ParallelCook"),
@@ -53,14 +54,14 @@ public:
 	}
 
 private:
-	const FTextureSetCooker& Cooker;
+	FTextureSetCooker& Cooker;
 	const int32 CookedTextureIndex;
 };
 
 class TextureSetDerivedParameterDataPlugin : public FDerivedDataPluginInterface
 {
 public:
-	TextureSetDerivedParameterDataPlugin(const FTextureSetCooker& Cooker, FName ParameterName)
+	TextureSetDerivedParameterDataPlugin(FTextureSetCooker& Cooker, FName ParameterName)
 		: Cooker(Cooker)
 		, ParameterName(ParameterName)
 	{}
@@ -76,7 +77,7 @@ public:
 	{
 		TSharedRef<IParameterProcessingNode> Parameter = Cooker.GraphInstance->GetOutputParameters().FindChecked(ParameterName);
 
-		Parameter->Initialize(Cooker.Context);
+		Parameter->Initialize(*Cooker.GraphInstance);
 
 		FDerivedParameterData ParameterData;
 		ParameterData.Value = Parameter->GetValue();
@@ -89,7 +90,7 @@ public:
 	}
 
 private:
-	const FTextureSetCooker& Cooker;
+	FTextureSetCooker& Cooker;
 	const FName ParameterName;
 };
 
@@ -203,7 +204,7 @@ bool FTextureSetCooker::TryCancel()
 		return true;
 }
 
-FGuid FTextureSetCooker::ComputeTextureDataId(int PackedTextureIndex, const TMap<FName, const ITextureProcessingNode*>& ProcessedTextures) const
+FGuid FTextureSetCooker::ComputeTextureDataId(int PackedTextureIndex, const TMap<FName, TSharedRef<ITextureProcessingNode>>& ProcessedTextures) const
 {
 	check(PackedTextureIndex < PackingInfo.NumPackedTextures());
 
@@ -223,7 +224,7 @@ FGuid FTextureSetCooker::ComputeTextureDataId(int PackedTextureIndex, const TMap
 	// Only hash on source textures that contribute to this packed texture
 	for (const FName& TextureName : TextureDependencies)
 	{
-		const ITextureProcessingNode* TextureNode = ProcessedTextures.FindChecked(TextureName);
+		const TSharedRef<ITextureProcessingNode>& TextureNode = ProcessedTextures.FindChecked(TextureName);
 		IdBuilder << TextureNode->ComputeGraphHash();
 		IdBuilder << TextureNode->ComputeDataHash(Context);
 	}
@@ -409,12 +410,12 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 
 		const TSharedRef<ITextureProcessingNode> OutputTexture = OutputTextures.FindChecked(ChanelInfo.ProcessedTexture);
 
-		OutputTexture->Initialize(Context);
+		OutputTexture->Initialize(*GraphInstance);
 
 		const int ChannelWidth = OutputTexture->GetWidth();
 		const int ChannelHeight = OutputTexture->GetHeight();
 		const int ChannelSlices = OutputTexture->GetSlices();
-		const float NewRatio = (float)Width / (float)Height;
+		const float NewRatio = (float)ChannelWidth / (float)ChannelHeight;
 
 		// Calculate the maximum size of all of our processed textures. We'll use this as our packed texture size.
 		Width = FMath::Max(Width, ChannelWidth);

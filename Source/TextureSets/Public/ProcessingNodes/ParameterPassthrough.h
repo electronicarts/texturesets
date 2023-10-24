@@ -12,7 +12,6 @@ class ParameterPassThrough : public IParameterProcessingNode
 public:
 	ParameterPassThrough(FName Name, TFunction<FVector4f(const ParameterClass*)> GetValueCallback)
 		: Name(Name)
-		, bInitialized(false)
 		, Callback(GetValueCallback)
 	{}
 
@@ -20,14 +19,12 @@ public:
 
 	virtual void LoadResources(const FTextureSetProcessingContext& Context) override
 	{
-		// No resources to load
+		Value = Callback(Context.GetAssetParam<ParameterClass>());
 	}
 
-	virtual void Initialize(const FTextureSetProcessingContext& Context) override
+	virtual void Initialize(const FTextureSetProcessingGraph& Graph) override
 	{
-		check(!bInitialized);
-		Value = Callback(Context.GetAssetParam<ParameterClass>());
-		bInitialized = true;
+		// No initialization needed
 	}
 
 	virtual const uint32 ComputeGraphHash() const override
@@ -44,7 +41,6 @@ public:
 
 private:
 	FName Name;
-	bool bInitialized;
 	TFunction<FVector4f(const ParameterClass*)> Callback;
 	FVector4f Value;
 };

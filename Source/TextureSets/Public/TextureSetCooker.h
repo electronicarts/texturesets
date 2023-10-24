@@ -9,9 +9,11 @@
 #include "TextureSetInfo.h"
 #include "TextureSetModule.h"
 #include "TextureSetProcessingGraph.h"
+#include "TextureSetProcessingContext.h"
 
 class UTextureSet;
 class FTextureSetCooker;
+class ITextureProcessingNode;
 
 class FTextureSetCookerTaskWorker : public FNonAbandonableTask
 {
@@ -83,7 +85,7 @@ private:
 	TUniquePtr<FAsyncTask<FTextureSetCookerTaskWorker>> AsyncTask;
 
 	// Compute the hashed Guid for a specific hashed texture. Used by the DDC to cache the data.
-	FGuid ComputeTextureDataId(int Index, const TMap<FName, const ITextureProcessingNode*>& ProcessedTextures) const;
+	FGuid ComputeTextureDataId(int Index, const TMap<FName, TSharedRef<ITextureProcessingNode>>& ProcessedTextures) const;
 	FGuid ComputeParameterDataId(const IParameterProcessingNode* Parameter) const;
 
 	void Prepare();

@@ -7,6 +7,8 @@
 #include "CoreMinimal.h"
 #include "TextureSetProcessingContext.h"
 
+class FTextureSetProcessingGraph;
+
 class IProcessingNode
 {
 public:
@@ -20,7 +22,7 @@ public:
 
 	// Initializes the graph, doing any pre-processing of data required.
 	// This can be called on a worker thread, so should not load resources or modify UObjects
-	virtual void Initialize(const FTextureSetProcessingContext& Context) = 0;
+	virtual void Initialize(const FTextureSetProcessingGraph& Graph) = 0;
 
 	// Computes the hash of the graph logic. Doesn't take into account any data, and can be called without initializing the node.
 	virtual const uint32 ComputeGraphHash() const = 0;
@@ -35,7 +37,7 @@ public:
 	virtual int GetWidth() const = 0;
 	virtual int GetHeight() const = 0;
 	virtual int GetSlices() const = 0;
-	virtual const struct FTextureSetProcessedTextureDef& GetTextureDef() = 0;
+	virtual const struct FTextureSetProcessedTextureDef GetTextureDef() = 0;
 
 	// Initialize must be called before calls to GetPixel
 	virtual float GetPixel(int X, int Y, int Z, int Channel) const = 0;

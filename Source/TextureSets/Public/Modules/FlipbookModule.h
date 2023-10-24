@@ -5,6 +5,13 @@
 #include "TextureSetModule.h"
 #include "FlipbookModule.generated.h"
 
+UENUM()
+enum class EFlipbookSourceType : uint8
+{
+	TextureArray,
+	TextureSheet
+};
+
 UCLASS()
 class UFlipbookAssetParams : public UTextureSetAssetParams
 {
@@ -21,8 +28,16 @@ public:
 	// Scale applied to the motion vectors, if they're enabled.
 	UPROPERTY(EditAnywhere)
 	float MotionVectorScale = 1.0f;
-};
 
+	UPROPERTY(EditAnywhere)
+	EFlipbookSourceType FlipbookSourceType = EFlipbookSourceType::TextureArray;
+
+	UPROPERTY(EditAnywhere, meta=(EditCondition ="FlipbookSourceType == EFlipbookSourceType::TextureSheet"))
+	uint32 FlipbookSourceSheetWidth = 4;
+
+	UPROPERTY(EditAnywhere, meta=(EditCondition ="FlipbookSourceType == EFlipbookSourceType::TextureSheet"))
+	uint32 FlipbookSourceSheetHeight = 4;
+};
 
 UENUM()
 enum class EFlipbookTime : uint8

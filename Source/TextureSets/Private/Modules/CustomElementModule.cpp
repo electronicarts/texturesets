@@ -4,6 +4,7 @@
 
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
+#include "ProcessingNodes/TextureInput.h"
 
 #if WITH_EDITOR
 void UCustomElementModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const

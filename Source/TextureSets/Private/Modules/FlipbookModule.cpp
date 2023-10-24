@@ -7,17 +7,98 @@
 #include "Materials/MaterialExpressionNamedReroute.h"
 #include "Materials/MaterialExpressionOneMinus.h"
 #include "ProcessingNodes/ParameterPassthrough.h"
+#include "ProcessingNodes/TextureOperator.h"
+#include "ProcessingNodes/TextureInput.h"
 
 #if WITH_EDITOR
+
+class FTextureOperatorSubframe : public FTextureOperator
+{
+public:
+	FTextureOperatorSubframe(TSharedRef<ITextureProcessingNode> I) : FTextureOperator(I)
+	{
+	}
+
+	virtual FName GetNodeTypeName() const  { return "Subframe"; }
+
+	virtual const uint32 ComputeGraphHash() const override
+	{
+		uint32 Hash = FTextureOperator::ComputeGraphHash();
+
+		return Hash;
+	}
+
+	virtual const FTextureSetProcessedTextureDef GetTextureDef() override
+	{
+		FTextureSetProcessedTextureDef Def = SourceImage->GetTextureDef();
+		Def.Flags |= ETextureSetTextureFlags::Array;
+		return Def;
+	}
+
+	virtual void LoadResources(const FTextureSetProcessingContext& Context) override
+	{
+		FTextureOperator::LoadResources(Context);
+
+		const UFlipbookAssetParams* FlipbookAssetParams = Context.GetAssetParam<UFlipbookAssetParams>();
+		if (FlipbookAssetParams->FlipbookSourceType == EFlipbookSourceType::TextureSheet)
+		{
+			FramesX = FMath::Max(1u, FlipbookAssetParams->FlipbookSourceSheetWidth);
+			FramesY = FMath::Max(1u, FlipbookAssetParams->FlipbookSourceSheetHeight);
+		}
+		else
+		{
+			FramesX = 1;
+			FramesY = 1;
+		}
+	}
+
+	virtual void Initialize(const FTextureSetProcessingGraph& Graph) override
+	{
+		FTextureOperator::Initialize(Graph);
+
+		SubImageWidth = SourceImage->GetWidth() / FramesX;
+		SubImageHeight = SourceImage->GetHeight() / FramesY;
+		FramesPerImage = FramesX * FramesY;
+
+		Width = SubImageWidth;
+		Height = SubImageHeight;
+		Slices = SourceImage->GetSlices() * FramesPerImage;
+	}
+
+	virtual int GetWidth() const override { return Width; }
+	virtual int GetHeight() const override { return Height; }
+	virtual int GetSlices() const override { return Slices; }
+
+	virtual float GetPixel(int X, int Y, int Z, int Channel) const override
+	{
+		const int SourceZ = Z / FramesPerImage;
+
+		const int SubImageIndex = Z % FramesPerImage;
+
+		const int SourceX = X + (SubImageWidth * (SubImageIndex % FramesX));
+		const int SourceY = Y + (SubImageHeight * (SubImageIndex / FramesX));
+
+		return SourceImage->GetPixel(SourceX, SourceY, SourceZ, Channel);
+	}
+
+private:
+	int SubImageWidth;
+	int SubImageHeight;
+	int FramesPerImage;
+	int FramesX;
+	int FramesY;
+	int Width;
+	int Height;
+	int Slices;
+};
 
 class FFlipbookParamsNode : public IParameterProcessingNode
 {
 public:
-	FFlipbookParamsNode(FTextureSetProcessingGraph& Graph)
+	FFlipbookParamsNode()
 		: Name("FlipbookParamsNode")
 		, bInitialized(false)
 	{
-		Graph.GetOutputTextures().GenerateValueArray(ProcessedTextures);
 	}
 
 	virtual FName GetNodeTypeName() const override { return Name; }
@@ -26,28 +107,27 @@ public:
 	{
 		for (const TSharedRef<ITextureProcessingNode>& ProcessingNode : ProcessedTextures)
 			ProcessingNode->LoadResources(Context);
+
+		const UFlipbookAssetParams* Parameter = Context.GetAssetParam<UFlipbookAssetParams>();
+
+		Value.Y = Parameter->FlipbookFramerate;
+		Value.Z = Parameter->bFlipbookLooping;
+		Value.W = Parameter->MotionVectorScale;
 	}
 
-	virtual void Initialize(const FTextureSetProcessingContext& Context) override
+	virtual void Initialize(const FTextureSetProcessingGraph& Graph) override
 	{
 		if (bInitialized)
 			return;
 
-		const UFlipbookAssetParams* Parameter = Context.GetAssetParam<UFlipbookAssetParams>();
-
 		int FrameCount = 0;
-
-		for (const TSharedRef<ITextureProcessingNode>& ProcessingNode : ProcessedTextures)
+		for (auto& [OutputName, ProcessingNode] : Graph.GetOutputTextures())
 		{
-			ProcessingNode->Initialize(Context);
+			ProcessingNode->Initialize(Graph);
 			FrameCount = FMath::Max(FrameCount, ProcessingNode->GetSlices());
 		}
 
-		Value = FVector4f(
-			FrameCount,
-			Parameter->FlipbookFramerate,
-			Parameter->bFlipbookLooping,
-			Parameter->MotionVectorScale);
+		Value.X = FrameCount;
 
 		bInitialized = true;
 	}
@@ -95,8 +175,11 @@ private:
 
 void UFlipbookModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
-	// Flag textures as an array
-	Graph.SetTextureFlagDefault(ETextureSetTextureFlags::Array);
+	// FTextureOperatorSubframe will make all processed textures into texture arrays
+	Graph.AddDefaultInputOperator([](TSharedRef<ITextureProcessingNode> Node)
+	{
+		return TSharedRef<ITextureProcessingNode>(new FTextureOperatorSubframe(Node));
+	});
 
 	if (bUseMotionVectors)
 	{
@@ -104,7 +187,7 @@ void UFlipbookModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph
 		Graph.AddOutputTexture("MotionVector", Graph.AddInputTexture("MotionVector", MotionDef));
 	}
 
-	Graph.AddOutputParameter("FlipbookParams", TSharedRef<IParameterProcessingNode>(new FFlipbookParamsNode(Graph)));
+	Graph.AddOutputParameter("FlipbookParams", TSharedRef<IParameterProcessingNode>(new FFlipbookParamsNode()));
 }
 #endif
 

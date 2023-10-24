@@ -10,6 +10,7 @@
 #include "UObject/ObjectSaveContext.h"
 #if WITH_EDITOR
 #include "Misc/DataValidation.h"
+#include "ProcessingNodes/IProcessingNode.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "TextureSets"
