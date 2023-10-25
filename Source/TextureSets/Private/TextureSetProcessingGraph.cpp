@@ -45,7 +45,7 @@ void FTextureSetProcessingGraph::Regenerate(const TArray<const UTextureSetModule
 TSharedRef<FTextureInput> FTextureSetProcessingGraph::AddInputTexture(FName Name, const FTextureSetSourceTextureDef& SourceDef)
 {
 	check(bIsGenerating); // Not valid to add inputs after the graph has finished generating
-	TSharedRef<FTextureInput> NewInput = TSharedRef<FTextureInput>(new FTextureInput(Name, SourceDef));
+	TSharedRef<FTextureInput> NewInput(new FTextureInput(Name, SourceDef));
 	InputTextures.Add(Name, NewInput);
 	return NewInput;
 }
