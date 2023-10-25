@@ -13,13 +13,13 @@ struct FlipbookParams
 	float2 MotionVectorScale;
 };
 
-FlipbookParams UnpackFlipbookParams(float4 FlipbookParams)
+FlipbookParams UnpackFlipbookParams(float4 PackedParams)
 {
-	FlipbookParamsUnpacked Unpacked;
-	Unpacked.NumFrames = floor(FlipbookParams.w);
-	Unpacked.Framerate = abs(FlipbookParams.z);
-	Unpacked.bLooping = FlipbookParams.z < 0;
-	Unpacked.MotionVectorScale = FlipbookParams.xy;
+	FlipbookParams Unpacked;
+	Unpacked.NumFrames = floor(PackedParams.w);
+	Unpacked.Framerate = abs(PackedParams.z);
+	Unpacked.bLooping = PackedParams.z < 0;
+	Unpacked.MotionVectorScale = PackedParams.xy;
 	return Unpacked;
 }
 
