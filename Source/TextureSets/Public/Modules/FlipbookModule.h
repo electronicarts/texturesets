@@ -27,7 +27,7 @@ public:
 
 	// Scale applied to the motion vectors, if they're enabled.
 	UPROPERTY(EditAnywhere)
-	float MotionVectorScale = 1.0f;
+	FVector2f MotionVectorScale {1.0f, 1.0f};
 
 	UPROPERTY(EditAnywhere)
 	EFlipbookSourceType FlipbookSourceType = EFlipbookSourceType::TextureArray;
@@ -78,5 +78,7 @@ public:
 
 	virtual void ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 		FTextureSetMaterialGraphBuilder* Builder) const override;
+
+	virtual EDataValidationResult IsDefinitionValid(const UTextureSetDefinition* Definition, FDataValidationContext& Context) const override;
 #endif
 };

@@ -42,5 +42,7 @@ public:
 	// Transforms processed data into desired output elements
 	virtual void ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 		FTextureSetMaterialGraphBuilder* Builder) const {}
+
+	virtual EDataValidationResult IsDefinitionValid(const UTextureSetDefinition* Definition, FDataValidationContext& Context) const { return EDataValidationResult::NotValidated; }
 #endif
 };

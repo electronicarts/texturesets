@@ -13,6 +13,7 @@
 #include "Materials/MaterialExpressionCameraVectorWS.h"
 #include "Materials/MaterialExpressionConstant.h"
 #include "Materials/MaterialExpressionConstant3Vector.h"
+#include "Materials/MaterialExpressionConstant4Vector.h"
 #include "Materials/MaterialExpressionCustom.h"
 #include "Materials/MaterialExpressionDDX.h"
 #include "Materials/MaterialExpressionDDY.h"
@@ -63,12 +64,6 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 		TextureObject->SetParameterValue(PackedTextureName, Meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
 		TextureObject->UpdateParameterGuid(true, true);
 		PackedTextureObjects.Add(TextureObject);
-
-		if (TextureDef.bDoRangeCompression)
-		{
-			MakeConstantParameter(TextureInfo.RangeCompressAddName, FVector4f::Zero());
-			MakeConstantParameter(TextureInfo.RangeCompressMulName, FVector4f::One());
-		}
 	}
 
 	// Created on demand
@@ -95,8 +90,6 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 	// Connect deferred connections
 	for (const auto& [Input, Output] : DeferredConnections)
 	{
-		check(Input.IsValid());
-		check(Output.IsValid());
 		Output.GetExpression()->ConnectExpression(Input.GetExpression()->GetInput(Input.GetIndex()), Output.GetIndex());
 	}
 }
@@ -206,6 +199,8 @@ void FTextureSetMaterialGraphBuilder::Connect(UMaterialExpression* OutputNode, F
 
 void FTextureSetMaterialGraphBuilder::Connect(const FGraphBuilderOutputAddress& Output, const FGraphBuilderInputAddress& Input)
 {
+	check(Input.IsValid());
+	check(Output.IsValid());
 	DeferredConnections.Add(Input, Output);
 }
 
@@ -225,6 +220,37 @@ const FGraphBuilderOutputAddress FTextureSetMaterialGraphBuilder::GetPackedTextu
 	}
 
 	return FGraphBuilderOutputAddress(PackedTextureSizes[Index], 0);
+}
+
+const TTuple<FGraphBuilderOutputAddress, FGraphBuilderOutputAddress> FTextureSetMaterialGraphBuilder::GetRangeCompressParams(int Index)
+{
+	const FTextureSetPackedTextureDef& TextureDef = PackingInfo.GetPackedTextureDef(Index);
+
+	if (TextureDef.bDoRangeCompression)
+	{
+		const FTextureSetPackedTextureInfo& TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
+
+		if (!ConstantParameters.Contains(TextureInfo.RangeCompressMulName))
+			MakeConstantParameter(TextureInfo.RangeCompressAddName, FVector4f::Zero());
+
+		if (!ConstantParameters.Contains(TextureInfo.RangeCompressMulName))
+			MakeConstantParameter(TextureInfo.RangeCompressMulName, FVector4f::One());
+
+		return TTuple<FGraphBuilderOutputAddress, FGraphBuilderOutputAddress>(
+			FGraphBuilderOutputAddress(ConstantParameters.FindChecked(TextureInfo.RangeCompressMulName), 0),
+			FGraphBuilderOutputAddress(ConstantParameters.FindChecked(TextureInfo.RangeCompressAddName), 0));
+	}
+	else
+	{
+		UMaterialExpressionConstant4Vector* One = CreateExpression<UMaterialExpressionConstant4Vector>();
+		One->Constant = FLinearColor::White;
+		UMaterialExpressionConstant4Vector* Zero = CreateExpression<UMaterialExpressionConstant4Vector>();
+		Zero->Constant = FLinearColor::Black;
+
+		return TTuple<FGraphBuilderOutputAddress, FGraphBuilderOutputAddress>(
+			FGraphBuilderOutputAddress(One, 0),
+			FGraphBuilderOutputAddress(Zero, 0));
+	}
 }
 
 void FTextureSetMaterialGraphBuilder::AddSampleBuilder(SampleBuilderFunction SampleBuilder)
@@ -657,8 +683,8 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 
 	CustomExp->Code += ";\n";
 
-	int RangeCompressMulInput = 0;
-	int RangeCompressAddInput = 0;
+	uint32 RangeCompressMulInput = 0;
+	uint32 RangeCompressAddInput = 0;
 
 	// Process each channel
 	for (int c = 0; c < TextureInfo.ChannelCount; c++)
@@ -703,8 +729,10 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 
 	if (RangeCompressMulInput != 0)
 	{
-		ConstantParameters.FindChecked(TextureInfo.RangeCompressMulName)->ConnectExpression(CustomExp->GetInput(RangeCompressMulInput), 0);
-		ConstantParameters.FindChecked(TextureInfo.RangeCompressAddName)->ConnectExpression(CustomExp->GetInput(RangeCompressAddInput), 0);
+		auto [Mul, Add] = GetRangeCompressParams(Index);
+
+		Connect(Mul, (UMaterialExpression*)CustomExp, RangeCompressMulInput);
+		Connect(Add, (UMaterialExpression*)CustomExp, RangeCompressAddInput);
 	}
 
 	CustomExp->Description = FString::Format(TEXT("{0}_Sample"), {Node->GetTextureParameterName(Index).ToString()});

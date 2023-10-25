@@ -513,8 +513,8 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 						for (int z = 0; z < Slices; z++)
 						{
 							const int PixelIndex = GetPixelIndex(x, y, z, c, Width, Height);
-
-							PixelValues[PixelIndex] = (PixelValues[PixelIndex] - Min) * Max - Min;
+							const float AdjustedValue = (PixelValues[PixelIndex] - Min) * (Max - Min);
+							PixelValues[PixelIndex] = AdjustedValue;
 						}
 					}
 				}
@@ -531,8 +531,8 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 						for (int z = 0; z < Slices; z++)
 						{
 							const int PixelIndex = GetPixelIndex(x, y, z, c, Width, Height);
-
-							PixelValues[PixelIndex] = FMath::Pow(PixelValues[PixelIndex], 1.0f / 2.2f);
+							const float AdjustedValue = FMath::Pow(PixelValues[PixelIndex], 1.0f / 2.2f);
+							PixelValues[PixelIndex] = AdjustedValue;
 						}
 					}
 				}

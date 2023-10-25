@@ -83,6 +83,8 @@ class FTextureSetSubsampleContext
 public:
 	const FSubSampleAddress& GetAddress() { return Address; }
 
+	bool IsRelevant(const SubSampleHandle& SubSample) { return Address.GetHandleChain().Contains(SubSample); }
+
 	void AddResult(FName Name, FGraphBuilderOutputAddress Output) { Results.Add(Name, Output); }
 
 	const FGraphBuilderOutputAddress& GetSharedValue(EGraphBuilderSharedValueType Value);

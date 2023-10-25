@@ -5,35 +5,51 @@
 #define E_FLIPBOOK_TIME_FRAMES 1
 #define E_FLIPBOOK_TIME_NORMALIZED 2
 
-void FlipbookFrame(float FlipbookTime, int FlipbookTimeType, float4 FlipbookParams, out float Frame0, out float Frame1, out float FrameBlend)
+struct FlipbookParams
 {
-	const float NumFrames = floor(FlipbookParams.x);
-	const float Framerate = FlipbookParams.y;
-	const bool bLooping = FlipbookParams.z != 0;
+	float NumFrames;
+	float Framerate;
+	bool bLooping;
+	float2 MotionVectorScale;
+};
+
+FlipbookParams UnpackFlipbookParams(float4 FlipbookParams)
+{
+	FlipbookParamsUnpacked Unpacked;
+	Unpacked.NumFrames = floor(FlipbookParams.w);
+	Unpacked.Framerate = abs(FlipbookParams.z);
+	Unpacked.bLooping = FlipbookParams.z < 0;
+	Unpacked.MotionVectorScale = FlipbookParams.xy;
+	return Unpacked;
+}
+
+void FlipbookFrame(float FlipbookTime, int FlipbookTimeType, float4 PackedParams, out float Frame0, out float Frame1, out float FrameBlend)
+{
+	const FlipbookParams Params = UnpackFlipbookParams(PackedParams);
 	
 	float FlipbookFrame = FlipbookTime;
 	
 	if (FlipbookTimeType == E_FLIPBOOK_TIME_SECONDS)
 	{
-		FlipbookFrame *= Framerate;
+		FlipbookFrame *= Params.Framerate;
 	}
 	else if (FlipbookTimeType == E_FLIPBOOK_TIME_NORMALIZED)
 	{
-		FlipbookFrame *= NumFrames;
+		FlipbookFrame *= Params.NumFrames;
 	}
 
 	Frame0 = floor(FlipbookFrame);
 	Frame1 = Frame0 + 1.0f;
 	
-	if (bLooping)
+	if (Params.bLooping)
 	{
-		Frame0 = fmod(Frame0, NumFrames);
-		Frame1 = fmod(Frame1, NumFrames);
+		Frame0 = fmod(Frame0, Params.NumFrames);
+		Frame1 = fmod(Frame1, Params.NumFrames);
 	}
 	else
 	{
-		Frame0 = max(Frame0, NumFrames - 1);
-		Frame1 = max(Frame0, NumFrames - 1);
+		Frame0 = max(Frame0, Params.NumFrames - 1);
+		Frame1 = max(Frame0, Params.NumFrames - 1);
 	}
 	
 	FrameBlend = fmod(FlipbookFrame, 1.0f);
@@ -43,10 +59,28 @@ void FlipbookFrame(float FlipbookTime, int FlipbookTimeType, float4 FlipbookPara
 #undef E_FLIPBOOK_TIME_FRAMES
 #undef E_FLIPBOOK_TIME_NORMALIZED
 
-void FlipbookMotionVector(float2 Frame0UV, float2 Frame1UV, float2 MotionVector0Sample, float2 MotionVector1Sample, float4 FlipbookParams, float FrameBlend, out float2 Frame0UV_Out, out float2 Frame1UV_Out)
+float2 FlipbookMotionVector(
+	float3 FrameUVW,
+	Texture2DArray MotionVectorTexture,
+	SamplerState MotionVectorSampler,
+	int2 MVChannels,
+	float4 MotionVectorMul,
+	float4 MotionVectorAdd,
+	float4 PackedParams, 
+	float FrameTime)
 {
-	const float MotionVectorScale = FlipbookParams.w;
+	const FlipbookParams Params = UnpackFlipbookParams(PackedParams);
 	
-	Frame0UV_Out = Frame0UV + (MotionVector0Sample * MotionVectorScale * FrameBlend);
-	Frame1UV_Out = Frame1UV + (MotionVector1Sample * MotionVectorScale * (1-FrameBlend));
+	const float4 MotionVectorSample = MotionVectorTexture.Sample(MotionVectorSampler, FrameUVW);
+	
+	float2 RangeCompressMul = float2(MotionVectorMul[MVChannels.x], MotionVectorMul[MVChannels.y]);
+	float2 RangeCompressAdd = float2(MotionVectorAdd[MVChannels.x], MotionVectorAdd[MVChannels.y]);
+	float2 MotionVector = mad(float2(MotionVectorSample[MVChannels.x], MotionVectorSample[MVChannels.y]), RangeCompressMul, RangeCompressAdd);
+	
+	// TODO: Can motion vector scale and offset just be baked into the range compressed value?
+	const float2 MotionVectorScale = Params.MotionVectorScale;
+	const float2 MotionVectorOffset = MotionVectorScale * -0.5;
+	MotionVector = mad(MotionVector, MotionVectorScale, MotionVectorOffset);	
+	
+	return mad(MotionVector, FrameTime, FrameUVW.xy);
 }

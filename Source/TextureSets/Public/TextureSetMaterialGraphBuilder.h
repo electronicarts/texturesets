@@ -69,6 +69,8 @@ public:
 	UMaterialExpressionTextureObjectParameter* GetPackedTextureObject(int Index);
 	const FGraphBuilderOutputAddress GetPackedTextureSize(int Index);
 	const TTuple<int, int> GetPackingSource(FName ProcessedTextureChannel) { return PackingInfo.GetPackingSource(ProcessedTextureChannel); }
+	// Gets the addresses of the range compress multiply and add parameters for a specific packed texture.
+	const TTuple<FGraphBuilderOutputAddress, FGraphBuilderOutputAddress> GetRangeCompressParams(int Index);
 
 	void LogError(FText ErrorText) { Errors.Add(ErrorText); }
 	const TArray<FText>& GetErrors() { return Errors; }

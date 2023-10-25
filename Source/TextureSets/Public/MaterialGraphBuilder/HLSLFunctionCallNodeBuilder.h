@@ -15,7 +15,7 @@ public:
 
 	void SetReturnType(ECustomMaterialOutputType ReturnType);
 
-	void InArgument(FString ArgName, const FGraphBuilderOutputAddress& Address);
+	void InArgument(FString ArgName, const FGraphBuilderOutputAddress& Address, const FString Suffix = "");
 	void InArgument(FString ArgName, FString ArgValue);
 	void OutArgument(FString ArgName, ECustomMaterialOutputType OutType);
 

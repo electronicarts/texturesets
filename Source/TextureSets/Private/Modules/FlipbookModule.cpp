@@ -4,13 +4,20 @@
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "MaterialGraphBuilder/HLSLFunctionCallNodeBuilder.h"
+#include "Materials/MaterialExpressionAppendVector.h"
+#include "Materials/MaterialExpressionConstant.h"
 #include "Materials/MaterialExpressionNamedReroute.h"
 #include "Materials/MaterialExpressionOneMinus.h"
+#include "Materials/MaterialExpressionTextureObjectParameter.h"
+#include "Misc/DataValidation.h"
 #include "ProcessingNodes/ParameterPassthrough.h"
-#include "ProcessingNodes/TextureOperator.h"
 #include "ProcessingNodes/TextureInput.h"
+#include "ProcessingNodes/TextureOperator.h"
+#include "TextureSetDefinition.h"
 
 #if WITH_EDITOR
+
+#define LOCTEXT_NAMESPACE "TextureSets"
 
 class FTextureOperatorSubframe : public FTextureOperator
 {
@@ -56,17 +63,17 @@ public:
 	{
 		FTextureOperator::Initialize(Graph);
 
+		FScopeLock Lock(&InitializeCS);
+
 		SubImageWidth = SourceImage->GetWidth() / FramesX;
 		SubImageHeight = SourceImage->GetHeight() / FramesY;
 		FramesPerImage = FramesX * FramesY;
-
-		Width = SubImageWidth;
-		Height = SubImageHeight;
+		
 		Slices = SourceImage->GetSlices() * FramesPerImage;
 	}
 
-	virtual int GetWidth() const override { return Width; }
-	virtual int GetHeight() const override { return Height; }
+	virtual int GetWidth() const override { return SubImageWidth; }
+	virtual int GetHeight() const override { return SubImageHeight; }
 	virtual int GetSlices() const override { return Slices; }
 
 	virtual float GetPixel(int X, int Y, int Z, int Channel) const override
@@ -82,13 +89,13 @@ public:
 	}
 
 private:
+	mutable FCriticalSection InitializeCS;
+
 	int SubImageWidth;
 	int SubImageHeight;
 	int FramesPerImage;
 	int FramesX;
 	int FramesY;
-	int Width;
-	int Height;
 	int Slices;
 };
 
@@ -110,9 +117,12 @@ public:
 
 		const UFlipbookAssetParams* Parameter = Context.GetAssetParam<UFlipbookAssetParams>();
 
-		Value.Y = Parameter->FlipbookFramerate;
-		Value.Z = Parameter->bFlipbookLooping;
-		Value.W = Parameter->MotionVectorScale;
+		Value.X = Parameter->MotionVectorScale.X;
+		Value.Y = Parameter->MotionVectorScale.Y;
+
+		Value.Z = Parameter->FlipbookFramerate;
+		if (Parameter->bFlipbookLooping)
+			Value.Z = -Value.Z;
 	}
 
 	virtual void Initialize(const FTextureSetProcessingGraph& Graph) override
@@ -127,7 +137,7 @@ public:
 			FrameCount = FMath::Max(FrameCount, ProcessingNode->GetSlices());
 		}
 
-		Value.X = FrameCount;
+		Value.W = FrameCount;
 
 		bInitialized = true;
 	}
@@ -172,7 +182,6 @@ private:
 	FVector4f Value;
 };
 
-
 void UFlipbookModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	// FTextureOperatorSubframe will make all processed textures into texture arrays
@@ -189,9 +198,7 @@ void UFlipbookModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph
 
 	Graph.AddOutputParameter("FlipbookParams", TSharedRef<IParameterProcessingNode>(new FFlipbookParamsNode()));
 }
-#endif
 
-#if WITH_EDITOR
 int32 UFlipbookModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const UFlipbookSampleParams* HeightSampleParams = SampleExpression->SampleParams.Get<UFlipbookSampleParams>();
@@ -228,36 +235,98 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTex
 
 	UMaterialExpression* FlipbookFunctionCallExp = FlipbookFunctionCall.Build(Builder);
 
-	FGraphBuilderOutputAddress Frame0 = FGraphBuilderOutputAddress(FlipbookFunctionCallExp, 1);
-	FGraphBuilderOutputAddress Frame1 = FGraphBuilderOutputAddress(FlipbookFunctionCallExp, 2);
+	FGraphBuilderOutputAddress Frame0Index = FGraphBuilderOutputAddress(FlipbookFunctionCallExp, 1);
+	FGraphBuilderOutputAddress Frame1Index = FGraphBuilderOutputAddress(FlipbookFunctionCallExp, 2);
 	FGraphBuilderOutputAddress FrameBlend = FGraphBuilderOutputAddress(FlipbookFunctionCallExp, 3);
 
+	// Create the subsample definitions
+	TArray<FSubSampleDefinition> SubsampleDefinitions;
 	if (SampleParams->bBlendFrames)
 	{
 		UMaterialExpressionOneMinus* OneMinusNode = Builder->CreateExpression<UMaterialExpressionOneMinus>();
 		Builder->Connect(FrameBlend, OneMinusNode, 0);
 		FGraphBuilderOutputAddress OneMinusFrameBlend = FGraphBuilderOutputAddress(OneMinusNode, 0);
 
-
-		const TArray<SubSampleHandle> SubsampleHandles = Builder->AddSubsampleGroup({
-			FSubSampleDefinition("Flipbook Frame 0", OneMinusFrameBlend),
-			FSubSampleDefinition("Flipbook Frame 1", FrameBlend)
-		});
-
-		Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder, SubsampleHandles, Frame0, Frame1](FTextureSetSubsampleContext& SampleContext)
-		{
-			if (SampleContext.GetAddress().GetHandleChain().Contains(SubsampleHandles[0]))
-				SampleContext.SetSharedValue(Frame0, EGraphBuilderSharedValueType::ArrayIndex);
-			else if (SampleContext.GetAddress().GetHandleChain().Contains(SubsampleHandles[1]))
-				SampleContext.SetSharedValue(Frame1, EGraphBuilderSharedValueType::ArrayIndex);
-		}));
+		SubsampleDefinitions.Add(FSubSampleDefinition("Flipbook Frame 0", OneMinusFrameBlend));
+		SubsampleDefinitions.Add(FSubSampleDefinition("Flipbook Frame 1", FrameBlend));
 	}
 	else
 	{
-		Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder, Frame0](FTextureSetSubsampleContext& SampleContext)
-		{
-			SampleContext.SetSharedValue(Frame0, EGraphBuilderSharedValueType::ArrayIndex);
-		}));
+		UMaterialExpressionConstant* ConstantNode = Builder->CreateExpression<UMaterialExpressionConstant>();
+		ConstantNode->R = 1.0f;
+
+		SubsampleDefinitions.Add(FSubSampleDefinition("Flipbook", FGraphBuilderOutputAddress(ConstantNode, 0)));
 	}
+
+	// Add the subsamples
+	TArray<SubSampleHandle> SubsampleHandles = Builder->AddSubsampleGroup(SubsampleDefinitions);
+
+	Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder, SubsampleDefinitions, SubsampleHandles, Frame0Index, Frame1Index, FrameBlend, FlipbookParams](FTextureSetSubsampleContext& SampleContext)
+	{
+		const bool bNextFrame = SubsampleHandles.Num() > 1 && SampleContext.IsRelevant(SubsampleHandles[1]);
+
+		const FGraphBuilderOutputAddress& FrameIndex = bNextFrame ? Frame1Index : Frame0Index;
+
+		SampleContext.SetSharedValue(FrameIndex, EGraphBuilderSharedValueType::ArrayIndex);
+
+		if (bUseMotionVectors)
+		{
+			HLSLFunctionCallNodeBuilder MVFunctionCall("FlipbookMotionVector", "/Plugin/TextureSets/Flipbook.ush");
+
+			const auto [MVIndex0, MVChannel0] = Builder->GetPackingSource("MotionVector.r");
+			const auto [MVIndex1, MVChannel1] = Builder->GetPackingSource("MotionVector.g");
+			check(MVIndex0 == MVIndex1); // Should be enforced by IsDefinitionValid, but just double-check
+
+			auto [Mul, Add] = Builder->GetRangeCompressParams(MVIndex0);
+
+			FGraphBuilderOutputAddress FrameUVW;
+			{
+				UMaterialExpression* AppendNode = Builder->CreateExpression<UMaterialExpressionAppendVector>();
+				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Raw), AppendNode, 0);
+				Builder->Connect(FrameIndex, AppendNode, 1);
+				FrameUVW = FGraphBuilderOutputAddress(AppendNode, 0);
+			}
+
+			MVFunctionCall.InArgument("FrameUVW", FrameUVW);
+			MVFunctionCall.InArgument("MotionVectorTexture", FGraphBuilderOutputAddress(Builder->GetPackedTextureObject(MVIndex0), 0));
+			MVFunctionCall.InArgument("MotionVectorSampler", "MotionVectorTextureSampler");
+			MVFunctionCall.InArgument("MVChannels", FString::Format(TEXT("int2({0},{1})"), {MVChannel0, MVChannel1}));
+			MVFunctionCall.InArgument("MotionVectorMul", Mul);
+			MVFunctionCall.InArgument("MotionVectorAdd", Add);
+			MVFunctionCall.InArgument("FlipbookParams", FlipbookParams);
+			MVFunctionCall.InArgument("FrameTime", FrameBlend, bNextFrame ? " - 1" : "");
+
+			MVFunctionCall.SetReturnType(ECustomMaterialOutputType::CMOT_Float2);
+
+			FGraphBuilderOutputAddress MotionVectorUV(MVFunctionCall.Build(Builder), 0);
+			SampleContext.SetSharedValue(MotionVectorUV, EGraphBuilderSharedValueType::Texcoord_Sampling);
+		}
+
+	}));
+}
+
+EDataValidationResult UFlipbookModule::IsDefinitionValid(const UTextureSetDefinition* Definition, FDataValidationContext& Context) const
+{
+	EDataValidationResult Result = EDataValidationResult::Valid;
+
+	if (bUseMotionVectors)
+	{
+		const FTextureSetPackingInfo& Packing = Definition->GetPackingInfo();
+
+		if (Packing.IsPacked("MotionVector.r") && Packing.IsPacked("MotionVector.g"))
+		{
+			int32 MV_x = Definition->GetPackingInfo().GetPackingSource("MotionVector.r").Key;
+			int32 MV_y = Definition->GetPackingInfo().GetPackingSource("MotionVector.g").Key;
+			if (MV_x != MV_y)
+			{
+				Context.AddError(LOCTEXT("MVPacking", "Motion vectors need to be packed into two channels of the same texture"));
+				Result = EDataValidationResult::Invalid;
+			}
+		}
+	}
+
+	return CombineDataValidationResults(Result, Super::IsDefinitionValid(Definition, Context));
 }
 #endif
+
+#undef LOCTEXT_NAMESPACE

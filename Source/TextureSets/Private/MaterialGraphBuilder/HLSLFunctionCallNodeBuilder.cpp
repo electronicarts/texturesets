@@ -18,9 +18,9 @@ void HLSLFunctionCallNodeBuilder::SetReturnType(ECustomMaterialOutputType NewRet
 	ReturnType = NewReturnType;
 }
 
-void HLSLFunctionCallNodeBuilder::InArgument(FString ArgName, const FGraphBuilderOutputAddress& Address)
+void HLSLFunctionCallNodeBuilder::InArgument(FString ArgName, const FGraphBuilderOutputAddress& Address, const FString Suffix)
 {
-	FunctionArguments.Add(ArgName);
+	FunctionArguments.Add(ArgName + Suffix);
 	InputConnections.Add(InputConnection(ArgName, Address.GetExpression(), Address.GetIndex()));
 }
 

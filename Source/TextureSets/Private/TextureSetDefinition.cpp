@@ -34,17 +34,6 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 {
 	EDataValidationResult Result = EDataValidationResult::Valid;
 
-	// Module validation
-	for (int i = 0; i < GetModuleInfo().GetModules().Num(); i++)
-	{
-		const UTextureSetModule* Module = GetModuleInfo().GetModules()[i];
-		if (!IsValid(Module))
-		{
-			Context.AddError(FText::Format(LOCTEXT("MissingModule","Module at index {0} is invalid."), i));
-			Result = EDataValidationResult::Invalid;
-		}
-	}
-
 	// Packing validation
 	for (int i = 0; i < PackingInfo.Warnings.Num(); i++)
 	{
@@ -55,6 +44,19 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 	{
 		Context.AddError(PackingInfo.Errors[i]);
 		Result = EDataValidationResult::Invalid;
+	}
+
+	// Module validation
+	for (int i = 0; i < GetModuleInfo().GetModules().Num(); i++)
+	{
+		const UTextureSetModule* Module = GetModuleInfo().GetModules()[i];
+		if (!IsValid(Module))
+		{
+			Context.AddError(FText::Format(LOCTEXT("MissingModule","Module at index {0} is invalid."), i));
+			Result = EDataValidationResult::Invalid;
+		}
+
+		Result = CombineDataValidationResults(Result, Module->IsDefinitionValid(this, Context));
 	}
 
 	return CombineDataValidationResults(Result, Super::IsDataValid(Context));
