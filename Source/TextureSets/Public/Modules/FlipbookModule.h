@@ -53,7 +53,7 @@ class UFlipbookSampleParams : public UTextureSetSampleParams
 	GENERATED_BODY()
 public:
 	UPROPERTY(EditAnywhere);
-	bool bBlendFrames = false;
+	bool bBlendFrames = true;
 
 	UPROPERTY(EditAnywhere);
 	EFlipbookTime FlipbookTimeType = EFlipbookTime::Seconds;
