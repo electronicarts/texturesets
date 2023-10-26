@@ -224,12 +224,10 @@ const FGraphBuilderOutputAddress FTextureSetMaterialGraphBuilder::GetPackedTextu
 
 const TTuple<FGraphBuilderOutputAddress, FGraphBuilderOutputAddress> FTextureSetMaterialGraphBuilder::GetRangeCompressParams(int Index)
 {
-	const FTextureSetPackedTextureDef& TextureDef = PackingInfo.GetPackedTextureDef(Index);
+	const FTextureSetPackedTextureInfo& TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
 
-	if (TextureDef.bDoRangeCompression)
+	if (TextureInfo.ChannelEncodings & (uint8)ETextureSetChannelEncoding::RangeCompression)
 	{
-		const FTextureSetPackedTextureInfo& TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
-
 		if (!ConstantParameters.Contains(TextureInfo.RangeCompressMulName))
 			MakeConstantParameter(TextureInfo.RangeCompressAddName, FVector4f::Zero());
 
@@ -620,7 +618,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 	FGraphBuilderOutputAddress SampleCoord = Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Sampling);
 	FGraphBuilderOutputAddress StreamingCoord = Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming);
 
-	if (EnumHasAnyFlags(TextureInfo.Flags, ETextureSetTextureFlags::Array))
+	if (TextureInfo.Flags & (uint8)ETextureSetTextureFlags::Array)
 	{
 		// Append the array index to out UV to get the sample coordinate
 		{
@@ -661,7 +659,9 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 	
 	CustomExp->Code = "";
 
-	if (!EnumHasAnyFlags(TextureInfo.Flags, ETextureSetTextureFlags::Array))
+	const bool bIsArray = (TextureInfo.Flags & (uint8)ETextureSetTextureFlags::Array);
+
+	if (!bIsArray)
 		CustomExp->Code += "FloatDeriv2 UV = {Texcoord.xy, DDX, DDY};\n";
 
 	// Set the correct size of float for how many channels we have
@@ -669,7 +669,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 		{(TextureInfo.ChannelCount > 1) ? FString::FromInt(TextureInfo.ChannelCount) : ""});
 
 	// Do the appropriate sample
-	if (EnumHasAnyFlags(TextureInfo.Flags, ETextureSetTextureFlags::Array))
+	if (bIsArray)
 	{
 		CustomExp->Code += TEXT("Texture2DArraySampleGrad(Tex, TexSampler, Texcoord.xyz, DDX, DDY).");
 	}
@@ -691,8 +691,13 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 	{
 		TArray<FStringFormatArg> FormatArgs = {ChannelSuffixLower[c], ChannelSuffixUpper[c]};
 
-		// Decode channel based on which encoding it uses
-		if (TextureInfo.ChannelInfo[c].ChannelEncoding == ETextureSetTextureChannelEncoding::Linear_RangeCompressed)
+		if ((TextureInfo.ChannelInfo[c].ChannelEncoding & (uint8)ETextureSetChannelEncoding::SRGB) && (!TextureInfo.HardwareSRGB || c >= 3))
+		{
+			// Need to do sRGB decompression in the shader
+			CustomExp->Code += FString::Format(TEXT("Sample.{0} = pow(Sample.{0}, 2.2f);\n"), FormatArgs);
+		}
+
+		if (TextureInfo.ChannelInfo[c].ChannelEncoding & (uint8)ETextureSetChannelEncoding::RangeCompression)
 		{
 			if (RangeCompressMulInput == 0)
 			{
@@ -703,11 +708,6 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 			}
 
 			CustomExp->Code += FString::Format(TEXT("Sample.{0} = Sample.{0} * RangeCompressMul.{0} + RangeCompressAdd.{0};\n"), FormatArgs);
-		}
-		else if (TextureInfo.ChannelInfo[c].ChannelEncoding == ETextureSetTextureChannelEncoding::SRGB && (!TextureInfo.HardwareSRGB || c >= 3))
-		{
-			// Need to do sRGB decompression in the shader
-			CustomExp->Code += FString::Format(TEXT("Sample.{0} = pow(Sample.{0}, 2.2f);\n"), FormatArgs);
 		}
 
 		// Add an output pin for this channel

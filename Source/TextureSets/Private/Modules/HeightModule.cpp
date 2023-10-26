@@ -18,7 +18,8 @@
 #if WITH_EDITOR
 void UHeightModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
-	const FTextureSetSourceTextureDef HeightDef(1, false, FVector4(1, 0, 0, 0));
+	// TODO: Use range compression on the heightmap
+	const FTextureSetSourceTextureDef HeightDef(1, ETextureSetChannelEncoding::None, FVector4(1, 0, 0, 0));
 
 	Graph.AddOutputParameter("HeightParams", TSharedRef<IParameterProcessingNode>(new ParameterPassThrough<UHeightAssetParams>(
 		"HeightParams", 

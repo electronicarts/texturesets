@@ -14,11 +14,6 @@ struct TEXTURESETS_API FTextureSetPackedTextureDef
 	GENERATED_BODY()
 public:
 	FTextureSetPackedTextureDef()
-		: SkipMip(0)
-		, NumStreamedMips(-1)
-		, Filter(ETextureSamplerFilter::AnisotropicLinear)
-		, bDoRangeCompression(false)
-		, bHardwareSRGB(false)
 	{}
 
 	// Texture Format
@@ -38,22 +33,15 @@ public:
 	UPROPERTY(EditAnywhere, meta=(GetOptions="EditGetUnpackedChannelNames", EditCondition = "AvailableChannels > 3"))
 	FName SourceA;
 
-	UPROPERTY(EditAnywhere)
-	int SkipMip; // Not implemented
-
-	// Number of mip-levels that can be streamed. -1 means all mips can stream.
-	UPROPERTY(EditAnywhere)
-	int32 NumStreamedMips; // Not implemented
-
-	UPROPERTY(EditAnywhere)
-	ETextureSamplerFilter Filter; // Not implemented
-
-	UPROPERTY(EditAnywhere)
-	bool bDoRangeCompression; // Not implemented
-
-	// Attempt to use hardware sRGB decoding if possible
-	UPROPERTY(EditAnywhere)
-	bool bHardwareSRGB;
+	//UPROPERTY(EditAnywhere)
+	//int SkipMip; // Not implemented
+	//
+	//// Number of mip-levels that can be streamed. -1 means all mips can stream.
+	//UPROPERTY(EditAnywhere)
+	//int32 NumStreamedMips; // Not implemented
+	//
+	//UPROPERTY(EditAnywhere)
+	//ETextureSamplerFilter Filter; // Not implemented
 
 	// How many channels our chosen compressed texture supports
 	int GetAvailableChannels() const;
@@ -66,7 +54,7 @@ public:
 
 	TArray<FString> GetSourcesWithoutChannel(bool RemoveDuplicate = true) const;
 
-	bool GetHardwareSRGBEnabled() const;
+	bool GetHardwareSRGBSupported() const;
 
 #if WITH_EDITOR
 	// Call to update the private "AvailableChannels" so the EditCondition is accurate
@@ -90,11 +78,9 @@ inline uint32 GetTypeHash(const FTextureSetPackedTextureDef& Value)
 	Hash = HashCombine(Hash, GetTypeHash(Value.SourceG.ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(Value.SourceB.ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(Value.SourceA.ToString()));
-	Hash = HashCombine(Hash, GetTypeHash(Value.SkipMip));
-	Hash = HashCombine(Hash, GetTypeHash(Value.NumStreamedMips));
-	Hash = HashCombine(Hash, GetTypeHash((int)Value.Filter));
-	Hash = HashCombine(Hash, GetTypeHash(Value.bDoRangeCompression));
-	Hash = HashCombine(Hash, GetTypeHash(Value.bHardwareSRGB));
+	//Hash = HashCombine(Hash, GetTypeHash(Value.SkipMip));
+	//Hash = HashCombine(Hash, GetTypeHash(Value.NumStreamedMips));
+	//Hash = HashCombine(Hash, GetTypeHash((int)Value.Filter));
 
 	return Hash;
 }

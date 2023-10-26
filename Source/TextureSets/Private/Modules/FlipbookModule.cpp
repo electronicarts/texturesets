@@ -38,7 +38,7 @@ public:
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() override
 	{
 		FTextureSetProcessedTextureDef Def = SourceImage->GetTextureDef();
-		Def.Flags |= ETextureSetTextureFlags::Array;
+		Def.Flags |= (uint8)ETextureSetTextureFlags::Array;
 		return Def;
 	}
 
@@ -192,7 +192,7 @@ void UFlipbookModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph
 
 	if (bUseMotionVectors)
 	{
-		FTextureSetSourceTextureDef MotionDef = FTextureSetSourceTextureDef(2, false, FVector4(0.5, 0.5, 0, 0));
+		FTextureSetSourceTextureDef MotionDef = FTextureSetSourceTextureDef(2, ETextureSetChannelEncoding::RangeCompression, FVector4(0.5, 0.5, 0, 0));
 		Graph.AddOutputTexture("MotionVector", Graph.AddInputTexture("MotionVector", MotionDef));
 	}
 

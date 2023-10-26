@@ -14,11 +14,21 @@ class UTextureSetModule;
 UENUM(meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor="true"))
 enum class ETextureSetTextureFlags : uint8
 {
-	None = 0,
+	None = 0 UMETA(Hidden),
 	Array = 1 << 0,
 	// Additional texture flags such as 1D, 3D, cubemaps, etc. could be supported
 };
 ENUM_CLASS_FLAGS(ETextureSetTextureFlags);
+
+// Info used for packing, not exposed to the modules
+UENUM(meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor="true"))
+enum class ETextureSetChannelEncoding  : uint8
+{
+	None = 0 UMETA(Hidden),
+	RangeCompression = 1 << 0,
+	SRGB = 1 << 1,
+};
+ENUM_CLASS_FLAGS(ETextureSetChannelEncoding);
 
 // Processed texture map ready for packing
 USTRUCT()
@@ -27,22 +37,22 @@ struct FTextureSetProcessedTextureDef
 	GENERATED_BODY()
 
 public:
-	FTextureSetProcessedTextureDef() : FTextureSetProcessedTextureDef(1, false) {}
+	FTextureSetProcessedTextureDef() : FTextureSetProcessedTextureDef(1, ETextureSetChannelEncoding::None) {}
 
-	FTextureSetProcessedTextureDef(int ChannelCount, bool SRGB, ETextureSetTextureFlags Flags = ETextureSetTextureFlags::None)
+	FTextureSetProcessedTextureDef(int ChannelCount, ETextureSetChannelEncoding Encoding, ETextureSetTextureFlags Flags = ETextureSetTextureFlags::None)
 		: ChannelCount(ChannelCount)
-		, SRGB(SRGB)
-		, Flags(Flags)
+		, Encoding((uint8)Encoding)
+		, Flags((uint8)Flags)
 	{}
 
 	UPROPERTY(EditAnywhere, meta=(ClampMin = 1, ClampMax = 4))
 	uint8 ChannelCount = 1;
 
-	UPROPERTY(EditAnywhere)
-	bool SRGB = false; // Used for correct packing and sampling
+	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = ETextureSetChannelEncoding))
+	uint8 Encoding = 0;
 
-	UPROPERTY(EditAnywhere)
-	ETextureSetTextureFlags Flags;
+	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = ETextureSetTextureFlags))
+	uint8 Flags = 0;
 };
 
 inline uint32 GetTypeHash(const FTextureSetProcessedTextureDef& Def)
@@ -50,7 +60,7 @@ inline uint32 GetTypeHash(const FTextureSetProcessedTextureDef& Def)
 	uint32 Hash = 0;
 
 	Hash = HashCombine(Hash, GetTypeHash(Def.ChannelCount));
-	Hash = HashCombine(Hash, GetTypeHash(Def.SRGB));
+	Hash = HashCombine(Hash, GetTypeHash(Def.Encoding));
 	Hash = HashCombine(Hash, GetTypeHash(Def.Flags));
 
 	return Hash;
@@ -63,10 +73,10 @@ struct FTextureSetSourceTextureDef : public FTextureSetProcessedTextureDef
 	GENERATED_BODY()
 
 public:
-	FTextureSetSourceTextureDef() : FTextureSetSourceTextureDef(1, false, FVector4::Zero()) {}
+	FTextureSetSourceTextureDef() : FTextureSetSourceTextureDef(1, ETextureSetChannelEncoding::None, FVector4::Zero()) {}
 
-	FTextureSetSourceTextureDef(int ChannelCount, bool SRGB, FVector4 DefaultValue)
-		: Super(ChannelCount, SRGB)
+	FTextureSetSourceTextureDef(int ChannelCount, ETextureSetChannelEncoding Encoding, FVector4 DefaultValue)
+		: Super(ChannelCount, Encoding)
 		, DefaultValue(DefaultValue)
 	{}
 
@@ -119,15 +129,6 @@ private:
 #endif
 };
 
-// Info used for packing, not exposed to the modules
-UENUM()
-enum class ETextureSetTextureChannelEncoding  : uint8
-{
-	Linear_Raw,
-	Linear_RangeCompressed,
-	SRGB
-};
-
 USTRUCT()
 struct FTextureSetPackedChannelInfo
 {
@@ -136,7 +137,7 @@ struct FTextureSetPackedChannelInfo
 public:
 	FTextureSetPackedChannelInfo()
 		: ProessedTextureChannel(0)
-		, ChannelEncoding(ETextureSetTextureChannelEncoding::Linear_Raw)
+		, ChannelEncoding((uint8)ETextureSetChannelEncoding::None)
 	{}
 
 	UPROPERTY(VisibleAnywhere)
@@ -146,7 +147,7 @@ public:
 	int ProessedTextureChannel = 0;
 
 	UPROPERTY(VisibleAnywhere)
-	ETextureSetTextureChannelEncoding ChannelEncoding;
+	uint8 ChannelEncoding; // ETextureSetChannelEncoding
 };
 
 USTRUCT()
@@ -158,7 +159,7 @@ public:
 	FTextureSetPackedTextureInfo()
 		: ChannelCount(0)
 		, HardwareSRGB(false)
-		, Flags(ETextureSetTextureFlags::None)
+		, Flags((uint8)ETextureSetTextureFlags::None)
 	{}
 
 	UPROPERTY(VisibleAnywhere)
@@ -170,8 +171,12 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	bool HardwareSRGB;
 
-	UPROPERTY(VisibleAnywhere)
-	ETextureSetTextureFlags Flags;
+	UPROPERTY(VisibleAnywhere, meta = (Bitmask, BitmaskEnum = ETextureSetTextureFlags))
+	uint8 Flags;
+
+	// Union of the channel encodings for all the packed channels
+	UPROPERTY(VisibleAnywhere, meta = (Bitmask, BitmaskEnum = ETextureSetSourceTextureChannelMask))
+	uint8 ChannelEncodings;
 
 	UPROPERTY(VisibleAnywhere)
 	FName RangeCompressMulName;

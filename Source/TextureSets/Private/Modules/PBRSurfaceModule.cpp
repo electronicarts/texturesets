@@ -24,25 +24,25 @@ void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Gra
 	{
 		// Base Color
 		{
-			static const FTextureSetSourceTextureDef BaseColorDef(3, true, FVector4(0.5, 0.5, 0.5, 0));
+			static const FTextureSetSourceTextureDef BaseColorDef(3, ETextureSetChannelEncoding::SRGB, FVector4(0.5, 0.5, 0.5, 0));
 			Graph.AddOutputTexture(BaseColorName, Graph.AddInputTexture(BaseColorName, BaseColorDef));
 		}
 
 		// Metal
 		if (Paramaterization == EPBRParamaterization::Basecolor_Metal)
 		{
-			static const FTextureSetSourceTextureDef MetalDef(1, false, FVector4(0, 0, 0, 0));
+			static const FTextureSetSourceTextureDef MetalDef(1, ETextureSetChannelEncoding::None, FVector4(0, 0, 0, 0));
 			Graph.AddOutputTexture(MetalName, Graph.AddInputTexture(MetalName, MetalDef));
 		}
 	}
 	else if (Paramaterization == EPBRParamaterization::Albedo_Spec)
 	{
 		// Albedo
-		static const FTextureSetSourceTextureDef AlbedoDef(3, true, FVector4(0.5, 0.5, 0.5, 0));
+		static const FTextureSetSourceTextureDef AlbedoDef(3, ETextureSetChannelEncoding::SRGB, FVector4(0.5, 0.5, 0.5, 0));
 		Graph.AddOutputTexture(AlbedoName, Graph.AddInputTexture(AlbedoName, AlbedoDef));
 
 		// Spec
-		static const FTextureSetSourceTextureDef SpecularDef(3, true, FVector4(0, 0, 0, 0));
+		static const FTextureSetSourceTextureDef SpecularDef(3, ETextureSetChannelEncoding::SRGB, FVector4(0, 0, 0, 0));
 		Graph.AddOutputTexture(SpecularName, Graph.AddInputTexture(SpecularName, SpecularDef));
 	}
 	else
@@ -53,13 +53,13 @@ void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Gra
 	if (Microsurface == EPBRMicrosurface::Roughness)
 	{
 		// Roughness
-		static const FTextureSetSourceTextureDef RoughnessDef (1, false, FVector4(0.5, 0.5, 0.5, 0));
+		static const FTextureSetSourceTextureDef RoughnessDef (1, ETextureSetChannelEncoding::RangeCompression, FVector4(0.5, 0.5, 0.5, 0));
 		Graph.AddOutputTexture(RoughnessName, Graph.AddInputTexture(RoughnessName, RoughnessDef));
 	}
 	else if (Microsurface == EPBRMicrosurface::Smoothness)
 	{
 		// Smoothness
-		static const FTextureSetSourceTextureDef SmoothnessDef (1, false, FVector4(0.5, 0.5, 0.5, 0));
+		static const FTextureSetSourceTextureDef SmoothnessDef (1, ETextureSetChannelEncoding::RangeCompression, FVector4(0.5, 0.5, 0.5, 0));
 		Graph.AddOutputTexture(SmoothnessName, Graph.AddInputTexture(SmoothnessName, SmoothnessDef));
 	}
 	else
@@ -69,7 +69,7 @@ void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Gra
 
 	if (Normal == EPBRNormal::Tangent)
 	{
-		static const FTextureSetSourceTextureDef TangentNormalDef (2, false, FVector4(0.5, 0.5, 1, 0));
+		static const FTextureSetSourceTextureDef TangentNormalDef (2, ETextureSetChannelEncoding::RangeCompression, FVector4(0.5, 0.5, 1, 0));
 		Graph.AddOutputTexture(TangentNormalName, Graph.AddInputTexture(TangentNormalName, TangentNormalDef));
 	}
 	else if (Normal != EPBRNormal::None)

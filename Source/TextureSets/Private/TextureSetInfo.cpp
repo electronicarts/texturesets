@@ -60,7 +60,9 @@ FTextureSetPackingInfo::FTextureSetPackingInfo(const TArray<FTextureSetPackedTex
 		FTextureSetPackedTextureInfo TextureInfo;
 
 		// Enabled initially, but can be disabled if it's found to be incompatible with the current packing
-		TextureInfo.HardwareSRGB = TextureDef.GetHardwareSRGBEnabled();
+		TextureInfo.HardwareSRGB = TextureDef.GetHardwareSRGBSupported();
+
+		TextureInfo.ChannelEncodings = (uint8)ETextureSetChannelEncoding::None;
 
 		bool bIsFirstSource = true;
 
@@ -106,21 +108,11 @@ FTextureSetPackingInfo::FTextureSetPackingInfo(const TArray<FTextureSetPackedTex
 
 			TextureInfo.ChannelInfo[c].ProcessedTexture = SourceTexName;
 			TextureInfo.ChannelInfo[c].ProessedTextureChannel = SourceChannel;
+			TextureInfo.ChannelInfo[c].ChannelEncoding = Processed.Encoding;
+			TextureInfo.ChannelEncodings |= Processed.Encoding;
 
-			if (Processed.SRGB)
-			{
-				TextureInfo.ChannelInfo[c].ChannelEncoding = ETextureSetTextureChannelEncoding::SRGB;
-			}
-			else
-			{
-				if (c < 3)
-					TextureInfo.HardwareSRGB = false; // If we have any non-sRGB textures in R, G, or B, then we can't use hardware SRGB.
-
-				if (TextureDef.bDoRangeCompression)
-					TextureInfo.ChannelInfo[c].ChannelEncoding = ETextureSetTextureChannelEncoding::Linear_RangeCompressed;
-				else
-					TextureInfo.ChannelInfo[c].ChannelEncoding = ETextureSetTextureChannelEncoding::Linear_Raw;
-			}
+			if (c < 3 && !(Processed.Encoding & (uint8)ETextureSetChannelEncoding::SRGB))
+				TextureInfo.HardwareSRGB = false; // If we have any non-sRGB textures in R, G, or B, then we can't use hardware SRGB.
 
 			if (bIsFirstSource)
 			{

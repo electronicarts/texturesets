@@ -109,7 +109,7 @@ TArray<FString> FTextureSetPackedTextureDef::GetSourcesWithoutChannel(bool Remov
 	return SourcesWithoutChannel;
 }
 
-bool FTextureSetPackedTextureDef::GetHardwareSRGBEnabled() const
+bool FTextureSetPackedTextureDef::GetHardwareSRGBSupported() const
 {
 	static const TArray<TextureCompressionSettings> SRGBSupportedFormats =
 	{
@@ -119,7 +119,7 @@ bool FTextureSetPackedTextureDef::GetHardwareSRGBEnabled() const
 		TC_LQ
 	};
 
-	return bHardwareSRGB && SRGBSupportedFormats.Contains(CompressionSettings);
+	return SRGBSupportedFormats.Contains(CompressionSettings);
 }
 
 #if WITH_EDITOR

@@ -255,12 +255,12 @@ void FTextureSetCooker::Prepare()
 
 	for (int t = 0; t < DerivedData.Textures.Num(); t++)
 	{
-		ETextureSetTextureFlags Flags = PackingInfo.GetPackedTextureInfo(t).Flags;
+		uint8 Flags = PackingInfo.GetPackedTextureInfo(t).Flags;
 
 		TSubclassOf<UTexture> DerivedTextureClass;
 		FString DerivedTextureSuffix;
 
-		if (EnumHasAnyFlags(Flags, ETextureSetTextureFlags::Array))
+		if (Flags & (uint8)ETextureSetTextureFlags::Array)
 		{
 			DerivedTextureSuffix = "2DA";
 			DerivedTextureClass = UTexture2DArray::StaticClass();
@@ -498,7 +498,7 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 
 		for (int c = 0; c < TextureInfo.ChannelCount; c++)
 		{
-			if (TextureInfo.ChannelInfo[c].ChannelEncoding == ETextureSetTextureChannelEncoding::Linear_RangeCompressed)
+			if (TextureInfo.ChannelInfo[c].ChannelEncoding & (uint8)ETextureSetChannelEncoding::RangeCompression)
 			{
 				const float Min = MinPixelValues[c];
 				const float Max = MaxPixelValues[c];
@@ -522,7 +522,8 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 				RestoreMul[c] = 1.0f / (Max - Min);
 				RestoreAdd[c] = Min;
 			}
-			else if (TextureInfo.ChannelInfo[c].ChannelEncoding == ETextureSetTextureChannelEncoding::SRGB && (!TextureInfo.HardwareSRGB || c >= 3))
+
+			if ((TextureInfo.ChannelInfo[c].ChannelEncoding & (uint8)ETextureSetChannelEncoding::SRGB) && (!TextureInfo.HardwareSRGB || c >= 3))
 			{
 				for (int x = 0; x < Width; x++)
 				{
