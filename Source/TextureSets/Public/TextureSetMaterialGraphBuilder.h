@@ -11,8 +11,6 @@
 #include "TextureSetInfo.h"
 #endif
 
-#include "TextureSetMaterialGraphBuilder.generated.h"
-
 class UTextureSetDefinition;
 class UMaterialExpressionTextureSetSampleParameter;
 class UMaterialExpressionFunctionOutput;
