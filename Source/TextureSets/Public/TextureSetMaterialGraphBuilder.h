@@ -3,13 +3,15 @@
 #pragma once
 
 #if WITH_EDITOR
-
 #include "MaterialEditingLibrary.h"
 #include "MaterialGraphBuilder/GraphBuilderGraphAddress.h"
 #include "MaterialGraphBuilder/GraphBuilderValue.h"
 #include "MaterialGraphBuilder/TextureSetSubsampleContext.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "TextureSetInfo.h"
+#endif
+
+#include "TextureSetMaterialGraphBuilder.generated.h"
 
 class UTextureSetDefinition;
 class UMaterialExpressionTextureSetSampleParameter;
@@ -18,6 +20,8 @@ class UMaterialExpressionTextureObjectParameter;
 class UMaterialExpressionNamedRerouteDeclaration;
 class UMaterialExpressionMaterialFunctionCall;
 
+
+#if WITH_EDITOR
 // Class responsible for building the material graph of a texture set sampler node.
 // Texture set modules use this node to customize the sampling logic.
 class FTextureSetMaterialGraphBuilder

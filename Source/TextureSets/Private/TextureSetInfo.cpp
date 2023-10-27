@@ -28,8 +28,10 @@ FTextureSetDefinitionModuleInfo::FTextureSetDefinitionModuleInfo(const TArray<co
 
 FTextureSetDefinitionModuleInfo::FTextureSetDefinitionModuleInfo()
 {
+#if WITH_EDITOR
 	// Create a blank processing graph, it will be regenerated if GetProcessingGraph() is called
 	ProcessingGraph = MakeShared<FTextureSetProcessingGraph>();
+#endif
 }
 
 #if WITH_EDITOR

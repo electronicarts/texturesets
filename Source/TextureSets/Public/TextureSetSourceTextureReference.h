@@ -2,8 +2,6 @@
 
 #pragma once
 
-#if WITH_EDITORONLY_DATA
-
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Engine/Texture.h"
@@ -39,5 +37,3 @@ public:
 	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = ETextureSetSourceTextureChannelMask))
 	int32 ChannelMask;
 };
-
-#endif

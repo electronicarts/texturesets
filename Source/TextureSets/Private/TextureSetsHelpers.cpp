@@ -1,7 +1,5 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#pragma once
-
 #include "TextureSetsHelpers.h"
 
 #include "CoreMinimal.h"
@@ -14,6 +12,7 @@ const TArray<FString> TextureSetsHelpers::ChannelSuffixes = {".r", ".g", ".b", "
 
 FName TextureSetsHelpers::TextureBulkDataIdAssetTagName("TextureSet::TextureBulkDataId");
 
+#if WITH_EDITOR
 bool TextureSetsHelpers::GetSourceDataIdAsString(const UTexture* Texture, FString& StringOut)
 {
 	if (Texture->Source.IsValid() && !Texture->bSourceBulkDataTransient)
@@ -24,6 +23,7 @@ bool TextureSetsHelpers::GetSourceDataIdAsString(const UTexture* Texture, FStrin
 
 	return false;
 }
+#endif
 
 bool TextureSetsHelpers::GetSourceDataIdAsString(const FAssetData& AssetData, FString& StringOut)
 {

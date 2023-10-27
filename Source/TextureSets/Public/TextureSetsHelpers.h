@@ -18,7 +18,9 @@ public:
 
 	static FName TextureBulkDataIdAssetTagName;
 
+#if WITH_EDITOR
 	static bool GetSourceDataIdAsString(const UTexture* Texture, FString& StringOut);
+#endif
 	static bool GetSourceDataIdAsString(const FAssetData& AssetData, FString& StringOut);
 
 	static TArray<FName> GetUnpackedChannelNames(const TArray<FTextureSetPackedTextureDef>& PackedTextures, const TMap<FName, FTextureSetProcessedTextureDef>& ProcessedTextures);
