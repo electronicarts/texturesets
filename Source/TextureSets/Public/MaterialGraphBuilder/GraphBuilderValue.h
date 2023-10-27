@@ -2,7 +2,6 @@
 
 #pragma once
 
-#if WITH_EDITOR
 #include "MaterialGraphBuilder/GraphBuilderGraphAddress.h"
 
 UENUM()
@@ -32,6 +31,7 @@ enum class EGraphBuilderSharedValueType : uint8
 	CameraVector
 };
 
+#if WITH_EDITOR
 struct FGraphBuilderValue
 {
 public:
