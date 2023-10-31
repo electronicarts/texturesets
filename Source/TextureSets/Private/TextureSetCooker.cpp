@@ -94,8 +94,9 @@ private:
 	const FName ParameterName;
 };
 
-FTextureSetCooker::FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerivedData& DerivedData)
+FTextureSetCooker::FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerivedData& DerivedData, TArray<const ITargetPlatform*> TargetPlatforms)
 	: DerivedData(DerivedData)
+	, TargetPlatforms(TargetPlatforms)
 	, Context(TextureSet)
 	, GraphInstance(nullptr)
 	, PackingInfo(TextureSet->Definition->GetPackingInfo())
@@ -144,8 +145,11 @@ bool FTextureSetCooker::CookRequired() const
 		// Make sure the texture is using the right key before checking if it's cached
 		ConfigureTexture(t);
 
-		if (!DerivedData.Textures[t]->PlatformDataExistsInCache())
-			return true;
+		for (const ITargetPlatform* Platform : TargetPlatforms)
+		{
+			if (!DerivedData.Textures[t]->PlatformDataExistsInCache(Platform))
+				return true;
+		}
 	}
 
 	return false;
@@ -181,9 +185,24 @@ void FTextureSetCooker::Finalize()
 		// If Mip data was updated in BuildTextureData, it would reset the key incorrectly.
 		ConfigureTexture(t);
 
-		// Update resources re-caches the derived texture data
-		DerivedData.Textures[t]->UpdateResource();
-		DerivedData.Textures[t]->UpdateCachedLODBias();
+		UTexture* Texture = DerivedData.Textures[t];
+
+		for (const ITargetPlatform* Platform : TargetPlatforms)
+		{
+			if (Platform != nullptr)
+			{
+				Texture->BeginCacheForCookedPlatformData(Platform);
+			}
+			else
+			{
+				DerivedData.Textures[t]->UpdateResource();
+				DerivedData.Textures[t]->UpdateCachedLODBias();
+			}
+		}
+
+		// ResumeCaching() is called after we call BeginCacheForCookedPlatformData, to 
+		// combine with any other possible calls that occured when caching was suspended.
+		Texture->ResumeCaching();
 	}
 
 	DerivedData.bIsCooking = false;
@@ -295,6 +314,9 @@ void FTextureSetCooker::Prepare()
 
 		check(DerivedData.Textures[t]->IsInOuter(OuterObject));
 
+		// Suspend caching to make sure the source data won't be contended.
+		DerivedData.Textures[t]->SuspendCaching();
+
 		// Derived textures must be configured before cooking, so PlatformDataExistsInCache() uses the correct keys
 		ConfigureTexture(t);
 	}
@@ -359,11 +381,15 @@ void FTextureSetCooker::ExecuteInternal()
 			}
 		}
 
-		if (!bDataWasBuilt && !DerivedData.Textures[t]->PlatformDataExistsInCache())
+		for (const ITargetPlatform* Platform : TargetPlatforms)
 		{
-			// This can happen if a texture build gets interrupted after a texture-set cook, or if a different platform is required.
-			// Build this texture to regenerate the source data, so it can be cached.
-			BuildTextureData(t);
+			if (!bDataWasBuilt && !DerivedData.Textures[t]->PlatformDataExistsInCache(Platform))
+			{
+				// This can happen if a texture build gets interrupted after a texture-set cook, or if a different platform is required.
+				// Build this texture to regenerate the source data, so it can be cached.
+				BuildTextureData(t);
+				break;
+			}
 		}
 	}
 

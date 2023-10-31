@@ -51,7 +51,7 @@ class FTextureSetCooker
 	friend class FTextureSetCookerTaskWorker;
 public:
 
-	FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerivedData& DerivedData);
+	FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerivedData& DerivedData, TArray<const ITargetPlatform*> TargetPlatforms);
 
 	bool CookRequired() const;
 
@@ -66,8 +66,11 @@ public:
 	FAsyncTaskBase* GetAsyncTask() { return AsyncTask.Get(); }
 	FName GetTextureSetName() { return FName(TextureSetName); }
 
+	const TArray<const ITargetPlatform*>& GetPlatforms() { return TargetPlatforms; }
+
 private:
 	FTextureSetDerivedData& DerivedData;
+	TArray<const ITargetPlatform*> TargetPlatforms;
 
 	FTextureSetProcessingContext Context;
 	TSharedPtr<FTextureSetProcessingGraph> GraphInstance;

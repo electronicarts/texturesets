@@ -56,6 +56,7 @@ public:
 	const UTextureSet* GetDefaultTextureSet() const;
 
 #if WITH_EDITOR
+	void UpdateDefaultTextureSet();
 	uint32 ComputeCookingHash();
 #endif
 

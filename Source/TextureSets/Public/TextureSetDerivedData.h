@@ -65,4 +65,18 @@ public:
 	TMap<FName, FDerivedParameterData> MaterialParameters;
 
 	bool bIsCooking = false;
+
+	inline bool IsValid()
+	{
+		if (bIsCooking)
+			return false;
+
+		if (Textures.Num() == 0 && MaterialParameters.Num() == 0)
+			return false;
+
+		if (Textures.Num() != TextureData.Num())
+			return false;
+
+		return true;
+	}
 };

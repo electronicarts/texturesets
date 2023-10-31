@@ -100,7 +100,7 @@ void UTextureSet::PreSave(FObjectPreSaveContext SaveContext)
 	// Important to call UpdateDerivedData before Super, otherwise it causes 
 	// the package to fail to save if any of the derived data's references
 	// have changed.
-	UpdateDerivedData();
+	UpdateDerivedData(SaveContext.GetTargetPlatform(), true);
 #endif
 
 	Super::PreSave(SaveContext);
@@ -111,7 +111,7 @@ void UTextureSet::PostLoad()
 	Super::PostLoad();
 
 #if WITH_EDITOR
-	UpdateDerivedData();
+	UpdateDerivedData(nullptr);
 #endif
 }
 
@@ -167,6 +167,39 @@ void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 #endif
 
 #if WITH_EDITOR
+void UTextureSet::BeginCacheForCookedPlatformData(const ITargetPlatform* TargetPlatform)
+{
+	// Important to start immediately (2nd arg) so the derived textures get initialized with a valid format
+	UpdateDerivedData(TargetPlatform, true);
+}
+#endif
+
+#if WITH_EDITOR
+bool UTextureSet::IsCachedCookedPlatformDataLoaded(const ITargetPlatform* TargetPlatform)
+{
+	if (!IsValid(Definition))
+		return true; // As loaded as we'll get without a definition
+
+	return !IsCompiling() && DerivedData.IsValid();
+}
+#endif
+
+#if WITH_EDITOR
+void UTextureSet::ClearCachedCookedPlatformData(const ITargetPlatform* TargetPlatform)
+{
+	// We don't have any platform specific platform data
+}
+#endif
+
+#if WITH_EDITOR
+void UTextureSet::ClearAllCachedCookedPlatformData()
+{
+	// Don't actually clear it, because we have other systems that rely on us being properly initialized
+	//DerivedData = FTextureSetDerivedData();
+}
+#endif
+
+#if WITH_EDITOR
 void UTextureSet::FixupData()
 {
 	// Only fixup the data if we have a valid definition. Otherwise leave it as-is so it's there for when we do.
@@ -190,7 +223,7 @@ void UTextureSet::FixupData()
 #endif
 
 #if WITH_EDITOR
-void UTextureSet::UpdateDerivedData()
+void UTextureSet::UpdateDerivedData(const ITargetPlatform *TargetPlatform, bool bStartImmediately)
 {
 	FixupData();
 
@@ -202,10 +235,17 @@ void UTextureSet::UpdateDerivedData()
 		return;
 	}
 
-	if (Definition->GetDefaultTextureSet() == this) // Default textures need to compile immediately
-		FTextureSetCompilingManager::Get().StartCompilation({this});
+	if (bStartImmediately)
+	{
+		if (FTextureSetCompilingManager::Get().IsRegistered(this))
+		{
+			FTextureSetCompilingManager::Get().FinishCompilation({this});
+		}
+
+		FTextureSetCompilingManager::Get().StartCompilation(this, {TargetPlatform});
+	}
 	else
-		FTextureSetCompilingManager::Get().QueueCompilation({this});
+		FTextureSetCompilingManager::Get().QueueCompilation(this, TargetPlatform);
 }
 #endif
 
@@ -232,7 +272,7 @@ void UTextureSet::OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition)
 {
 	if (ChangedDefinition == Definition && !HasAnyFlags(RF_NeedPostLoad))
 	{
-		UpdateDerivedData();
+		UpdateDerivedData(nullptr);
 	}
 }
 #endif

@@ -51,11 +51,18 @@ public:
 	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	
+	virtual void BeginCacheForCookedPlatformData(const ITargetPlatform* TargetPlatform) override;
+	virtual bool IsCachedCookedPlatformDataLoaded(const ITargetPlatform* TargetPlatform) override;
+	virtual void ClearCachedCookedPlatformData(const ITargetPlatform* TargetPlatform) override;
+	virtual void ClearAllCachedCookedPlatformData() override;
 #endif
 
 #if WITH_EDITOR
 	void FixupData();
-	void UpdateDerivedData();
+	// Fetch from cache, or re-compute the derived data for the specified platform.
+	// Pass nullptr to cache for the currently running platform (in-editor)
+	void UpdateDerivedData(const ITargetPlatform* TargetPlatform, bool bStartImmediately = false);
 #endif
 	const FTextureSetDerivedData& GetDerivedData() const { return DerivedData; }
 	const FString& GetUserKey() const { return UserKey; }
