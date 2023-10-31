@@ -48,10 +48,10 @@ public:
 	UPROPERTY(EditAnywhere, meta=(ClampMin = 1, ClampMax = 4))
 	uint8 ChannelCount = 1;
 
-	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = ETextureSetChannelEncoding))
+	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSets.ETextureSetChannelEncoding"))
 	uint8 Encoding = 0;
 
-	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = ETextureSetTextureFlags))
+	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSets.ETextureSetTextureFlags"))
 	uint8 Flags = 0;
 };
 
