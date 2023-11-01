@@ -39,7 +39,7 @@ public:
 	FTextureSetMaterialGraphBuilder(UMaterialFunction* MaterialFunction, const UMaterialExpressionTextureSetSampleParameter* Node);
 
 	// Change this to regenerate all texture set material graphs
-	static FString GetGraphBuilderVersion() { return "0.2"; }
+	static FString GetGraphBuilderVersion() { return "0.3"; }
 
 	template <class T> T* CreateExpression()
 	{
@@ -68,7 +68,7 @@ public:
 	void Connect(UMaterialExpression* OutputNode, FName OutputName, UMaterialExpression* InputNode, uint32 InputIndex);
 	void Connect(const FGraphBuilderOutputAddress& Output, const FGraphBuilderInputAddress& Input);
 	
-	UMaterialExpressionTextureObjectParameter* GetPackedTextureObject(int Index);
+	FGraphBuilderOutputAddress GetPackedTextureObject(int Index, FGraphBuilderOutputAddress StreamingCoord);
 	const FGraphBuilderOutputAddress GetPackedTextureSize(int Index);
 	const TTuple<int, int> GetPackingSource(FName ProcessedTextureChannel) { return PackingInfo.GetPackingSource(ProcessedTextureChannel); }
 	// Gets the addresses of the range compress multiply and add parameters for a specific packed texture.

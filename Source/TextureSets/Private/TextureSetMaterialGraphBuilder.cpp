@@ -204,9 +204,27 @@ void FTextureSetMaterialGraphBuilder::Connect(const FGraphBuilderOutputAddress& 
 	DeferredConnections.Add(Input, Output);
 }
 
-UMaterialExpressionTextureObjectParameter* FTextureSetMaterialGraphBuilder::GetPackedTextureObject(int Index)
+FGraphBuilderOutputAddress FTextureSetMaterialGraphBuilder::GetPackedTextureObject(int Index, FGraphBuilderOutputAddress StreamingCoord)
 {
-	return PackedTextureObjects[Index];
+	UMaterialExpressionTextureObjectParameter* TextureObjectExpression = PackedTextureObjects[Index];
+	
+	if (PackingInfo.GetPackedTextureInfo(Index).Flags & (uint8)ETextureSetTextureFlags::Array)
+	{
+		// Just do a dummy value for the streaming since it thinks it needs a float3
+		UMaterialExpression* AppendNode = CreateExpression<UMaterialExpressionAppendVector>();
+		Connect(StreamingCoord, AppendNode, 0);
+		UMaterialExpressionConstant* ConstantNode = CreateExpression<UMaterialExpressionConstant>();
+		Connect(ConstantNode, 0, AppendNode, 1);
+		StreamingCoord = FGraphBuilderOutputAddress(AppendNode, 0);
+	}
+
+	UMaterialExpressionTextureStreamingDef* TextureStreamingDef = CreateExpression<UMaterialExpressionTextureStreamingDef>();
+	TextureStreamingDef->SamplerType = TextureObjectExpression->SamplerType;
+	TextureStreamingDef->SamplerSource = ESamplerSourceMode::SSM_Wrap_WorldGroupSettings;// So we don't allocate a sampler
+	Connect(StreamingCoord, TextureStreamingDef, 0);
+	Connect(TextureObjectExpression, 0, TextureStreamingDef, 1);
+
+	return FGraphBuilderOutputAddress(TextureStreamingDef, 0);
 }
 
 const FGraphBuilderOutputAddress FTextureSetMaterialGraphBuilder::GetPackedTextureSize(int Index)
@@ -214,7 +232,7 @@ const FGraphBuilderOutputAddress FTextureSetMaterialGraphBuilder::GetPackedTextu
 	if (PackedTextureSizes[Index] == nullptr)
 	{
 		UMaterialExpressionTextureProperty* TextureProp = CreateExpression<UMaterialExpressionTextureProperty>();
-		GetPackedTextureObject(Index)->ConnectExpression(TextureProp->GetInput(0), 0);
+		PackedTextureObjects[Index]->ConnectExpression(TextureProp->GetInput(0), 0);
 		TextureProp->Property = EMaterialExposedTextureProperty::TMTM_TextureSize;
 		PackedTextureSizes[Index] = TextureProp;
 	}
@@ -613,36 +631,18 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 {
 	const FTextureSetPackedTextureDef& TextureDef = PackingInfo.GetPackedTextureDef(Index);
 	const FTextureSetPackedTextureInfo& TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
-	UMaterialExpressionTextureObjectParameter* TextureObject = PackedTextureObjects[Index];
+	FGraphBuilderOutputAddress TextureObject = GetPackedTextureObject(Index, Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming));
 
 	FGraphBuilderOutputAddress SampleCoord = Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Sampling);
-	FGraphBuilderOutputAddress StreamingCoord = Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming);
 
+	// Append the array index to out UV to get the sample coordinate
 	if (TextureInfo.Flags & (uint8)ETextureSetTextureFlags::Array)
 	{
-		// Append the array index to out UV to get the sample coordinate
-		{
-			UMaterialExpression* AppendNode = CreateExpression<UMaterialExpressionAppendVector>();
-			Connect(SampleCoord, AppendNode, 0);
-			Connect(Context.GetSharedValue(EGraphBuilderSharedValueType::ArrayIndex), AppendNode, 1);
-			SampleCoord = FGraphBuilderOutputAddress(AppendNode, 0);
-		}
-
-		// Just do a dummy value for the streaming since it thinks it needs a float3
-		{
-			UMaterialExpression* AppendNode = CreateExpression<UMaterialExpressionAppendVector>();
-			Connect(StreamingCoord, AppendNode, 0);
-			UMaterialExpressionConstant* ConstantNode = CreateExpression<UMaterialExpressionConstant>();
-			Connect(ConstantNode, 0, AppendNode, 1);
-			StreamingCoord = FGraphBuilderOutputAddress(AppendNode, 0);
-		}
+		UMaterialExpression* AppendNode = CreateExpression<UMaterialExpressionAppendVector>();
+		Connect(SampleCoord, AppendNode, 0);
+		Connect(Context.GetSharedValue(EGraphBuilderSharedValueType::ArrayIndex), AppendNode, 1);
+		SampleCoord = FGraphBuilderOutputAddress(AppendNode, 0);
 	}
-
-	UMaterialExpressionTextureStreamingDef* TextureStreamingDef = CreateExpression<UMaterialExpressionTextureStreamingDef>();
-	TextureStreamingDef->SamplerType = TextureObject->SamplerType;
-	TextureStreamingDef->SamplerSource = ESamplerSourceMode::SSM_Wrap_WorldGroupSettings;// So we don't allocate a sampler
-	Connect(StreamingCoord, TextureStreamingDef, 0);
-	Connect(TextureObject, 0, TextureStreamingDef, 1);
 
 	UMaterialExpressionCustom* CustomExp = CreateExpression<UMaterialExpressionCustom>();
 
@@ -723,7 +723,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 	CustomExp->RebuildOutputs();
 
 	Connect(SampleCoord, CustomExp, 0);
-	Connect(TextureStreamingDef, 0, CustomExp, 1);
+	Connect(TextureObject, CustomExp, 1);
 	Connect(Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_DDX), CustomExp, 2);
 	Connect(Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_DDY), CustomExp, 3);
 

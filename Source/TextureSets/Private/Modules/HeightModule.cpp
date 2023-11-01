@@ -138,7 +138,7 @@ void UHeightModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextu
 			FunctionCall.InArgument("ReferencePlane", POMSampleBuilderParams.ReferencePlane);
 			FunctionCall.InArgument("Position", SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Position));
 			FunctionCall.InArgument("SampleCount", POMSampleBuilderParams.Iterations);
-			FunctionCall.InArgument("Heightmap", FGraphBuilderOutputAddress(Builder->GetPackedTextureObject(PackedTextureIndex), 0));
+			FunctionCall.InArgument("Heightmap", Builder->GetPackedTextureObject(PackedTextureIndex, SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming)));
 			FunctionCall.InArgument("HeightmapSampler", "HeightmapSampler");
 			FunctionCall.InArgument("HeightmapChannel", FString::FromInt(PackedTextureChannel)); // Hard-coded (in the shader) based on packing
 			FunctionCall.InArgument("HeightmapSize", Builder->GetPackedTextureSize(PackedTextureIndex));

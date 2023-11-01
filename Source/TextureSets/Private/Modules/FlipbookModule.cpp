@@ -288,7 +288,7 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTex
 			}
 
 			MVFunctionCall.InArgument("FrameUVW", FrameUVW);
-			MVFunctionCall.InArgument("MotionVectorTexture", FGraphBuilderOutputAddress(Builder->GetPackedTextureObject(MVIndex0), 0));
+			MVFunctionCall.InArgument("MotionVectorTexture", Builder->GetPackedTextureObject(MVIndex0, SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming)));
 			MVFunctionCall.InArgument("MotionVectorSampler", "MotionVectorTextureSampler");
 			MVFunctionCall.InArgument("MVChannels", FString::Format(TEXT("int2({0},{1})"), {MVChannel0, MVChannel1}));
 			MVFunctionCall.InArgument("MotionVectorMul", Mul);
