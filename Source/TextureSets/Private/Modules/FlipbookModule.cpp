@@ -240,28 +240,21 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTex
 	FGraphBuilderOutputAddress FrameBlend = FGraphBuilderOutputAddress(FlipbookFunctionCallExp, 3);
 
 	// Create the subsample definitions
-	TArray<FSubSampleDefinition> SubsampleDefinitions;
+	TArray<SubSampleHandle> SubsampleHandles;
 	if (SampleParams->bBlendFrames)
 	{
 		UMaterialExpressionOneMinus* OneMinusNode = Builder->CreateExpression<UMaterialExpressionOneMinus>();
 		Builder->Connect(FrameBlend, OneMinusNode, 0);
 		FGraphBuilderOutputAddress OneMinusFrameBlend = FGraphBuilderOutputAddress(OneMinusNode, 0);
 
-		SubsampleDefinitions.Add(FSubSampleDefinition("Flipbook Frame 0", OneMinusFrameBlend));
-		SubsampleDefinitions.Add(FSubSampleDefinition("Flipbook Frame 1", FrameBlend));
-	}
-	else
-	{
-		UMaterialExpressionConstant* ConstantNode = Builder->CreateExpression<UMaterialExpressionConstant>();
-		ConstantNode->R = 1.0f;
-
-		SubsampleDefinitions.Add(FSubSampleDefinition("Flipbook", FGraphBuilderOutputAddress(ConstantNode, 0)));
+		// Add two subsamples
+		SubsampleHandles = Builder->AddSubsampleGroup({
+			FSubSampleDefinition("Flipbook Frame 0", OneMinusFrameBlend),
+			FSubSampleDefinition("Flipbook Frame 1", FrameBlend)
+		});
 	}
 
-	// Add the subsamples
-	TArray<SubSampleHandle> SubsampleHandles = Builder->AddSubsampleGroup(SubsampleDefinitions);
-
-	Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder, SubsampleDefinitions, SubsampleHandles, Frame0Index, Frame1Index, FrameBlend, FlipbookParams](FTextureSetSubsampleContext& SampleContext)
+	Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder, SubsampleHandles, Frame0Index, Frame1Index, FrameBlend, FlipbookParams](FTextureSetSubsampleContext& SampleContext)
 	{
 		const bool bNextFrame = SubsampleHandles.Num() > 1 && SampleContext.IsRelevant(SubsampleHandles[1]);
 
