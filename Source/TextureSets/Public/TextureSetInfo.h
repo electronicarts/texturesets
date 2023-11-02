@@ -137,7 +137,7 @@ struct FTextureSetPackedChannelInfo
 public:
 	FTextureSetPackedChannelInfo()
 		: ProessedTextureChannel(0)
-		, ChannelEncoding((uint8)ETextureSetChannelEncoding::None)
+		, ChannelEncoding(0)
 	{}
 
 	UPROPERTY(VisibleAnywhere)
@@ -171,12 +171,12 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	bool HardwareSRGB;
 
-	UPROPERTY(VisibleAnywhere, meta = (Bitmask, BitmaskEnum = ETextureSetTextureFlags))
+	UPROPERTY(VisibleAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSets.ETextureSetTextureFlags"))
 	uint8 Flags;
 
 	// Union of the channel encodings for all the packed channels
-	UPROPERTY(VisibleAnywhere, meta = (Bitmask, BitmaskEnum = ETextureSetSourceTextureChannelMask))
-	uint8 ChannelEncodings;
+	UPROPERTY(VisibleAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSets.ETextureSetSourceTextureChannelMask"))
+	uint8 ChannelEncodings = 0;
 
 	UPROPERTY(VisibleAnywhere)
 	FName RangeCompressMulName;

@@ -176,6 +176,39 @@ void FTextureSetCooker::ExecuteAsync(FQueuedThreadPool* InQueuedPool, EQueuedWor
 	AsyncTask->StartBackgroundTask(InQueuedPool, InQueuedWorkPriority);
 }
 
+void FTextureSetCooker::Finalize()
+{
+	check(IsInGameThread());
+	check(!IsAsyncJobInProgress())
+
+	for (int t = 0; t < DerivedData.Textures.Num(); t++)
+	{
+		// Configure textures is called again after cooking, to make sure the correct keys are used.
+		// If Mip data was updated in BuildTextureData, it would reset the key incorrectly.
+		ConfigureTexture(t);
+
+		UTexture* Texture = DerivedData.Textures[t];
+
+		for (const ITargetPlatform* Platform : TargetPlatforms)
+		{
+			if (Platform != nullptr)
+			{
+				Texture->BeginCacheForCookedPlatformData(Platform);
+			}
+			else
+			{
+				DerivedData.Textures[t]->UpdateResource();
+			}
+		}
+
+		// ResumeCaching() is called after we call BeginCacheForCookedPlatformData, to 
+		// combine with any other possible calls that occured when caching was suspended.
+		Texture->ResumeCaching();
+	}
+
+	DerivedData.bIsCooking = false;
+}
+
 bool FTextureSetCooker::IsAsyncJobInProgress() const
 {
 	check(IsInGameThread());
