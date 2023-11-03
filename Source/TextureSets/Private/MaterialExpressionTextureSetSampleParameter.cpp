@@ -64,7 +64,7 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 	if (!IsValid(Definition))
 		return 0;
 
-	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0"));
+	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0.1"));
 
 	Hash = HashCombine(Hash, GetTypeHash(FTextureSetMaterialGraphBuilder::GetGraphBuilderVersion()));
 
@@ -93,7 +93,7 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 #endif
 
 #if WITH_EDITOR
-void UMaterialExpressionTextureSetSampleParameter::ConstructMaterialFunction(class UMaterialFunction* NewMaterialFunction)
+void UMaterialExpressionTextureSetSampleParameter::ConfigureMaterialFunction(class UMaterialFunction* NewMaterialFunction)
 {
 	// Make sure our samping parameters are up to date before generating the sampling graph
 	UpdateSampleParamArray();

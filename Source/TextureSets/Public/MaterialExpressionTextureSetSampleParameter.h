@@ -93,7 +93,7 @@ public:
 	// UProceduralMaterialFunction Interface
 #if WITH_EDITOR
 	virtual uint32 ComputeMaterialFunctionHash() override;
-	virtual void ConstructMaterialFunction(class UMaterialFunction* NewMaterialFunction) override;
+	virtual void ConfigureMaterialFunction(class UMaterialFunction* NewMaterialFunction) override;
 #endif
 
 	// UMaterialExpression Interface
