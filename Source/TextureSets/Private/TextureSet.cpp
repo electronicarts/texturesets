@@ -169,6 +169,15 @@ EDataValidationResult UTextureSet::IsDataValid(FDataValidationContext& Context)
 		Context.AddError(LOCTEXT("MissingDefinition","A texture set must reference a valid definition."));
 		Result = EDataValidationResult::Invalid;
 	}
+	else
+	{
+		FDataValidationContext DefinitionContext;
+		if (Definition->IsDataValid(DefinitionContext) == EDataValidationResult::Invalid)
+		{
+			Context.AddError(FText::Format(LOCTEXT("InvalidDefinition", "The referenced definition ({0}) has invalid data."), FText::FromString(Definition->GetName())));
+			Result = EDataValidationResult::Invalid;
+		}
+	}
 
 	return CombineDataValidationResults(Result, Super::IsDataValid(Context));
 }
