@@ -43,8 +43,8 @@ public:
 	virtual const TCHAR* GetPluginName() const override { return TEXT("TextureSet_FDerivedTextureData"); }
 	virtual const TCHAR* GetVersionString() const override { return TEXT("F956B1B9-3AD3-47B3-BD82-8826C71A3DCB"); }
 	virtual FString GetPluginSpecificCacheKeySuffix() const override { return Cooker.DerivedTextureIds[CookedTextureIndex].ToString(); }
-	virtual bool IsBuildThreadsafe() const override { return false; } // TODO: Enable this if possible
-	virtual bool IsDeterministic() const override { return false; } // TODO: Enable this if possible
+	virtual bool IsBuildThreadsafe() const override { return true; }
+	virtual bool IsDeterministic() const override { return true; }
 	virtual FString GetDebugContextString() const override { return Cooker.TextureSetFullName; }
 	
 	virtual bool Build(TArray<uint8>& OutData) override
@@ -365,11 +365,17 @@ void FTextureSetCooker::ConfigureTexture(int Index) const
 
 void FTextureSetCooker::ExecuteInternal()
 {
+	#ifdef BENCHMARK_TEXTURESET_COOK
+		UE_LOG(LogTextureSetCook, Log, TEXT("%s: Beginning texture set cook"), *OuterObject->GetName());
+		const double BuildStartTime = FPlatformTime::Seconds();
+		double SectionStartTime = BuildStartTime;
+	#endif
+
 	// TODO: Log stats with "COOK_STAT" macro
 	// TODO: Run DDC async
 	FDerivedDataCacheInterface& DDC = GetDerivedDataCacheRef();
 
-	for (int t = 0; t < DerivedTextureIds.Num(); t++)
+	ParallelFor(DerivedTextureIds.Num(), [&](int32 t)
 	{
 		bool bDataWasBuilt = false;
 
@@ -395,7 +401,7 @@ void FTextureSetCooker::ExecuteInternal()
 				break;
 			}
 		}
-	}
+	});
 
 	for (const auto& [Name, Id] : ParameterIds)
 	{
@@ -415,12 +421,17 @@ void FTextureSetCooker::ExecuteInternal()
 			}
 		}
 	}
+
+#ifdef BENCHMARK_TEXTURESET_COOK
+	UE_LOG(LogTextureSetCook, Log, TEXT("%s: Cook finished in %fs"), *OuterObject->GetName(), FPlatformTime::Seconds() - SectionStartTime);
+	SectionStartTime = FPlatformTime::Seconds();
+#endif
 }
 
 FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 {
 #ifdef BENCHMARK_TEXTURESET_COOK
-	UE_LOG(LogTextureSetCook, Log, TEXT("%s Cook: Beginning texture data build"), *DerivedData.Textures[Index].GetName());
+	UE_LOG(LogTextureSetCook, Log, TEXT("%s: Beginning texture data build"), *DerivedData.Textures[Index].GetName());
 	const double BuildStartTime = FPlatformTime::Seconds();
 	double SectionStartTime = BuildStartTime;
 #endif
@@ -460,10 +471,10 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 		// Verify that all processed textures have the same aspect ratio
 		check(NewRatio == Ratio || Ratio == 0.0f);
 		Ratio = NewRatio;
-	}
+	};
 
 #ifdef BENCHMARK_TEXTURESET_COOK
-	UE_LOG(LogTextureSetCook, Log, TEXT("%s Cook: Initializing processing nodes took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
+	UE_LOG(LogTextureSetCook, Log, TEXT("%s Build: Initializing processing nodes took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
 	SectionStartTime = FPlatformTime::Seconds();
 #endif
 
@@ -479,11 +490,13 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 	float MinPixelValues[4] {};
 
 #ifdef BENCHMARK_TEXTURESET_COOK
-	UE_LOG(LogTextureSetCook, Log, TEXT("%s Cook: Initializing data took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
+	UE_LOG(LogTextureSetCook, Log, TEXT("%s Build: Initializing data took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
 	SectionStartTime = FPlatformTime::Seconds();
 #endif
 
-	// TODO: Execute each channel in ParallelFor?
+	FVector4f RestoreMul = FVector4f::One();
+	FVector4f RestoreAdd = FVector4f::Zero();
+
 	for (int c = 0; c < 4; c++)
 	{
 		// Copy processed textures into packed textures
@@ -543,6 +556,35 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 			}
 #endif
 
+			// Channel encoding (decoding happens in FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode)
+			if (ChanelInfo.ChannelEncoding & (uint8)ETextureSetChannelEncoding::RangeCompression)
+			{
+				const float Min = MinPixelValues[c];
+				const float Max = MaxPixelValues[c];
+
+				if (Min < Max)
+				{
+					const float CompressMul = Max - Min;
+					const float CompressAdd = -Min * CompressMul;
+
+					for (int i = c; i < NumPixelValues; i += PixelValueStride)
+					{
+						PixelValues[i] = PixelValues[i] * CompressMul + CompressAdd;
+					}
+
+					RestoreMul[c] = 1.0f / (Max - Min);
+					RestoreAdd[c] = Min;
+				}
+			}
+
+			if ((ChanelInfo.ChannelEncoding & (uint8)ETextureSetChannelEncoding::SRGB) && (!TextureInfo.HardwareSRGB || c >= 3))
+			{
+				for (int i = c; i < NumPixelValues; i += PixelValueStride)
+				{
+					PixelValues[i] = FMath::Pow(PixelValues[i], 1.0f / 2.2f);
+				}
+			}
+
 		}
 		else
 		{
@@ -561,66 +603,24 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 				}
 			}
 		}
-	}
+	};
 
 #ifdef BENCHMARK_TEXTURESET_COOK
-	UE_LOG(LogTextureSetCook, Log, TEXT("%s Cook: Filling channels data took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
+	UE_LOG(LogTextureSetCook, Log, TEXT("%s Build: Filling channels data took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
 	SectionStartTime = FPlatformTime::Seconds();
 #endif
 
-	// Channel encoding (decoding happens in FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode)
+	if (RestoreMul != FVector4f::One() || RestoreAdd != FVector4f::Zero())
 	{
-		FVector4f RestoreMul = FVector4f::One();
-		FVector4f RestoreAdd = FVector4f::Zero();
-
-		for (int c = 0; c < TextureInfo.ChannelCount; c++)
-		{
-			if (TextureInfo.ChannelInfo[c].ChannelEncoding & (uint8)ETextureSetChannelEncoding::RangeCompression)
-			{
-				const float Min = MinPixelValues[c];
-				const float Max = MaxPixelValues[c];
-
-				if (Min >= Max) // Can happen if the texture is a solid fill
-					continue;
-
-				const float CompressMul = Max - Min;
-				const float CompressAdd = -Min * CompressMul;
-
-				for (int i = c; i < NumPixelValues; i += PixelValueStride)
-				{
-					PixelValues[i] = PixelValues[i] * CompressMul + CompressAdd;
-				}
-
-				RestoreMul[c] = 1.0f / (Max - Min);
-				RestoreAdd[c] = Min;
-			}
-
-			if ((TextureInfo.ChannelInfo[c].ChannelEncoding & (uint8)ETextureSetChannelEncoding::SRGB) && (!TextureInfo.HardwareSRGB || c >= 3))
-			{
-				for (int i = c; i < NumPixelValues; i += PixelValueStride)
-				{
-					PixelValues[i] = FMath::Pow(PixelValues[i], 1.0f / 2.2f);
-				}
-			}
-		}
-
-		if (RestoreMul != FVector4f::One() || RestoreAdd != FVector4f::Zero())
-		{
-			Data.TextureParameters.Add(TextureInfo.RangeCompressMulName, RestoreMul);
-			Data.TextureParameters.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
-		}
+		Data.TextureParameters.Add(TextureInfo.RangeCompressMulName, RestoreMul);
+		Data.TextureParameters.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
 	}
-
-#ifdef BENCHMARK_TEXTURESET_COOK
-	UE_LOG(LogTextureSetCook, Log, TEXT("%s Cook: Encoding channels took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
-	SectionStartTime = FPlatformTime::Seconds();
-#endif
 
 	Texture->Source.UnlockMip(0);
 
 #ifdef BENCHMARK_TEXTURESET_COOK
 	const double BuildEndTime = FPlatformTime::Seconds();
-	UE_LOG(LogTextureSetCook, Log, TEXT("%s Cook: Texture data build took %fs"), *DerivedData.Textures[Index].GetName(), BuildEndTime - BuildStartTime);
+	UE_LOG(LogTextureSetCook, Log, TEXT("%s: Texture data build took %fs"), *DerivedData.Textures[Index].GetName(), BuildEndTime - BuildStartTime);
 #endif
 	return Data;
 }
