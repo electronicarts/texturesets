@@ -16,6 +16,10 @@
 #include "TextureSetDerivedData.h"
 #include "TextureSetProcessingContext.h"
 
+#define BENCHMARK_TEXTURESET_COOK
+
+DEFINE_LOG_CATEGORY(LogTextureSetCook);
+
 static TAutoConsoleVariable<int32> CVarTextureSetParallelCook(
 	TEXT("r.TextureSet.ParallelCook"),
 	1,
@@ -415,6 +419,12 @@ void FTextureSetCooker::ExecuteInternal()
 
 FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 {
+#ifdef BENCHMARK_TEXTURESET_COOK
+	UE_LOG(LogTextureSetCook, Log, TEXT("%s Cook: Beginning texture data build"), *DerivedData.Textures[Index].GetName());
+	const double BuildStartTime = FPlatformTime::Seconds();
+	double SectionStartTime = BuildStartTime;
+#endif
+
 	FDerivedTextureData Data;
 	Data.Id = DerivedTextureIds[Index];
 
@@ -452,14 +462,26 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 		Ratio = NewRatio;
 	}
 
+#ifdef BENCHMARK_TEXTURESET_COOK
+	UE_LOG(LogTextureSetCook, Log, TEXT("%s Cook: Initializing processing nodes took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
+	SectionStartTime = FPlatformTime::Seconds();
+#endif
+
 	// Copy pixel data into the texture's source
 	UTexture* Texture = DerivedData.Textures[Index];
-	Texture->Source.Init(Width, Height, Slices, 1, TSF_RGBA16F);
+	Texture->Source.Init(Width, Height, Slices, 1, TSF_RGBA32F);
 
-	FFloat16* PixelValues = (FFloat16*)Texture->Source.LockMip(0);
+	float* PixelValues = (float*)Texture->Source.LockMip(0);
+	const int PixelValueStride = 4;
+	const int NumPixelValues = Width * Height * Slices * PixelValueStride;
 
 	float MaxPixelValues[4] {};
 	float MinPixelValues[4] {};
+
+#ifdef BENCHMARK_TEXTURESET_COOK
+	UE_LOG(LogTextureSetCook, Log, TEXT("%s Cook: Initializing data took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
+	SectionStartTime = FPlatformTime::Seconds();
+#endif
 
 	// TODO: Execute each channel in ParallelFor?
 	for (int c = 0; c < 4; c++)
@@ -483,13 +505,34 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 			MaxPixelValues[c] = TNumericLimits<float>::Lowest();
 			MinPixelValues[c] = TNumericLimits<float>::Max();
 
+#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
+			// Do the whole channel as a single chunk
+			FTextureProcessingChunk Chunk(
+				FIntVector(0,0,0),
+				FIntVector(Width - 1, Height - 1, Slices - 1),
+				ChanelInfo.ProessedTextureChannel,
+				c,
+				PixelValueStride,
+				Width,
+				Height);
+
+			ProcessedTexture->ComputeChunk(Chunk, PixelValues);
+
+			// Pixel data is already filled, we just need to calculate the min and max values
+			for (int DataIndex = Chunk.DataStart; DataIndex <= Chunk.DataEnd; DataIndex += Chunk.DataPixelStride)
+			{
+				const float PixelValue = PixelValues[DataIndex];
+				MaxPixelValues[c] = FMath::Max(MaxPixelValues[c], PixelValue);
+				MinPixelValues[c] = FMath::Min(MinPixelValues[c], PixelValue);
+			}
+#else
 			for (int x = 0; x < Width; x++)
 			{
 				for (int y = 0; y < Height; y++)
 				{
 					for (int z = 0; z < Slices; z++)
 					{
-						int PixelIndex = GetPixelIndex(x, y, z, c, Width, Height);
+						int PixelIndex = GetPixelIndex(x, y, z, c, Width, Height, PixelValueStride);
 
 						float PixelValue = ProcessedTexture->GetPixel(x, y, z, ChanelInfo.ProessedTextureChannel);
 						MaxPixelValues[c] = FMath::Max(MaxPixelValues[c], PixelValue);
@@ -498,24 +541,32 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 					}
 				}
 			}
+#endif
+
 		}
 		else
 		{
-			// Fill unused channels with black
-			for (int x = 0; x < Width; x++)
+			if (c < 3)
 			{
-				for (int y = 0; y < Height; y++)
+				for (int i = c; i < NumPixelValues; i += PixelValueStride)
 				{
-					for (int z = 0; z < Slices; z++)
-					{
-						int PixelIndex = GetPixelIndex(x, y, z, c, Width, Height);
-
-						PixelValues[PixelIndex] = 0.0f;
-					}
+					PixelValues[i] = 0.0f; // Fill unused RGB with black
+				}
+			}
+			else
+			{
+				for (int i = c; i < NumPixelValues; i += PixelValueStride)
+				{
+					PixelValues[i] = 1.0f; // Fill unused Alpha with white
 				}
 			}
 		}
 	}
+
+#ifdef BENCHMARK_TEXTURESET_COOK
+	UE_LOG(LogTextureSetCook, Log, TEXT("%s Cook: Filling channels data took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
+	SectionStartTime = FPlatformTime::Seconds();
+#endif
 
 	// Channel encoding (decoding happens in FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode)
 	{
@@ -532,17 +583,12 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 				if (Min >= Max) // Can happen if the texture is a solid fill
 					continue;
 
-				for (int x = 0; x < Width; x++)
+				const float CompressMul = Max - Min;
+				const float CompressAdd = -Min * CompressMul;
+
+				for (int i = c; i < NumPixelValues; i += PixelValueStride)
 				{
-					for (int y = 0; y < Height; y++)
-					{
-						for (int z = 0; z < Slices; z++)
-						{
-							const int PixelIndex = GetPixelIndex(x, y, z, c, Width, Height);
-							const float AdjustedValue = (PixelValues[PixelIndex] - Min) * (Max - Min);
-							PixelValues[PixelIndex] = AdjustedValue;
-						}
-					}
+					PixelValues[i] = PixelValues[i] * CompressMul + CompressAdd;
 				}
 
 				RestoreMul[c] = 1.0f / (Max - Min);
@@ -551,17 +597,9 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 
 			if ((TextureInfo.ChannelInfo[c].ChannelEncoding & (uint8)ETextureSetChannelEncoding::SRGB) && (!TextureInfo.HardwareSRGB || c >= 3))
 			{
-				for (int x = 0; x < Width; x++)
+				for (int i = c; i < NumPixelValues; i += PixelValueStride)
 				{
-					for (int y = 0; y < Height; y++)
-					{
-						for (int z = 0; z < Slices; z++)
-						{
-							const int PixelIndex = GetPixelIndex(x, y, z, c, Width, Height);
-							const float AdjustedValue = FMath::Pow(PixelValues[PixelIndex], 1.0f / 2.2f);
-							PixelValues[PixelIndex] = AdjustedValue;
-						}
-					}
+					PixelValues[i] = FMath::Pow(PixelValues[i], 1.0f / 2.2f);
 				}
 			}
 		}
@@ -573,7 +611,17 @@ FDerivedTextureData FTextureSetCooker::BuildTextureData(int Index) const
 		}
 	}
 
+#ifdef BENCHMARK_TEXTURESET_COOK
+	UE_LOG(LogTextureSetCook, Log, TEXT("%s Cook: Encoding channels took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
+	SectionStartTime = FPlatformTime::Seconds();
+#endif
+
 	Texture->Source.UnlockMip(0);
+
+#ifdef BENCHMARK_TEXTURESET_COOK
+	const double BuildEndTime = FPlatformTime::Seconds();
+	UE_LOG(LogTextureSetCook, Log, TEXT("%s Cook: Texture data build took %fs"), *DerivedData.Textures[Index].GetName(), BuildEndTime - BuildStartTime);
+#endif
 	return Data;
 }
 #endif

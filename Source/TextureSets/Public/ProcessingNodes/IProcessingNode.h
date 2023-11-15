@@ -7,6 +7,11 @@
 #include "CoreMinimal.h"
 #include "TextureSetProcessingContext.h"
 
+#define PROCESSING_METHOD_PERPIXEL 1
+#define PROCESSING_METHOD_CHUNK 2
+
+#define PROCESSING_METHOD PROCESSING_METHOD_CHUNK
+
 class FTextureSetProcessingGraph;
 
 class IProcessingNode
@@ -31,6 +36,69 @@ public:
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const = 0;
 };
 
+#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
+struct FTextureProcessingChunk
+{
+public:
+	FTextureProcessingChunk(FIntVector StartCoord, FIntVector EndCoord, int Channel, int DataStart, int DataPixelStride, int TextureWidth, int TextureHeight)
+		: StartCoord(StartCoord)
+		, EndCoord(EndCoord)
+		, Channel(Channel)
+		, DataStart(DataStart)
+		, DataPixelStride(DataPixelStride)
+		, TextureWidth(TextureWidth)
+		, TextureHeight(TextureHeight)
+	{
+		FirstPixel = CoordToPixel(StartCoord);
+		LastPixel = CoordToPixel(EndCoord);
+		check(FirstPixel <= LastPixel)
+
+		NumPixels = LastPixel - FirstPixel + 1;
+		DataEnd = DataStart + ((LastPixel - FirstPixel) * DataPixelStride);
+	}
+
+	// Passed in
+	FIntVector StartCoord; // Coordinate of the first pixel we're processing
+	FIntVector EndCoord; // Coordinate of the last pixel we're processing
+	int Channel; // Processed texture channel that we're computing, indexed from RGBA
+	int DataStart; // First index into the data buffer where we are expected to write
+	int DataPixelStride; // Stride between pixels
+	int TextureWidth; // How many pixels wide is the entire texture we're processing
+	int TextureHeight; // How many pixels high is the entire texture we're processing
+
+	// Computed
+	int FirstPixel; // Index of the first pixel we are processing in the chunk
+	int LastPixel; // Index of the last pixel we are processing
+	int NumPixels; // How many pixels are we processing
+	int DataEnd; // Last index into the data buffer where we are expected to write
+
+	// Convert a coordinate (XYZ) into a pixel index
+	inline int CoordToPixel(const FIntVector& Coord) const
+	{
+		return (Coord.Z * TextureWidth * TextureHeight) + (Coord.Y * TextureWidth) + Coord.X;
+	}
+
+	// Convert a coordinate (XYZ) into a data index (includes stride and data offset)
+	// Can then be used to lookup into the data buffer
+	inline int CoordToDataIndex(const FIntVector& Coord) const
+	{
+		return PixelToDataIndex(CoordToPixel(Coord));
+	}
+
+	// Convert a pixel into a data index (includes stride and data offset)
+	// Can then be used to lookup into the data buffer
+	inline int PixelToDataIndex(const int& Pixel) const
+	{
+		return DataStart + ((Pixel - FirstPixel) * DataPixelStride);
+	}
+
+	inline int NextDataIndex(const int& DataIndex) const
+	{
+		return DataIndex + DataPixelStride;
+	}
+};
+#endif
+
 class ITextureProcessingNode : public IProcessingNode
 {
 public:
@@ -39,8 +107,12 @@ public:
 	virtual int GetSlices() const = 0;
 	virtual const struct FTextureSetProcessedTextureDef GetTextureDef() = 0;
 
+#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
+	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const = 0;
+#else
 	// Initialize must be called before calls to GetPixel
 	virtual float GetPixel(int X, int Y, int Z, int Channel) const = 0;
+#endif
 };
 
 class IParameterProcessingNode : public IProcessingNode

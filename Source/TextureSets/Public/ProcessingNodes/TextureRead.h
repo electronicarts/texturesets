@@ -27,12 +27,16 @@ public:
 	virtual const uint32 ComputeGraphHash() const override;
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override;
 
-	virtual int GetWidth() const override { check(bInitialized); return Image.SizeX; }
-	virtual int GetHeight() const override { check(bInitialized); return Image.SizeY; }
-	virtual int GetSlices() const override { check(bInitialized); return Image.NumSlices; }
+	virtual int GetWidth() const override { check(bInitialized); return Width; }
+	virtual int GetHeight() const override { check(bInitialized); return Height; }
+	virtual int GetSlices() const override { check(bInitialized); return Slices; }
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() override { return SourceDefinition; }
 
+#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
+	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override;
+#else
 	virtual float GetPixel(int X, int Y, int Z, int Channel) const override;
+#endif
 
 	void AddOperator(CreateOperatorFunc Operator) { CreateOperatorFuncs.Add(Operator); }
 
@@ -50,6 +54,9 @@ private:
 	uint8 ValidChannels;
 	int32 ChannelMask;
 	uint8 ChannelSwizzle[4];
+	int Width;
+	int Height;
+	int Slices;
 	FImage Image;
 	bool bValidImage;
 };

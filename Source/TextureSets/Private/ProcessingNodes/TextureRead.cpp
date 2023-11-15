@@ -16,6 +16,9 @@ FTextureRead::FTextureRead(FName SourceNameIn, const FTextureSetSourceTextureDef
 	, bInitialized(false)
 	, ValidChannels(0)
 	, ChannelSwizzle{0, 1, 2, 3}
+	, Width(1)
+	, Height(1)
+	, Slices(1)
 	, bValidImage(false)
 {
 }
@@ -39,32 +42,38 @@ void FTextureRead::Initialize(const FTextureSetProcessingGraph& Graph)
 
 	if(IsValid(Texture))
 	{
-		FImage RawImage;
 		check(Texture->Source.IsValid());
+
+		// This does two copies, and ends up being a bottleneck in the cook
+		// TODO: Read the mip data without needing to do a copy every time
+		FImage RawImage;
 		bValidImage = Texture->Source.GetMipImage(RawImage, 0, 0, 0);
+		RawImage.Linearize((int)Texture->SourceColorSettings.EncodingOverride, Image);
 
 		if (bValidImage)
 		{
-			switch (RawImage.Format)
+			Width = Texture->Source.GetSizeX();
+			Height = Texture->Source.GetSizeY();
+			Slices = Texture->Source.GetNumSlices();
+
+			switch (Texture->Source.GetFormat())
 			{
-			case ERawImageFormat::G8:
-			case ERawImageFormat::G16:
-			case ERawImageFormat::R16F:
-			case ERawImageFormat::R32F:
+			case ETextureSourceFormat::TSF_G8:
+			case ETextureSourceFormat::TSF_G16:
+			case ETextureSourceFormat::TSF_R16F:
+			case ETextureSourceFormat::TSF_R32F:
 				ValidChannels = 1;
 				break;
-			case ERawImageFormat::BGRE8:
-			case ERawImageFormat::BGRA8:
-			case ERawImageFormat::RGBA16:
-			case ERawImageFormat::RGBA16F:
-			case ERawImageFormat::RGBA32F:
+			case ETextureSourceFormat::TSF_BGRA8:
+			case ETextureSourceFormat::TSF_BGRE8:
+			case ETextureSourceFormat::TSF_RGBA16:
+			case ETextureSourceFormat::TSF_RGBA16F:
+			case ETextureSourceFormat::TSF_RGBA32F:
 				ValidChannels = 4;
 				break;
 			default:
 				unimplemented();
 			}
-
-			RawImage.Linearize((int)Texture->SourceColorSettings.EncodingOverride, Image);
 
 			uint8 CurrentChannel = 0;
 
@@ -143,6 +152,31 @@ const uint32 FTextureRead::ComputeDataHash(const FTextureSetProcessingContext& C
 	return Hash;
 }
 
+#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
+void FTextureRead::ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const
+{
+	if (bValidImage)
+	{
+		const float* RawImageData = (float*)Image.RawData.GetData();
+		constexpr int RawImagePixelStride = 4;
+
+		int DataIndex = Chunk.DataStart;
+		int PixelIndex = (Chunk.FirstPixel * RawImagePixelStride) + Chunk.Channel;
+		for (; DataIndex <= Chunk.DataEnd; DataIndex += Chunk.DataPixelStride, PixelIndex += RawImagePixelStride)
+		{
+			TextureData[DataIndex] = RawImageData[PixelIndex];
+		}
+	}
+	else
+	{
+		// Fill tile data with default value
+		for (int DataIndex = Chunk.DataStart; DataIndex <= Chunk.DataEnd; DataIndex += Chunk.DataPixelStride)
+		{
+			TextureData[DataIndex] = SourceDefinition.DefaultValue[Chunk.Channel];
+		}
+	}
+}
+#else
 float FTextureRead::GetPixel(int X, int Y, int Z, int Channel) const
 {
 #ifdef UE_BUILD_DEBUG
@@ -168,4 +202,5 @@ float FTextureRead::GetPixel(int X, int Y, int Z, int Channel) const
 		return SourceDefinition.DefaultValue[Channel];
 	}
 }
+#endif
 #endif

@@ -65,9 +65,23 @@ public:
 
 		FScopeLock Lock(&InitializeCS);
 
-		SubImageWidth = SourceImage->GetWidth() / FramesX;
-		SubImageHeight = SourceImage->GetHeight() / FramesY;
-		FramesPerImage = FramesX * FramesY;
+		SubImageWidth = SourceImage->GetWidth();
+		SubImageHeight = SourceImage->GetHeight();
+		FramesPerImage = 1;
+
+		if (SourceImage->GetWidth() >= FramesX)
+		{
+			check(SourceImage->GetWidth() % FramesX == 0); // Need to be able to divide the image cleanly into the specified number of frames
+			SubImageWidth /= FramesX;
+			FramesPerImage *= FramesX;
+		}
+
+		if (SourceImage->GetHeight() >= FramesY)
+		{
+			check(SourceImage->GetWidth() % FramesY == 0); // Need to be able to divide the image cleanly into the specified number of frames
+			SubImageHeight /= FramesY;
+			FramesPerImage *= FramesY;
+		}
 		
 		Slices = SourceImage->GetSlices() * FramesPerImage;
 	}
@@ -76,17 +90,68 @@ public:
 	virtual int GetHeight() const override { return SubImageHeight; }
 	virtual int GetSlices() const override { return Slices; }
 
+	FIntVector TransformToSource(FIntVector Position) const
+	{
+		const int SubImageIndex = Position.Z % FramesPerImage;
+
+		return FIntVector(
+			Position.X + (SubImageWidth * (SubImageIndex % FramesX)),
+			Position.Y + (SubImageHeight * (SubImageIndex / FramesX)),
+			Position.Z / FramesPerImage
+		);
+	}
+
+#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
+	void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override
+	{
+		if (FramesPerImage == 1)
+		{
+			// Can early out without remapping the frames
+			SourceImage->ComputeChunk(Chunk, TextureData);
+			return;
+		}
+
+		// Hack: Just compute all the data in the source so we don't need to worry about being out of of bounds
+		// We'll want to make the source chunk encompass just what we need
+		FIntVector SourceStart = FIntVector(0,0,0);
+		FIntVector SourceEnd = FIntVector(SourceImage->GetWidth() - 1, SourceImage->GetHeight() - 1, SourceImage->GetSlices() - 1);
+
+		FTextureProcessingChunk SourceChunk(
+			SourceStart,
+			SourceEnd,
+			Chunk.Channel,
+			0,
+			1,
+			SourceImage->GetWidth(),
+			SourceImage->GetHeight());
+
+		TArray64<float> SourceTextureData;
+		SourceTextureData.SetNumUninitialized(SourceChunk.DataEnd + 1);
+
+		SourceImage->ComputeChunk(SourceChunk, &SourceTextureData[0]);
+
+		int DataIndex = Chunk.DataStart;
+		FIntVector Coord;
+		for (Coord.Z = Chunk.StartCoord.Z; Coord.Z <= Chunk.EndCoord.Z; Coord.Z++)
+		{
+			for (Coord.Y = Chunk.StartCoord.Y; Coord.Y <= Chunk.EndCoord.Y; Coord.Y++)
+			{
+				for (Coord.X = Chunk.StartCoord.X; Coord.X <= Chunk.EndCoord.X; Coord.X++)
+				{
+					const int SourceDataIndex = SourceChunk.CoordToDataIndex(TransformToSource(Coord));
+					TextureData[DataIndex] = SourceTextureData[SourceDataIndex];
+					DataIndex += Chunk.DataPixelStride;
+				}
+			}
+		}
+	}
+#else
 	virtual float GetPixel(int X, int Y, int Z, int Channel) const override
 	{
-		const int SourceZ = Z / FramesPerImage;
-
-		const int SubImageIndex = Z % FramesPerImage;
-
-		const int SourceX = X + (SubImageWidth * (SubImageIndex % FramesX));
-		const int SourceY = Y + (SubImageHeight * (SubImageIndex / FramesX));
-
-		return SourceImage->GetPixel(SourceX, SourceY, SourceZ, Channel);
+		FIntVector SourcePixel = TransformToSource(FIntVector(X, Y, Z));
+		return SourceImage->GetPixel(SourcePixel.X, SourcePixel.Y, SourcePixel.Z, Channel);
 	}
+#endif
 
 private:
 	mutable FCriticalSection InitializeCS;
