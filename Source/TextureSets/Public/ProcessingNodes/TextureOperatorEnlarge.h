@@ -55,7 +55,7 @@ public:
 		TArray64<float> SourceTextureData;
 		SourceTextureData.SetNumUninitialized(SourceChunk.DataEnd + 1);
 
-		SourceImage->ComputeChunk(SourceChunk, &SourceTextureData[0]);
+		SourceImage->ComputeChunk(SourceChunk, SourceTextureData.GetData());
 
 		int DataIndex = Chunk.DataStart;
 		FIntVector Coord;
