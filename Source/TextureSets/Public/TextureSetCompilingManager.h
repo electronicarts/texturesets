@@ -38,6 +38,9 @@ public:
 	// Blocks until completion of all async texture set compilation.
 	void FinishAllCompilation() override;
 
+	TSharedRef<FTextureSetCooker> BorrowCooker(UTextureSet* InTextureSet);
+	void ReturnCooker(UTextureSet* InTextureSet);
+
 	// Returns if asynchronous compilation is allowed for this texture set.
 	bool IsAsyncCompilationAllowed(UTextureSet* InTextureSets) const;
 
@@ -66,13 +69,17 @@ private:
 	void ProcessTextureSets(bool bLimitExecutionTime);
 	void UpdateCompilationNotification();
 
-	void PostCompilation(UTextureSet* TextureSet, TSharedRef<FTextureSetCooker> Cooker);
+	void PostCompilation(UTextureSet* TextureSet);
+
+	TSharedRef<FTextureSetCooker> GetOrCreateCooker(UTextureSet* TextureSet);
 
 	double LastReschedule = 0.0f;
 	bool bHasShutdown = false;
 
 	TMap<TSoftObjectPtr<UTextureSet>, TArray<const ITargetPlatform*>> QueuedTextureSets;
-	TMap<UTextureSet*, TSharedRef<FTextureSetCooker>> CompilingTextureSets;
+	TMap<UTextureSet*, TSharedRef<FTextureSetCooker>> Cookers;
+	TArray<UTextureSet*> CompilingTextureSets;
+	TMap<UTextureSet*, int> LentCookers;
 	FAsyncCompilationNotification Notification;
 
 	/** Event issued at the end of the compile process */

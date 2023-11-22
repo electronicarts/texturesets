@@ -26,17 +26,7 @@ UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITOR
 bool UTextureSet::IsCompiling() const
 {
-	if (FTextureSetCompilingManager::Get().IsRegistered(this))
-		return true;
-
-	for (UTexture* DerivedTexture : DerivedData.Textures)
-	{
-		// Texture set is not compiled until the derived texturess are finished compiling
-		if (DerivedTexture->IsCompiling())
-			return true;
-	}
-
-	return false;
+	return DerivedData.bIsCooking;
 }
 #endif
 

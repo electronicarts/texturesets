@@ -19,6 +19,8 @@ enum class ETextureSetSourceTextureChannelMask: uint8
 };
 ENUM_CLASS_FLAGS(ETextureSetSourceTextureChannelMask);
 
+
+
 USTRUCT()
 struct FTextureSetSourceTextureReference
 {
@@ -31,9 +33,49 @@ public:
 	{}
 
 	UPROPERTY(EditAnywhere)
-	TSoftObjectPtr<UTexture> Texture;
+	//TSoftObjectPtr<UTexture> Texture;
+	TObjectPtr<UTexture> Texture;
+
+	// This is not currently working, as it has issues loading a soft ref in the postload of another asset.
+	#define TS_SOFT_SOURCE_TEXTURE_REF 0
 
 	/** Mask used when reading this source texture. Functions similairly to the channel mask node in the material graph, i.e. un-checking channels means they will be ignored and the next unmasked channel will be used instead. Useful for reading from source textures that have already been channel packed. */
 	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSets.ETextureSetSourceTextureChannelMask"))
 	int32 ChannelMask;
+
+	inline FSoftObjectPath GetTexturePath() const
+	{
+#if TS_SOFT_SOURCE_TEXTURE_REF
+		return Texture.ToSoftObjectPath();
+#else
+		return Texture.GetPath();
+#endif
+	}
+
+	inline bool IsNull() const
+	{
+#if TS_SOFT_SOURCE_TEXTURE_REF
+		return Texture.IsNull();
+#else
+		return !IsValid(Texture);
+#endif
+	}
+
+	inline bool Valid() const
+	{
+#if TS_SOFT_SOURCE_TEXTURE_REF
+		return Texture.IsValid();
+#else
+		return IsValid(Texture);
+#endif
+	}
+
+	inline UTexture* GetTexture() const
+	{
+#if TS_SOFT_SOURCE_TEXTURE_REF
+		return Texture.LoadSynchronous();
+#else
+		return Texture.Get();
+#endif
+	}
 };

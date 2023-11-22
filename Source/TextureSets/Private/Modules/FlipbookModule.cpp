@@ -57,13 +57,6 @@ public:
 			FramesX = 1;
 			FramesY = 1;
 		}
-	}
-
-	virtual void Initialize(const FTextureSetProcessingGraph& Graph) override
-	{
-		FTextureOperator::Initialize(Graph);
-
-		FScopeLock Lock(&InitializeCS);
 
 		SubImageWidth = SourceImage->GetWidth();
 		SubImageHeight = SourceImage->GetHeight();
@@ -82,7 +75,7 @@ public:
 			SubImageHeight /= FramesY;
 			FramesPerImage *= FramesY;
 		}
-		
+
 		Slices = SourceImage->GetSlices() * FramesPerImage;
 	}
 
@@ -154,8 +147,6 @@ public:
 #endif
 
 private:
-	mutable FCriticalSection InitializeCS;
-
 	int SubImageWidth;
 	int SubImageHeight;
 	int FramesPerImage;

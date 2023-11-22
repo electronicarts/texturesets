@@ -213,14 +213,11 @@ void FTextureSetsEditorModule::OnGetExtraObjectTags(const UObject* Object, TArra
 {
 	if (const UTexture* Texture = Cast<UTexture>(Object))
 	{
-		if (Texture->Source.IsValid() && !Texture->bSourceBulkDataTransient)
+		// Add a string with the ID of our source texture to the asset data, so it can be checked for change without having to deserialize the whole asset.
+		FString IdString;
+		if (TextureSetsHelpers::GetSourceDataIdAsString(Texture, IdString))
 		{
-			// Add a string with the ID of our source texture to the asset data, so it can be checked for change without having to deserialize the whole asset.
-			FString IdString;
-			if (TextureSetsHelpers::GetSourceDataIdAsString(Texture, IdString))
-			{
-				OutTags.Add(UObject::FAssetRegistryTag(TextureSetsHelpers::TextureBulkDataIdAssetTagName, IdString, UObject::FAssetRegistryTag::TT_Hidden));
-			}
+			OutTags.Add(UObject::FAssetRegistryTag(TextureSetsHelpers::TextureBulkDataIdAssetTagName, IdString, UObject::FAssetRegistryTag::TT_Hidden));
 		}
 	}
 }

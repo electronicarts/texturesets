@@ -9,6 +9,7 @@
 #include "IProcessingNode.h"
 #include "TextureSetInfo.h"
 #include "TextureSetProcessingGraph.h"
+#include "TextureSetsHelpers.h"
 
 class UTexture;
 class FTextureOperator;
@@ -27,9 +28,9 @@ public:
 	virtual const uint32 ComputeGraphHash() const override;
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override;
 
-	virtual int GetWidth() const override { check(bInitialized); return Width; }
-	virtual int GetHeight() const override { check(bInitialized); return Height; }
-	virtual int GetSlices() const override { check(bInitialized); return Slices; }
+	virtual int GetWidth() const override { check(bLoaded); return Width; }
+	virtual int GetHeight() const override { check(bLoaded); return Height; }
+	virtual int GetSlices() const override { check(bLoaded); return Slices; }
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() override { return SourceDefinition; }
 
 #if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
@@ -50,6 +51,8 @@ private:
 	mutable FCriticalSection InitializeCS;
 
 	TObjectPtr<UTexture> Texture;
+	FReferenceHolder TextureReferenceHolder;
+	bool bLoaded;
 	bool bInitialized;
 	uint8 ValidChannels;
 	int32 ChannelMask;

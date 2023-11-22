@@ -40,6 +40,7 @@ private:
 *	FTextureSetCooker Cooker(TextureSet, DerivedData);
 *	if (Cooker.CookRequired())
 *	{
+*		Cooker.Prepare();
 *		Cooker.Execute();
 *		Cooker.Finalize();
 *	}
@@ -53,14 +54,15 @@ class FTextureSetCooker
 	friend class FTextureSetCookerTaskWorker;
 public:
 
-	FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerivedData& DerivedData, TArray<const ITargetPlatform*> TargetPlatforms);
+	FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerivedData& DerivedData);
+	~FTextureSetCooker();
 
 	bool CookRequired() const;
 
+	void Prepare();
+
 	void Execute();
 	void ExecuteAsync(FQueuedThreadPool* InQueuedPool = GThreadPool, EQueuedWorkPriority InQueuedWorkPriority = EQueuedWorkPriority::Normal);
-
-	void Finalize();
 
 	bool IsAsyncJobInProgress() const;
 	bool TryCancel();
@@ -68,11 +70,15 @@ public:
 	FAsyncTaskBase* GetAsyncTask() { return AsyncTask.Get(); }
 	FName GetTextureSetName() { return FName(TextureSetName); }
 
-	const TArray<const ITargetPlatform*>& GetPlatforms() { return TargetPlatforms; }
+	void ConfigureTexture(int Index) const;
+	void InitializeTextureData(int Index) const;
+	void BuildTextureData(int Index) const;
+
+	const FTextureSetDerivedData& GetDerivedData() const { return DerivedData; }
+	const FGuid GetDerivedTextureID(int Index) const { return DerivedTextureIds[Index]; }
 
 private:
 	FTextureSetDerivedData& DerivedData;
-	TArray<const ITargetPlatform*> TargetPlatforms;
 
 	FTextureSetProcessingContext Context;
 	TSharedPtr<FTextureSetProcessingGraph> GraphInstance;
@@ -87,19 +93,26 @@ private:
 	TArray<FGuid> DerivedTextureIds;
 	TMap<FName, FGuid> ParameterIds;
 
+	mutable TArray<FCriticalSection> TextureDataCS;
+
+	enum class ETextureState
+	{
+		Unmodified,
+		Configured,
+		Initialized,
+		Built
+	};
+
+	// Keeps track of which state textures are in so we avoid doing the same operations multiple times for a cooker
+	mutable TArray<ETextureState> TextureStates;
+
 	TUniquePtr<FAsyncTask<FTextureSetCookerTaskWorker>> AsyncTask;
 
 	// Compute the hashed Guid for a specific hashed texture. Used by the DDC to cache the data.
 	FGuid ComputeTextureDataId(int Index, const TMap<FName, TSharedRef<ITextureProcessingNode>>& ProcessedTextures) const;
 	FGuid ComputeParameterDataId(const IParameterProcessingNode* Parameter) const;
 
-	void Prepare();
-
-	void ConfigureTexture(int Index) const;
-
 	void ExecuteInternal();
-
-	FDerivedTextureData BuildTextureData(int Index) const;
 
 	static inline int GetPixelIndex(int X, int Y, int Z, int Channel, int Width, int Height, int PixelStride)
 	{

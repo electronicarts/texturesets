@@ -13,6 +13,7 @@ FTextureRead::FTextureRead(FName SourceNameIn, const FTextureSetSourceTextureDef
 	: SourceName(SourceNameIn)
 	, SourceDefinition(SourceDefinitionIn)
 	, Texture(nullptr)
+	, bLoaded(false)
 	, bInitialized(false)
 	, ValidChannels(0)
 	, ChannelSwizzle{0, 1, 2, 3}
@@ -25,33 +26,23 @@ FTextureRead::FTextureRead(FName SourceNameIn, const FTextureSetSourceTextureDef
 
 void FTextureRead::LoadResources(const FTextureSetProcessingContext& Context)
 {
+#if TS_SOFT_SOURCE_TEXTURE_REF
+	check(!IsLoading()); // LoadSynchronous often fails if we are loading something else
+#endif
+
+	if (bLoaded)
+		return;
+
 	if(!IsValid(Texture) && Context.HasSourceTexure(SourceName))
 	{
 		const FTextureSetSourceTextureReference& TextureRef = Context.GetSourceTexture(SourceName);
-		Texture = TextureRef.Texture.LoadSynchronous();
+		Texture = TextureRef.GetTexture();
 		ChannelMask = TextureRef.ChannelMask;
-	}
-}
 
-void FTextureRead::Initialize(const FTextureSetProcessingGraph& Graph)
-{
-	FScopeLock Lock(&InitializeCS);
-
-	if (bInitialized)
-		return;
-
-	if(IsValid(Texture))
-	{
-		check(Texture->Source.IsValid());
-
-		// This does two copies, and ends up being a bottleneck in the cook
-		// TODO: Read the mip data without needing to do a copy every time
-		FImage RawImage;
-		bValidImage = Texture->Source.GetMipImage(RawImage, 0, 0, 0);
-		RawImage.Linearize((int)Texture->SourceColorSettings.EncodingOverride, Image);
-
-		if (bValidImage)
+		if(IsValid(Texture))
 		{
+			TextureReferenceHolder = FReferenceHolder({Texture});
+
 			Width = Texture->Source.GetSizeX();
 			Height = Texture->Source.GetSizeY();
 			Slices = Texture->Source.GetNumSlices();
@@ -98,6 +89,27 @@ void FTextureRead::Initialize(const FTextureSetProcessingGraph& Graph)
 		}
 	}
 
+	bLoaded = true;
+}
+
+void FTextureRead::Initialize(const FTextureSetProcessingGraph& Graph)
+{
+	FScopeLock Lock(&InitializeCS);
+
+	if (bInitialized)
+		return;
+
+	if(IsValid(Texture))
+	{
+		check(Texture->Source.IsValid());
+
+		// This does two copies, and ends up being a bottleneck in the cook
+		// TODO: Read the mip data without needing to do a copy every time
+		FImage RawImage;
+		bValidImage = Texture->Source.GetMipImage(RawImage, 0, 0, 0);
+		RawImage.Linearize((int)Texture->SourceColorSettings.EncodingOverride, Image);
+	}
+
 	bInitialized = true;
 }
 
@@ -113,30 +125,36 @@ const uint32 FTextureRead::ComputeGraphHash() const
 
 const uint32 FTextureRead::ComputeDataHash(const FTextureSetProcessingContext& Context) const
 {
+#if TS_SOFT_SOURCE_TEXTURE_REF
+	check(!IsLoading()); // LoadSynchronous often fails if we are loading something else
+#endif
+
 	uint32 Hash = 0;
 
 	if(Context.HasSourceTexure(SourceName))
 	{
 		const FTextureSetSourceTextureReference& TextureRef = Context.GetSourceTexture(SourceName);
 
-		if (!TextureRef.Texture.IsNull())
+		if (!TextureRef.IsNull())
 		{
 			FString PayloadIdString;
 
 			// If referenced texture is already loaded just grab the ID string from it directly
-			if (!TextureRef.Texture.IsValid() || !TextureSetsHelpers::GetSourceDataIdAsString(TextureRef.Texture.Get(), PayloadIdString))
+			if (!TextureRef.Valid() || !TextureSetsHelpers::GetSourceDataIdAsString(TextureRef.Texture.Get(), PayloadIdString))
 			{
+#if TS_SOFT_SOURCE_TEXTURE_REF
 				// If the referenced texture is not loaded, check if we have the IdString saved with it's asset data
 				// so we can avoid loading the texture just to check if it's changed.
 				FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-				FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(TextureRef.Texture.ToSoftObjectPath());
+				FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(TextureRef.GetTexturePath());
 
 				if(!TextureSetsHelpers::GetSourceDataIdAsString(AssetData, PayloadIdString))
+#endif
 				{
 					// If we were not able to get the ID string from the asset data, we need to load the texture to retreive it.
 					// This should only happen on textures that were created before the texture-sets plugin was enabled, and haven't been re-saved since.
 					// As existing textures are modified and re-saved, this should happen less frequently.
-					UTexture* T = TextureRef.Texture.LoadSynchronous();
+					UTexture* T = TextureRef.GetTexture();
 					check(IsValid(T));
 					FGuid PersistentID = T->Source.GetPersistentId();
 					TextureSetsHelpers::GetSourceDataIdAsString(T, PayloadIdString);

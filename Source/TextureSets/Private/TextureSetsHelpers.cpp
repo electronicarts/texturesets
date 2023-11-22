@@ -76,3 +76,16 @@ TArray<FName> TextureSetsHelpers::GetUnpackedChannelNames(const TArray<FTextureS
 
 	return UnpackedNames;
 }
+
+UReferenceHolder* FReferenceHolder::GetHolder()
+{
+	static UReferenceHolder* Holder = nullptr;
+
+	if (!Holder)
+	{
+		Holder = NewObject<UReferenceHolder>();
+		Holder->AddToRoot();
+	}
+
+	return Holder;
+}
