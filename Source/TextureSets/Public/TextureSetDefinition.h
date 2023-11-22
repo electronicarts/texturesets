@@ -19,7 +19,7 @@ DECLARE_EVENT_OneParam(UTextureSetDefinition, FOnTextureSetDefinitionChanged, UT
 
 // The texture set definition. Definitions consist primarily of a list of modules, and a packing definition.
 // The definition is configurable, and drives most other aspects of the texture-set from import to packing to sampling.
-UCLASS()
+UCLASS(BlueprintType)
 class TEXTURESETS_API UTextureSetDefinition : public UObject
 {
 	GENERATED_BODY()

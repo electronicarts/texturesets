@@ -24,6 +24,31 @@ UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 }
 
 #if WITH_EDITOR
+void UTextureSet::AddSource(FName SourceName, UTexture* Texture)
+{
+	FTextureSetSourceTextureReference SourceReferene;
+	SourceReferene.Texture = Texture;
+	SourceTextures.Add(SourceName, SourceReferene);	
+}
+#endif
+
+#if WITH_EDITOR
+void UTextureSet::RemoveSource(FName SourceName)
+{
+	SourceTextures.Remove(SourceName);
+}
+#endif
+
+#if WITH_EDITOR
+TArray<FName> UTextureSet::GetSourceNames()
+{
+	TArray<FName> Result;
+	SourceTextures.GetKeys(Result);
+	return Result;
+}
+#endif
+
+#if WITH_EDITOR
 bool UTextureSet::IsCompiling() const
 {
 	return FTextureSetCompilingManager::Get().IsRegistered(this);
@@ -206,6 +231,10 @@ void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 		&& PropertyChangedEvent.ChangeType == EPropertyChangeType::ValueSet)
 	{
 		FixupData();
+
+		// Update derived data whenever a definition changes.
+		// Avoids an error when the definition changes on save and has a mismatch between harvested references and serialized derived data.
+		UpdateDerivedData(nullptr, true);
 	}
 }
 #endif
@@ -254,8 +283,27 @@ void UTextureSet::FixupData()
 
 		for (const auto& [Name, TextureInfo] : Definition->GetModuleInfo().GetSourceTextures())
 		{
-			FTextureSetSourceTextureReference* OldTexture = SourceTextures.Find(Name);
-			NewSourceTextures.Add(Name, OldTexture ? *OldTexture : FTextureSetSourceTextureReference());
+			if (SourceTextures.Contains(Name))
+			{
+				NewSourceTextures.Add(Name, SourceTextures.FindChecked(Name));
+			}
+			else if (UnusedSourceTextures.Contains(Name))
+			{
+				NewSourceTextures.Add(Name, UnusedSourceTextures.FindAndRemoveChecked(Name));
+			}
+			else
+			{
+				NewSourceTextures.Add(Name, FTextureSetSourceTextureReference());
+			}
+		}
+
+		// If any source textures are unused and pointing to valid resources, save them as unused sources
+		for (const auto& [Name, TextureInfo] : SourceTextures)
+		{
+			if (!NewSourceTextures.Contains(Name) && !TextureInfo.Texture.IsNull())
+			{
+				UnusedSourceTextures.Add(Name, TextureInfo);
+			}
 		}
 
 		SourceTextures = NewSourceTextures;

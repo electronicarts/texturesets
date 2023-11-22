@@ -35,6 +35,17 @@ public:
 	FTextureSetAssetParamsCollection AssetParams;
 #endif
 
+#if WITH_EDITOR
+	UFUNCTION(BlueprintCallable)
+	void AddSource(FName SourceName, UTexture* Texture);
+
+	UFUNCTION(BlueprintCallable)
+	void RemoveSource(FName SourceName);
+
+	UFUNCTION(BlueprintCallable)
+	TArray<FName> GetSourceNames();
+#endif
+
 	// IInterface_AsyncCompilation Interface
 #if WITH_EDITOR
 	virtual bool IsCompiling() const override;
@@ -60,6 +71,7 @@ public:
 #endif
 
 #if WITH_EDITOR
+	UFUNCTION(BlueprintCallable)
 	void FixupData();
 	// Fetch from cache, or re-compute the derived data
 	void UpdateDerivedData(bool bAsync, bool bStartImmediately = false);
@@ -76,6 +88,10 @@ private:
 
 	UPROPERTY(VisibleAnywhere, AdvancedDisplay)
 	FTextureSetDerivedData DerivedData;
+
+	// Keep references to source textures that became unused, so if we switch to a definition that can make use of them again, they can be rehooked automatically.
+	UPROPERTY(EditAnywhere, AdvancedDisplay)
+	TMap<FName, FTextureSetSourceTextureReference> UnusedSourceTextures;
 
 	FDelegateHandle OnTextureSetDefinitionChangedHandle;
 
