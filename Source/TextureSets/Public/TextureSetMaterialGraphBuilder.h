@@ -78,6 +78,9 @@ public:
 	const TArray<FText>& GetErrors() { return Errors; }
 
 	FString SubsampleAddressToString(const FSubSampleAddress& Address);
+
+	const FGraphBuilderOutputAddress& GetFallbackValue(EGraphBuilderSharedValueType Value);
+	const void SetFallbackValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType Value);
 private:
 
 	TArray<TArray<SubSampleHandle>> SampleGroups;
@@ -108,9 +111,6 @@ private:
 
 	TMap<FName, FGraphBuilderOutputAddress> BuildSubsamplesRecursive(const FSubSampleAddress& Address);
 	TMap<FName, FGraphBuilderOutputAddress> BlendSubsampleResults(const FSubSampleAddress& Address, TArray<TMap<FName, FGraphBuilderOutputAddress>>);
-
-	const FGraphBuilderOutputAddress& GetFallbackValue(EGraphBuilderSharedValueType Value);
-	const void SetFallbackValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType Value);
 
 	void SetupFallbackValues();
 	void SetupSharedValues(FTextureSetSubsampleContext& Context);

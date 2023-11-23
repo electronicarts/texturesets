@@ -1,0 +1,82 @@
+#pragma once
+
+void TriplanarUVs(float3 Position, float3 Normal, float Falloff, out float2 UVX, out float2 UVY, out float2 UVZ, out float3 Weights)
+{	
+	// Triplanar mapping
+	
+	// textures go from left-to-right and top-to-bottom to be in the correct direction.
+	// triplanar mapping coordinates are set to the correct directions for positive normal axes.
+	
+	UVX = -Position.yz;
+	UVY = float2(Position.x, -Position.z);
+	UVZ = -Position.xy;
+	
+	// Flip uvs
+	
+	// horizontal mapping is flipped for negative normal axes.
+	
+	UVX.x *= sign(Normal.x);
+	UVY.x *= sign(Normal.y);
+	UVZ.x *= sign(Normal.z);
+	
+	// Weights
+	
+	// falloff clamped at 0.04 to avoid NaN.
+	
+	Falloff = clamp(Falloff, 0.04, 1.0);
+	
+	Weights = pow(abs(Normal), 1.0 / Falloff);
+	Weights /= Weights.x + Weights.y + Weights.z;
+}
+
+void TriplanarTangents(float3 Normal, out float3 TangentX, out float3 BitangentX, out float3 TangentY, out float3 BitangentY, out float3 TangentZ, out float3 BitangentZ)
+{
+	// tangents and bitangents match the triplanar coordinates in the TriplanarUVs function.
+	
+	TangentX = float3(Normal.y, -Normal.x, 0);
+	BitangentX = float3(Normal.z, 0, -Normal.x) * sign(Normal.x);
+	
+	TangentY = float3(Normal.y, -Normal.x, 0);
+	BitangentY = float3(0, Normal.z, -Normal.y) * sign(Normal.y);
+	
+	TangentZ = float3(-Normal.z, 0, Normal.x);
+	BitangentZ = float3(0, -Normal.z, Normal.y) * sign(Normal.z);
+}
+
+void SingleSampleNoise(float3 Normal, out float3 Noise)
+{
+	Noise = frac(Normal * float3(443.897, 441.423, 437.195));
+	Noise += dot(Noise, Noise.yxz + 19.19);
+	Noise = frac((Noise.xxy + Noise.yxx) * Noise.zyx);
+}
+
+void SingleSampleTriplanar(float2 UVX, float2 UVY, float2 UVZ,
+						   float3 TangentX, float3 BitangentX, float3 TangentY, float3 BitangentY, float3 TangentZ, float3 BitangentZ,
+						   float3 Weights, float3 Noise,
+						   out float2 UVs, out float3 Tangent, out float3 Bitangent, out float2 DDX, out float2 DDY)
+{
+	Weights += Noise - 0.5;
+	
+	UVs = UVX;
+	Tangent = TangentX;
+	Bitangent = BitangentX;
+	DDX = ddx(UVX);
+	DDY = ddy(UVX);
+	
+	if (Weights.y >= Weights.x && Weights.y >= Weights.z)
+	{
+		UVs = UVY;
+		Tangent = TangentY;
+		Bitangent = BitangentY;
+		DDX = ddx(UVY);
+		DDY = ddy(UVY);
+	}
+	else if (Weights.z >= Weights.x && Weights.z >= Weights.y)
+	{
+		UVs = UVZ;
+		Tangent = TangentZ;
+		Bitangent = BitangentZ;
+		DDX = ddx(UVZ);
+		DDY = ddy(UVZ);
+	}
+}
