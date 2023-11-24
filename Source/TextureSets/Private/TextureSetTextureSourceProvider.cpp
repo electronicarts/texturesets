@@ -81,6 +81,13 @@ void UTextureSetTextureSourceProvider::UpdateSource(FTextureSource& Source) cons
 		Cooker->BuildTextureData(Index);
 		LastUpdateID = Cooker->GetDerivedTextureID(Index);
 	}
+	else if (!Source.IsValid())
+	{
+		// Can happen when a texture is removed from a definition
+		// Just fill it with some valid data until it gets removed
+		float WhitePixel[1] = {1.0f};
+		Source.Init(1, 1, 1, 1, TSF_R32F, (uint8*)WhitePixel);
+	}
 }
 
 void UTextureSetTextureSourceProvider::CleanUp()
@@ -123,9 +130,9 @@ UTextureSet* UTextureSetTextureSourceProvider::GetTextureSetAndIndex(UTexture* T
 		}
 	}
 
-	if (!ensureMsgf(OutIndex != -1, TEXT("Derived texture not found in texture set's derived data!")))
-		return nullptr;
-
-	return TextureSet;
+	if (OutIndex == -1)
+		return nullptr; // Not found (happens when a packed texture is removed from a definition)
+	else
+		return TextureSet;
 }
 #endif
