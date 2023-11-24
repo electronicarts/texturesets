@@ -45,7 +45,7 @@ void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Gra
 		static const FTextureSetSourceTextureDef SpecularDef(3, ETextureSetChannelEncoding::SRGB, FVector4(0, 0, 0, 0));
 		Graph.AddOutputTexture(SpecularName, Graph.AddInputTexture(SpecularName, SpecularDef));
 	}
-	else
+	else if (Paramaterization != EPBRParamaterization::None)
 	{
 		unimplemented()
 	}
@@ -62,7 +62,7 @@ void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Gra
 		static const FTextureSetSourceTextureDef SmoothnessDef (1, ETextureSetChannelEncoding::RangeCompression, FVector4(0.5, 0.5, 0.5, 0));
 		Graph.AddOutputTexture(SmoothnessName, Graph.AddInputTexture(SmoothnessName, SmoothnessDef));
 	}
-	else
+	else if (Microsurface != EPBRMicrosurface::None)
 	{
 		unimplemented()
 	}
@@ -105,23 +105,20 @@ void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionT
 	Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder, PBRSampleParams](FTextureSetSubsampleContext& SampleContext)
 	{
 		// Surface Parameterization
+		switch (Paramaterization)
 		{
-			switch (Paramaterization)
-			{
-			case EPBRParamaterization::Basecolor_Metal:
-				SampleContext.AddResult(MetalName, SampleContext.GetProcessedTextureSample(MetalName));
-				// Falls through
-			case EPBRParamaterization::Dielectric:
-				SampleContext.AddResult(BaseColorName, SampleContext.GetProcessedTextureSample(BaseColorName));
-				break;
-			case EPBRParamaterization::Albedo_Spec:
-				SampleContext.AddResult(AlbedoName, SampleContext.GetProcessedTextureSample(AlbedoName));
-				SampleContext.AddResult(SpecularName, SampleContext.GetProcessedTextureSample(SpecularName));
-				break;
-			default:
-				unimplemented()
-				break;
-			}
+		case EPBRParamaterization::Basecolor_Metal:
+			SampleContext.AddResult(MetalName, SampleContext.GetProcessedTextureSample(MetalName));
+			// Falls through
+		case EPBRParamaterization::Dielectric:
+			SampleContext.AddResult(BaseColorName, SampleContext.GetProcessedTextureSample(BaseColorName));
+			break;
+		case EPBRParamaterization::Albedo_Spec:
+			SampleContext.AddResult(AlbedoName, SampleContext.GetProcessedTextureSample(AlbedoName));
+			SampleContext.AddResult(SpecularName, SampleContext.GetProcessedTextureSample(SpecularName));
+			break;
+		default:
+			break;
 		}
 
 		// Microsurface
@@ -132,7 +129,7 @@ void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionT
 				MicrosurfaceSample = SampleContext.GetProcessedTextureSample(RoughnessName);
 			else if (Microsurface == EPBRMicrosurface::Smoothness)
 				MicrosurfaceSample = SampleContext.GetProcessedTextureSample(SmoothnessName);
-			else
+			else 
 				unimplemented()
 
 			FGraphBuilderOutputAddress ResultAddress = MicrosurfaceSample;
