@@ -55,7 +55,6 @@ class FTextureSetCooker
 public:
 
 	FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerivedData& DerivedData);
-	~FTextureSetCooker();
 
 	bool CookRequired() const;
 
@@ -90,6 +89,7 @@ private:
 	FString TextureSetName;
 	FString TextureSetFullName;
 	FString UserKey;
+	const bool bIsDefaultTextureSet;
 	TArray<FGuid> DerivedTextureIds;
 	TMap<FName, FGuid> ParameterIds;
 

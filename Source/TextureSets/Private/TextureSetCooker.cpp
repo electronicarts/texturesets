@@ -107,18 +107,17 @@ FTextureSetCooker::FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerived
 	, GraphInstance(nullptr)
 	, PackingInfo(TextureSet->Definition->GetPackingInfo())
 	, ModuleInfo(TextureSet->Definition->GetModuleInfo())
+	, bIsDefaultTextureSet(TextureSet->Definition->GetDefaultTextureSet() == TextureSet)
 	, AsyncTask(nullptr)
 {
 	check(IsInGameThread());
 	check(IsValid(TextureSet->Definition));
-	check(DerivedData.bIsCooking == false);
-
-	DerivedData.bIsCooking = true;
+	check(DerivedData.bIsCompiling == false);
 	
 	OuterObject = TextureSet;
 	TextureSetName = TextureSet->GetName();
 	TextureSetFullName = TextureSet->GetFullName();
-	UserKey = TextureSet->GetUserKey();
+	UserKey = TextureSet->GetUserKey() + TextureSet->Definition->GetUserKey();
 
 	// Compute all IDs using the instance of the processing graph already created in the module info.
 	// This saves us having to create a new processing graph just to do our hashing.
@@ -129,12 +128,6 @@ FTextureSetCooker::FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerived
 
 	for (const auto& [Name, Parameter] : Graph->GetOutputParameters())
 		ParameterIds.Add(Name, ComputeParameterDataId(Parameter));
-}
-
-FTextureSetCooker::~FTextureSetCooker()
-{
-	check(DerivedData.bIsCooking == true);
-	DerivedData.bIsCooking = false;
 }
 
 bool FTextureSetCooker::CookRequired() const
@@ -170,7 +163,7 @@ void FTextureSetCooker::Execute()
 {
 	check(!IsAsyncJobInProgress());
 	check(IsInGameThread());
-
+	DerivedData.bIsCompiling = true;
 	ExecuteInternal();
 }
 
@@ -178,7 +171,7 @@ void FTextureSetCooker::ExecuteAsync(FQueuedThreadPool* InQueuedPool, EQueuedWor
 {
 	check(!IsAsyncJobInProgress());
 	check(IsInGameThread());
-
+	DerivedData.bIsCompiling = true;
 	AsyncTask = MakeUnique<FAsyncTask<FTextureSetCookerTaskWorker>>(this);
 	AsyncTask->StartBackgroundTask(InQueuedPool, InQueuedWorkPriority);
 }
@@ -204,7 +197,7 @@ FGuid FTextureSetCooker::ComputeTextureDataId(int PackedTextureIndex, const TMap
 
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
 
-	IdBuilder << FString("TextureSetDerivedTexture_V0.0"); // Version string, bump this to invalidate everything
+	IdBuilder << FString("TextureSetDerivedTexture_V0.3"); // Version string, bump this to invalidate everything
 	IdBuilder << UserKey; // Key for debugging, easily force rebuild
 	IdBuilder << GetTypeHash(PackingInfo.GetPackedTextureDef(PackedTextureIndex));
 
@@ -229,7 +222,7 @@ FGuid FTextureSetCooker::ComputeTextureDataId(int PackedTextureIndex, const TMap
 FGuid FTextureSetCooker::ComputeParameterDataId(const IParameterProcessingNode* Parameter) const
 {
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
-	IdBuilder << FString("TextureSetParameter_V0.1"); // Version string, bump this to invalidate everything
+	IdBuilder << FString("TextureSetParameter_V0.2"); // Version string, bump this to invalidate everything
 	IdBuilder << UserKey; // Key for debugging, easily force rebuild
 	IdBuilder << Parameter->ComputeGraphHash();
 	IdBuilder << Parameter->ComputeDataHash(Context);
@@ -281,51 +274,51 @@ void FTextureSetCooker::Prepare()
 
 		FName TextureName = FName(FString::Format(TEXT("{0}_Texture{1}_{2}"), {TextureSetName, DerivedTextureSuffix, t}));
 
-		if (!IsValid(DerivedData.Textures[t]) || DerivedData.Textures[t].GetClass() != DerivedTextureClass)
+		TObjectPtr<UTexture>& Texture = DerivedData.Textures[t];
+
+		if (!IsValid(Texture) || Texture.GetClass() != DerivedTextureClass)
 		{
 			// Try to find an existing texture stored in our package that may have become unreferenced, but still exists.
 			// This could happen if the number of derived textures was higher, became lower, and then was set higher again,
 			// before the previous texture was garbage-collected.
-			DerivedData.Textures[t] = static_cast<UTexture*>(FindObjectWithOuter(OuterObject, nullptr, TextureName));
+			Texture = static_cast<UTexture*>(FindObjectWithOuter(OuterObject, nullptr, TextureName));
 
 			// No existing texture or texture was of the wrong type, create a new one
-			if (!IsValid(DerivedData.Textures[t]) || DerivedData.Textures[t].GetClass() != DerivedTextureClass)
+			if (!IsValid(Texture) || Texture.GetClass() != DerivedTextureClass)
 			{
-				DerivedData.Textures[t] = NewObject<UTexture>(OuterObject, DerivedTextureClass, TextureName, RF_Public);
+				Texture = NewObject<UTexture>(OuterObject, DerivedTextureClass, TextureName, RF_NoFlags);
 			}
 		}
 
+		// Default texture set derived textures need to be public so they can be referenced in the generated graphs
+		// Otherwise, they shouldn't be directly referenced
+		Texture->SetFlags(bIsDefaultTextureSet ? RF_Public : RF_NoFlags);
+
 		// Before applying any modification to the texture
 		// make sure no compilation is still ongoing.
-		if (!DerivedData.Textures[t]->IsAsyncCacheComplete())
-		{
-			DerivedData.Textures[t]->FinishCachePlatformData();
-		}	
+		if (!Texture->IsAsyncCacheComplete())
+			Texture->FinishCachePlatformData();
 
-		if (DerivedData.Textures[t]->IsDefaultTexture())
-		{
-			FTextureCompilingManager::Get().FinishCompilation({DerivedData.Textures[t]});
-		}
+		if (Texture->IsDefaultTexture())
+			FTextureCompilingManager::Get().FinishCompilation({Texture});
 
 		// Usually happens if the outer texture set is renamed
-		if (DerivedData.Textures[t]->GetFName() != TextureName)
-		{
-			DerivedData.Textures[t]->Rename(*TextureName.ToString());
-		}
+		if (Texture->GetFName() != TextureName)
+			Texture->Rename(*TextureName.ToString());
 
-		check(DerivedData.Textures[t]->IsInOuter(OuterObject));
+		check(Texture->IsInOuter(OuterObject));
 
 		// Create a source provider and assign it if it doesn't already exist
-		if (!IsValid(Cast<UTextureSetTextureSourceProvider>(DerivedData.Textures[t]->ProceduralTextureProvider)))
+		if (!IsValid(Cast<UTextureSetTextureSourceProvider>(Texture->ProceduralTextureProvider)))
 		{
-			DerivedData.Textures[t]->ProceduralTextureProvider = NewObject<UTextureSetTextureSourceProvider>(DerivedData.Textures[t]);
+			Texture->ProceduralTextureProvider = NewObject<UTextureSetTextureSourceProvider>(Texture);
 		}
+
+		ConfigureTexture(t);
 
 		// In editor, kick off texture builds so we see our results right away
 		if (FApp::CanEverRender())
-		{
-			DerivedData.Textures[t]->BeginCachePlatformData();
-		}
+			Texture->BeginCachePlatformData();
 	}
 }
 
@@ -356,12 +349,17 @@ void FTextureSetCooker::ConfigureTexture(int Index) const
 	// Transient source data since it's faster to recompute it than caching uncompressed floating point data.
 	Texture->bSourceBulkDataTransient = true;
 
+	// Important that this is set properly for streaming
+	Texture->SetDeterministicLightingGuid();
+
 	if (TextureStates[Index] == ETextureState::Unmodified)
 		TextureStates[Index] = ETextureState::Configured;
 }
 
 void FTextureSetCooker::ExecuteInternal()
 {
+	check(DerivedData.bIsCompiling == true);
+
 	#ifdef BENCHMARK_TEXTURESET_COOK
 		UE_LOG(LogTextureSetCook, Log, TEXT("%s: Beginning texture set cook"), *OuterObject->GetName());
 		const double BuildStartTime = FPlatformTime::Seconds();
@@ -419,6 +417,9 @@ void FTextureSetCooker::ExecuteInternal()
 	UE_LOG(LogTextureSetCook, Log, TEXT("%s: Cook finished in %fs"), *OuterObject->GetName(), FPlatformTime::Seconds() - SectionStartTime);
 	SectionStartTime = FPlatformTime::Seconds();
 #endif
+
+	check(DerivedData.bIsCompiling == true);
+	DerivedData.bIsCompiling = false;
 }
 
 void FTextureSetCooker::InitializeTextureData(int Index) const
@@ -598,18 +599,28 @@ void FTextureSetCooker::BuildTextureData(int Index) const
 #endif
 
 			// Channel encoding (decoding happens in FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode)
-			if (ChanelInfo.ChannelEncoding & (uint8)ETextureSetChannelEncoding::RangeCompression && Min < Max)
+			if (ChanelInfo.ChannelEncoding & (uint8)ETextureSetChannelEncoding::RangeCompression)
 			{
-				const float CompressMul = Max - Min;
-				const float CompressAdd = -Min * CompressMul;
-
-				for (int i = c; i < NumPixelValues; i += PixelValueStride)
+				if (Min >= Max)
 				{
-					PixelValues[i] = PixelValues[i] * CompressMul + CompressAdd;
+					// Essentially ignore the texture at runtime and use the min value
+					RestoreMul[c] = 0;
+					RestoreAdd[c] = Min;
 				}
+				else
+				{
+					// Adjust the texture and set the constant values for decompression
+					float CompressMul = Max - Min;
+					float CompressAdd = -Min * CompressMul;
 
-				RestoreMul[c] = 1.0f / (Max - Min);
-				RestoreAdd[c] = Min;
+					for (int i = c; i < NumPixelValues; i += PixelValueStride)
+					{
+						PixelValues[i] = PixelValues[i] * CompressMul + CompressAdd;
+					}
+
+					RestoreMul[c] = 1.0f / (Max - Min);
+					RestoreAdd[c] = Min;
+				}
 			}
 
 			if ((ChanelInfo.ChannelEncoding & (uint8)ETextureSetChannelEncoding::SRGB) && (!TextureInfo.HardwareSRGB || c >= 3))

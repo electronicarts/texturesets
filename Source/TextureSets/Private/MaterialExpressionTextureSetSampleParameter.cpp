@@ -20,6 +20,8 @@
 UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampleParameter(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	ParameterName = "Texture Set";
+
 	bShowOutputNameOnPin = true;
 	bShowOutputs         = true;
 
@@ -45,12 +47,12 @@ FName UMaterialExpressionTextureSetSampleParameter::GetConstantParameterName(FNa
 
 FName UMaterialExpressionTextureSetSampleParameter::MakeTextureParameterName(FName ParameterName, int TextureIndex)
 {
-	return FName("TEXSET_" + ParameterName.ToString() + "_PACKED_" + FString::FromInt(TextureIndex));
+	return FName(FString::Format(TEXT("TEXSET_{0}_PACKED_{1}"), {ParameterName.ToString(), FString::FromInt(TextureIndex)}));
 }
 
 FName UMaterialExpressionTextureSetSampleParameter::MakeConstantParameterName(FName ParameterName, FName ConstantName)
 {
-	return FName("TEXSET_" + ParameterName.ToString() + "_" + ConstantName.ToString());
+	return FName(FString::Format(TEXT("TEXSET_{0}_{1}"), {ParameterName.ToString(), ConstantName.ToString()}));
 }
 
 bool UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(FName Name)
@@ -64,7 +66,8 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 	if (!IsValid(Definition))
 		return 0;
 
-	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0.1"));
+	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0.2"));
+	Hash = HashCombine(Hash, GetTypeHash(Definition->GetUserKey()));
 
 	Hash = HashCombine(Hash, GetTypeHash(FTextureSetMaterialGraphBuilder::GetGraphBuilderVersion()));
 
@@ -190,6 +193,12 @@ void UMaterialExpressionTextureSetSampleParameter::BeginDestroy()
 EDataValidationResult UMaterialExpressionTextureSetSampleParameter::IsDataValid(FDataValidationContext& Context)
 {
 	EDataValidationResult Result = EDataValidationResult::Valid;
+
+	if (ParameterName.IsNone())
+	{
+		Context.AddError(LOCTEXT("BadParamName","Texture Set Parameter name cannot be 'None', please specify a valid name."));
+		Result = EDataValidationResult::Invalid;
+	}
 
 	if (!IsValid(Definition))
 	{

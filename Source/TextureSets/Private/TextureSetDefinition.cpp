@@ -146,18 +146,6 @@ const UTextureSet* UTextureSetDefinition::GetDefaultTextureSet() const
 }
 
 #if WITH_EDITOR
-void UTextureSetDefinition::UpdateDefaultTextureSet()
-{
-	if (!IsValid(DefaultTextureSet))
-		DefaultTextureSet = NewObject<UTextureSet>(this);
-
-	DefaultTextureSet->Rename(*(GetName() + "_Default"), this);
-	DefaultTextureSet->Definition = this;
-	DefaultTextureSet->SetFlags(RF_Public);
-}
-#endif
-
-#if WITH_EDITOR
 uint32 UTextureSetDefinition::ComputeCookingHash()
 {
 	uint32 Hash = GetTypeHash(FString("TextureSetDefinition"));
@@ -223,10 +211,16 @@ void UTextureSetDefinition::ApplyEdits()
 	// Update packing info
 	PackingInfo = FTextureSetPackingInfo(EditPackedTextures, ModuleInfo);
 
-	UpdateDefaultTextureSet();
+	// Update the default Texture Set
+	if (!IsValid(DefaultTextureSet))
+		DefaultTextureSet = NewObject<UTextureSet>(this);
 
-	// Ensure texture set always has up to date derived data available immediately
-	DefaultTextureSet->UpdateDerivedData(nullptr, true);
+	DefaultTextureSet->Rename(*(GetName() + "_Default"), this);
+	DefaultTextureSet->Definition = this;
+	DefaultTextureSet->SetFlags(RF_Public);
+
+	// Ensure default texture set always has up to date derived data available immediately
+	DefaultTextureSet->UpdateDerivedData(false);
 
 	const uint32 NewHash = ComputeCookingHash();
 	if (NewHash != CookingHash)

@@ -64,12 +64,16 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	TMap<FName, FDerivedParameterData> MaterialParameters;
 
-	bool bIsCooking = false;
+#if WITH_EDITOR
+	bool bIsCompiling = false;
+#endif
 
-	inline bool IsValid()
+	inline bool IsValid() const
 	{
-		if (bIsCooking)
+#if WITH_EDITOR
+		if (bIsCompiling)
 			return false;
+#endif
 
 		if (Textures.Num() == 0 && MaterialParameters.Num() == 0)
 			return false;

@@ -41,7 +41,8 @@ public:
 #endif
 
 	// ICustomMaterialParameterInterface
-	virtual void AugmentMaterialParameters(const FCustomParameterValue& CustomParameter, TArray<FVectorParameterValue>& VectorParameters, TArray<FTextureParameterValue>& TextureParameters) const override;
+	virtual void AugmentMaterialTextureParameters(const FCustomParameterValue& CustomParameter, TArray<FTextureParameterValue>& TextureParameters) const override;
+	virtual void AugmentMaterialVectorParameters(const FCustomParameterValue& CustomParameter, TArray<FVectorParameterValue>& VectorParameters) const override;
 
 	// UObject Interface
 	virtual void PreSave(FObjectPreSaveContext SaveContext) override;
@@ -60,9 +61,8 @@ public:
 
 #if WITH_EDITOR
 	void FixupData();
-	// Fetch from cache, or re-compute the derived data for the specified platform.
-	// Pass nullptr to cache for the currently running platform (in-editor)
-	void UpdateDerivedData(const ITargetPlatform* TargetPlatform, bool bStartImmediately = false);
+	// Fetch from cache, or re-compute the derived data
+	void UpdateDerivedData(bool bAsync, bool bStartImmediately = false);
 #endif
 	const FTextureSetDerivedData& GetDerivedData() const { return DerivedData; }
 	const FString& GetUserKey() const { return UserKey; }

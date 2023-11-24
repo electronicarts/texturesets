@@ -56,11 +56,11 @@ public:
 	const UTextureSet* GetDefaultTextureSet() const;
 
 #if WITH_EDITOR
-	void UpdateDefaultTextureSet();
 	uint32 ComputeCookingHash();
 #endif
 
-	FGuid GetGuid() { return UniqueID; }
+	FGuid GetGuid() const { return UniqueID; }
+	const FString& GetUserKey() const { return UserKey; }
 
 private:
 

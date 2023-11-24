@@ -22,10 +22,10 @@ class TEXTURESETS_API FTextureSetCompilingManager : IAssetCompilingManager
 public:
 	static FTextureSetCompilingManager& Get();
 
-	void QueueCompilation(UTextureSet* const InTextureSet, const ITargetPlatform *TargetPlatform);
+	void QueueCompilation(UTextureSet* const InTextureSet);
 
 	// Adds textures compiled asynchronously
-	void StartCompilation(UTextureSet* const InTextureSet, const TArray<const ITargetPlatform*>& TargetPlatforms);
+	void StartCompilation(UTextureSet* const InTextureSet);
 
 	// Blocks until completion of the requested textures.
 	void FinishCompilation(TArrayView<UTextureSet* const> InTextureSets);
@@ -76,7 +76,7 @@ private:
 	double LastReschedule = 0.0f;
 	bool bHasShutdown = false;
 
-	TMap<TSoftObjectPtr<UTextureSet>, TArray<const ITargetPlatform*>> QueuedTextureSets;
+	TSet<TSoftObjectPtr<UTextureSet>> QueuedTextureSets;
 	TMap<UTextureSet*, TSharedRef<FTextureSetCooker>> Cookers;
 	TArray<UTextureSet*> CompilingTextureSets;
 	TMap<UTextureSet*, int> LentCookers;
