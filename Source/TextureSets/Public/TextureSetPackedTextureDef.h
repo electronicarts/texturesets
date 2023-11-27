@@ -33,6 +33,9 @@ public:
 	UPROPERTY(EditAnywhere, meta=(GetOptions="EditGetUnpackedChannelNames", EditCondition = "AvailableChannels > 3"))
 	FName SourceA;
 
+	UPROPERTY(EditAnywhere)
+	bool bVirtualTextureStreaming;
+
 	//UPROPERTY(EditAnywhere)
 	//int SkipMip; // Not implemented
 	//
@@ -78,6 +81,7 @@ inline uint32 GetTypeHash(const FTextureSetPackedTextureDef& Value)
 	Hash = HashCombine(Hash, GetTypeHash(Value.SourceG.ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(Value.SourceB.ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(Value.SourceA.ToString()));
+	Hash = HashCombine(Hash, GetTypeHash(Value.bVirtualTextureStreaming));
 	//Hash = HashCombine(Hash, GetTypeHash(Value.SkipMip));
 	//Hash = HashCombine(Hash, GetTypeHash(Value.NumStreamedMips));
 	//Hash = HashCombine(Hash, GetTypeHash((int)Value.Filter));

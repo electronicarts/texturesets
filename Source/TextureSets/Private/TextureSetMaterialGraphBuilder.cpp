@@ -207,7 +207,16 @@ void FTextureSetMaterialGraphBuilder::Connect(const FGraphBuilderOutputAddress& 
 FGraphBuilderOutputAddress FTextureSetMaterialGraphBuilder::GetPackedTextureObject(int Index, FGraphBuilderOutputAddress StreamingCoord)
 {
 	UMaterialExpressionTextureObjectParameter* TextureObjectExpression = PackedTextureObjects[Index];
-	
+
+	// Mat compiler will think there's an extra VT stack if appending streaming def for VT
+	// Since it serves no purpose in the VT case, might as well avoid it and avoid confusion
+	const FTextureSetPackedTextureDef& TextureDef = PackingInfo.GetPackedTextureDef(Index);
+	const bool bVirtualTextureStreaming = TextureDef.bVirtualTextureStreaming;
+	if (bVirtualTextureStreaming)
+	{
+		return FGraphBuilderOutputAddress(TextureObjectExpression, 0);
+	}
+
 	if (PackingInfo.GetPackedTextureInfo(Index).Flags & (uint8)ETextureSetTextureFlags::Array)
 	{
 		// Just do a dummy value for the streaming since it thinks it needs a float3
@@ -631,9 +640,14 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 {
 	const FTextureSetPackedTextureDef& TextureDef = PackingInfo.GetPackedTextureDef(Index);
 	const FTextureSetPackedTextureInfo& TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
-	FGraphBuilderOutputAddress TextureObject = GetPackedTextureObject(Index, Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming));
+
+	FGraphBuilderOutputAddress TextureObject = GetPackedTextureObject(
+		Index, 
+		Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming));
 
 	FGraphBuilderOutputAddress SampleCoord = Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Sampling);
+	FGraphBuilderOutputAddress DDX = Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_DDX);
+	FGraphBuilderOutputAddress DDY = Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_DDY);
 
 	// Append the array index to out UV to get the sample coordinate
 	if (TextureInfo.Flags & (uint8)ETextureSetTextureFlags::Array)
@@ -642,40 +656,65 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 		Connect(SampleCoord, AppendNode, 0);
 		Connect(Context.GetSharedValue(EGraphBuilderSharedValueType::ArrayIndex), AppendNode, 1);
 		SampleCoord = FGraphBuilderOutputAddress(AppendNode, 0);
+		DDX = FGraphBuilderOutputAddress(AppendNode, 0);
+		DDY = FGraphBuilderOutputAddress(AppendNode, 0);
+
 	}
-
-	UMaterialExpressionCustom* CustomExp = CreateExpression<UMaterialExpressionCustom>();
-
-	CustomExp->IncludeFilePaths.Add("/Engine/Private/Common.ush");
-
-	CustomExp->Inputs.Empty(); // required: class initializes with one input by default
-	CustomExp->Inputs.Add({"Texcoord"});
-	CustomExp->Inputs.Add({"Tex"});
-	CustomExp->Inputs.Add({"DDX"});
-	CustomExp->Inputs.Add({"DDY"});
 
 	static const FString ChannelSuffixLower[4] {"r", "g", "b", "a"};
 	static const FString ChannelSuffixUpper[4] {"R", "G", "B", "A"};
-	
+
+	const bool bVirtualTextureStreaming = TextureDef.bVirtualTextureStreaming;
+
+	UMaterialExpressionCustom* CustomExp = CreateExpression<UMaterialExpressionCustom>();
+	CustomExp->Inputs.Empty(); // required: class initializes with one input by default
+	CustomExp->IncludeFilePaths.Add("/Engine/Private/Common.ush");
 	CustomExp->Code = "";
 
-	const bool bIsArray = (TextureInfo.Flags & (uint8)ETextureSetTextureFlags::Array);
-
-	if (!bIsArray)
-		CustomExp->Code += "FloatDeriv2 UV = {Texcoord.xy, DDX, DDY};\n";
-
-	// Set the correct size of float for how many channels we have
-	CustomExp->Code += FString::Format(TEXT("MaterialFloat{0} Sample = "),
-		{(TextureInfo.ChannelCount > 1) ? FString::FromInt(TextureInfo.ChannelCount) : ""});
-
-	// Do the appropriate sample
-	if (bIsArray)
+	FString SampleType = FString::Format(TEXT("MaterialFloat{0} Sample = "), {(TextureInfo.ChannelCount > 1) ? FString::FromInt(TextureInfo.ChannelCount) : ""});
+	
+	if (bVirtualTextureStreaming)
 	{
-		CustomExp->Code += TEXT("Texture2DArraySampleGrad(Tex, TexSampler, Texcoord.xyz, DDX, DDY).");
+		TObjectPtr<UMaterialExpressionTextureSample> SampleExpression = CreateExpression<UMaterialExpressionTextureSample>();
+		SampleExpression->MipValueMode = TMVM_Derivative;
+
+		Connect(TextureObject, SampleExpression, "TextureObject");
+		Connect(DDX, SampleExpression, "DDX(UVs)");
+		Connect(DDY, SampleExpression, "DDY(UVs)");
+		Connect(SampleCoord, SampleExpression, "Coordinates");
+
+		CustomExp->Inputs.Add({"InSample"});
+
+		constexpr uint32 RGBAOutputIndex = 5;
+		Connect(FGraphBuilderOutputAddress(SampleExpression, RGBAOutputIndex), CustomExp, 0);
+
+		// Set the correct size of float for how many channels we have
+ 		CustomExp->Code += FString::Format(TEXT("{0} InSample."), {SampleType});
 	}
 	else
 	{
-		CustomExp->Code += TEXT("Texture2DSample(Tex, TexSampler, UV).");
+		CustomExp->Inputs.Add({"Texcoord"});
+		CustomExp->Inputs.Add({"Tex"});
+		CustomExp->Inputs.Add({"DDX"});
+		CustomExp->Inputs.Add({"DDY"});
+
+		const bool bIsArray = (TextureInfo.Flags & (uint8)ETextureSetTextureFlags::Array);
+
+		if (!bIsArray)
+			CustomExp->Code += "FloatDeriv2 UV = {Texcoord.xy, DDX, DDY};\n";
+
+		// Set the correct size of float for how many channels we have
+		CustomExp->Code += FString::Format(TEXT("{0}"), {SampleType});
+
+		// Do the appropriate sample
+		if (bIsArray)
+		{
+			CustomExp->Code += TEXT("Texture2DArraySampleGrad(Tex, TexSampler, Texcoord.xyz, DDX, DDY).");
+		}
+		else
+		{
+			CustomExp->Code += TEXT("Texture2DSample(Tex, TexSampler, UV).");
+		}
 	}
 	
 	for (int c = 0; c < TextureInfo.ChannelCount; c++)
@@ -722,10 +761,13 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 
 	CustomExp->RebuildOutputs();
 
-	Connect(SampleCoord, CustomExp, 0);
-	Connect(TextureObject, CustomExp, 1);
-	Connect(Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_DDX), CustomExp, 2);
-	Connect(Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_DDY), CustomExp, 3);
+	if (!bVirtualTextureStreaming)
+	{
+		Connect(SampleCoord, CustomExp, 0);
+		Connect(TextureObject, CustomExp, 1);
+		Connect(DDX, CustomExp, 2);
+		Connect(DDY, CustomExp, 3);
+	}
 
 	if (RangeCompressMulInput != 0)
 	{
@@ -756,14 +798,14 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeSynthesizeTangentCusto
 
 int32 FTextureSetMaterialGraphBuilder::FindInputIndexChecked(UMaterialExpression* InputNode, FName InputName)
 {
-	const TArray<FExpressionInput*> Inputs = InputNode->GetInputs();
+	const int32 NumInputs = InputNode->GetInputs().Num();
 
 	int32 InputIndex = -1;
-	for (int i = 0; i < Inputs.Num(); i++)
+	for (int32 Idx = 0; Idx < NumInputs; Idx++)
 	{
-		if (Inputs[i]->InputName == InputName)
+		if (InputNode->GetInputName(Idx).Compare(InputName) == 0)
 		{
-			InputIndex = i;
+			InputIndex = Idx;
 			break;
 		}
 	}

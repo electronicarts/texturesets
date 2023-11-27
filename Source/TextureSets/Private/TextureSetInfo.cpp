@@ -130,6 +130,17 @@ FTextureSetPackingInfo::FTextureSetPackingInfo(const TArray<FTextureSetPackedTex
 			PackingSource.Add(Source, TTuple<int, int>(i, c));
 		}
 
+		if ((TextureInfo.Flags & static_cast<uint8>(ETextureSetTextureFlags::Array)) && TextureDef.bVirtualTextureStreaming)
+		{
+			Errors.Add(FText::Format(LOCTEXT("NoVirtualTexArray", "Derived texture {0} cannot be a virtual texture and Texture2DArray."), {i}));
+		}
+
+		// Since the virtual texture material gen path does not bypass Unreal's normalmap remapping, disallow virtual normalmap-format derived textures
+		if (TextureDef.CompressionSettings == TC_Normalmap && TextureDef.bVirtualTextureStreaming)
+		{
+			Errors.Add(FText::Format(LOCTEXT("NoVirtualTexNormalMap", "Derived texture {0} cannot be a virtual texture and normalmap format."), {i}));
+		}
+
 		// Set channel count after loop, incase any channels were removed
 		TextureInfo.ChannelCount = TextureDef.GetSources().Num();
 		TextureInfo.RangeCompressMulName = FName("RangeCompress_" + FString::FromInt(i) + "_Mul");

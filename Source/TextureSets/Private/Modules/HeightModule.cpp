@@ -3,6 +3,7 @@
 #include "Modules/HeightModule.h"
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
+#include "TextureSetDefinition.h"
 #include "MaterialGraphBuilder/HLSLFunctionCallNodeBuilder.h"
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionAdd.h"
@@ -12,8 +13,11 @@
 #include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionMultiply.h"
 #include "Materials/MaterialExpressionTextureObjectParameter.h"
+#include "Misc/DataValidation.h"
 #include "ProcessingNodes/ParameterPassthrough.h"
 #include "ProcessingNodes/TextureInput.h"
+
+#define LOCTEXT_NAMESPACE "TextureSets"
 
 #if WITH_EDITOR
 void UHeightModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
@@ -173,4 +177,24 @@ void UHeightModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextu
 		}));
 	}
 }
+
+EDataValidationResult UHeightModule::IsDefinitionValid(const UTextureSetDefinition* Definition,
+	FDataValidationContext& Context) const
+{
+	EDataValidationResult Result = EDataValidationResult::Valid;
+	const FTextureSetPackingInfo& PackingInfo = Definition->GetPackingInfo();
+
+	const int32 HeightPackedTextureIdx = PackingInfo.GetPackingSource("Height.r").Key;
+	const bool bVirtualTextureStreaming = PackingInfo.GetPackedTextureDef(HeightPackedTextureIdx).bVirtualTextureStreaming;
+
+	if (bVirtualTextureStreaming)
+	{
+		Context.AddError(LOCTEXT("NoVTHeight", "Height cannot be a channel in a derived texture that is tagged as a virtual texture."));
+		Result = EDataValidationResult::Invalid;
+	}
+
+	return CombineDataValidationResults(Result, Super::IsDefinitionValid(Definition, Context));
+}
 #endif
+
+#undef LOCTEXT_NAMESPACE

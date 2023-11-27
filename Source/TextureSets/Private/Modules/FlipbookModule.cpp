@@ -364,11 +364,18 @@ EDataValidationResult UFlipbookModule::IsDefinitionValid(const UTextureSetDefini
 
 		if (Packing.IsPacked("MotionVector.r") && Packing.IsPacked("MotionVector.g"))
 		{
-			int32 MV_x = Definition->GetPackingInfo().GetPackingSource("MotionVector.r").Key;
-			int32 MV_y = Definition->GetPackingInfo().GetPackingSource("MotionVector.g").Key;
-			if (MV_x != MV_y)
+			const int32 MVXPackedTexIdx = Definition->GetPackingInfo().GetPackingSource("MotionVector.r").Key;
+			const int32 MVYPackedTexIdx = Definition->GetPackingInfo().GetPackingSource("MotionVector.g").Key;
+
+			if (MVXPackedTexIdx != MVYPackedTexIdx)
 			{
 				Context.AddError(LOCTEXT("MVPacking", "Motion vectors need to be packed into two channels of the same texture"));
+				Result = EDataValidationResult::Invalid;
+			}
+
+			if (Packing.GetPackedTextureDef(MVXPackedTexIdx).bVirtualTextureStreaming)
+			{
+				Context.AddError(LOCTEXT("NoVTMotionVectors", "Derived textures containing flipbook motion vectors cannot be virtual textures."));
 				Result = EDataValidationResult::Invalid;
 			}
 		}

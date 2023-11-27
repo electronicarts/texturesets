@@ -342,6 +342,7 @@ void FTextureSetCooker::ConfigureTexture(int Index) const
 	// Let the texture compression know if we don't need the alpha channel
 	Texture->CompressionNoAlpha = TextureInfo.ChannelCount <= 3;
 
+	Texture->VirtualTextureStreaming = TextureDef.bVirtualTextureStreaming;
 	// Set the ID of the generated source to match the hash ID of this texture.
 	// This will be used to recover the cooked texture data from the DDC if possible.
 	Texture->Source.SetId(DerivedTextureIds[Index], true);
