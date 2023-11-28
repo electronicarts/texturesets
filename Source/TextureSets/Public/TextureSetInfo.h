@@ -202,11 +202,12 @@ public:
 	const FTextureSetPackedTextureDef& GetPackedTextureDef(int Index) const { return PackedTextureDefs[Index]; }
 	const FTextureSetPackedTextureInfo& GetPackedTextureInfo(int Index) const { return PackedTextureInfos[Index]; }
 
+#if WITH_EDITOR
 	// Argument is the channel of the processed texture you want to find (e.g. "Roughness.r" or "Normal.g")
 	// Return value is a tuple of the packed texture index and channel where you'll find it
 	const TTuple<int, int> GetPackingSource(FName PackedChannel) const { return PackingSource.FindChecked(PackedChannel); }
 	bool IsPacked(FName PackedChannel) const { return PackingSource.Contains(PackedChannel); }
-
+#endif
 
 private:
 	UPROPERTY(VisibleAnywhere)
@@ -215,7 +216,9 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	TArray<FTextureSetPackedTextureInfo> PackedTextureInfos;
 
+#if WITH_EDITOR
 	TMap<FName, TTuple<int, int>> PackingSource;
+#endif
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(VisibleAnywhere)

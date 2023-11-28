@@ -94,6 +94,20 @@ void UTextureSetDefinition::PostLoad()
 #endif
 }
 
+void UTextureSetDefinition::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+#if WITH_EDITOR
+	if (Ar.IsLoading())
+	{
+		// Packing source is not serialized, so if it's empty, re-create the packing info.
+		if (PackingInfo.PackingSource.IsEmpty() && !PackingInfo.PackedTextureDefs.IsEmpty())
+			PackingInfo = FTextureSetPackingInfo(PackingInfo.PackedTextureDefs, ModuleInfo);
+	}
+#endif
+}
+
 #if WITH_EDITOR
 TArray<FName> UTextureSetDefinition::EditGetUnpackedChannelNames() const
 {
