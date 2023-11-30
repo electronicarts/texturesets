@@ -33,8 +33,11 @@ private:
 
 	TSharedPtr<FTextureSetParameterEditor> ParameterEditor;
 
-#if WITH_EDITOR
 	FDelegateHandle OnGetExtraObjectTagsDelegateHandle;
 	static void OnGetExtraObjectTags(const UObject* Object, TArray<UObject::FAssetRegistryTag>& OutTags);
-#endif
+	
+	FDelegateHandle OnPostEngineInitDelegateHandle;
+
+	FDelegateHandle OnAssetPostImportDelegateHandle;
+	static void OnAssetPostImport(UFactory* ImportFactory, UObject* InObject);
 };

@@ -2,6 +2,7 @@
 
 #include "TextureSetsEditor.h"
 
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSet.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSetDefinition.h"
 #include "DEditorTextureSetParameterValue.h"
@@ -89,7 +90,7 @@ class FTextureSetParameterEditor : public ICustomMaterialParameterEditor, public
 			const FText ParameterName = FText::Format(INVTEXT("{0}\n({1})"),
 				!Args.NameOverride.IsEmpty() ? Args.NameOverride : FText::FromName(Args.Parameter->ParameterInfo.Name),
 				FText::FromString(SamplerExpression->Definition.GetName()));
-		
+
 			FDetailWidgetRow& CustomWidget = Args.Row->CustomWidget();
 			CustomWidget
 				.FilterString(ParameterName)
@@ -147,6 +148,15 @@ void FTextureSetsEditorModule::StartupModule()
 	FMaterialPropertyHelpers::RegisterCustomParameterEditor(ParameterEditor);
 
 	OnGetExtraObjectTagsDelegateHandle = UObject::FAssetRegistryTag::OnGetExtraObjectTags.AddStatic(&FTextureSetsEditorModule::OnGetExtraObjectTags);
+
+	// Register delegates during PostEngineInit as GEditor is not valid yet
+	OnPostEngineInitDelegateHandle = FCoreDelegates::OnPostEngineInit.AddLambda([this]()
+	{
+		if (GEditor)
+		{
+			OnAssetPostImportDelegateHandle = GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.AddStatic(&FTextureSetsEditorModule::OnAssetPostImport);
+		}
+	});
 }
 
 void FTextureSetsEditorModule::ShutdownModule()
@@ -159,6 +169,13 @@ void FTextureSetsEditorModule::ShutdownModule()
 	ParameterEditor.Reset();
 
 	UObject::FAssetRegistryTag::OnGetExtraObjectTags.Remove(OnGetExtraObjectTagsDelegateHandle);
+	
+	FCoreDelegates::OnPostEngineInit.Remove(OnPostEngineInitDelegateHandle);
+
+	if (GEditor)
+	{
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.Remove(OnAssetPostImportDelegateHandle);
+	}
 }
 
 
@@ -220,6 +237,33 @@ void FTextureSetsEditorModule::OnGetExtraObjectTags(const UObject* Object, TArra
 		if (TextureSetsHelpers::GetSourceDataIdAsString(Texture, IdString))
 		{
 			OutTags.Add(UObject::FAssetRegistryTag(TextureSetsHelpers::TextureBulkDataIdAssetTagName, IdString, UObject::FAssetRegistryTag::TT_Hidden));
+		}
+	}
+}
+
+void FTextureSetsEditorModule::OnAssetPostImport(UFactory* ImportFactory, UObject* InObject)
+{
+	if (IsValid(InObject) && InObject->IsA<UTexture>())
+	{
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(FName("AssetRegistry"));
+		IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+		TArray<FAssetDependency> Referencers;
+		AssetRegistry.GetReferencers(InObject->GetPackage()->GetFName(), Referencers);
+
+		for (const FAssetDependency& Dep : Referencers)
+		{
+			TArray<FAssetData> AssetsInPackage;
+			AssetRegistry.GetAssetsByPackageName(Dep.AssetId.PackageName, AssetsInPackage, false);
+
+			for (const FAssetData& AssetData : AssetsInPackage)
+			{
+				if (AssetData.IsAssetLoaded() && AssetData.IsInstanceOf(UTextureSet::StaticClass()))
+				{
+					UTextureSet* TS = Cast<UTextureSet>(AssetData.GetAsset());
+					TS->UpdateDerivedData(nullptr, false);
+				}
+			}
 		}
 	}
 }
