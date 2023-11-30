@@ -43,16 +43,37 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 	}
 
 	// Module validation
-	for (int i = 0; i < GetModuleInfo().GetModules().Num(); i++)
+	const TArray<const UTextureSetModule*>& Modules = GetModuleInfo().GetModules();
+
+	for (int i = 0; i < Modules.Num(); i++)
 	{
-		const UTextureSetModule* Module = GetModuleInfo().GetModules()[i];
+		const UTextureSetModule* Module = Modules[i];
 		if (!IsValid(Module))
 		{
 			Context.AddError(FText::Format(LOCTEXT("MissingModule","Module at index {0} is invalid."), i));
 			Result = EDataValidationResult::Invalid;
 		}
+		else
+		{
+			// Allow module to run it's own checks
+			Result = CombineDataValidationResults(Result, Module->IsDefinitionValid(this, Context));
 
-		Result = CombineDataValidationResults(Result, Module->IsDefinitionValid(this, Context));
+			// Validate AllowMultiple
+			if (!Module->AllowMultiple())
+			{
+				for (const UTextureSetModule* OtherModule : GetModuleInfo().GetModules())
+				{
+					if (OtherModule != Module && OtherModule->IsA(Module->GetClass()))
+					{
+						Context.AddError(FText::Format(LOCTEXT("MultipleModules","Module {0} at index {1} does not permit multiple modules of type {2} on a definition."),
+							FText::FromString(Module->GetInstanceName()),
+							i,
+							FText::FromName(Module->GetClass()->GetFName())));
+						Result = EDataValidationResult::Invalid;
+					}
+				}
+			}
+		}
 	}
 
 	return CombineDataValidationResults(Result, Super::IsDataValid(Context));
