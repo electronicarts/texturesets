@@ -234,7 +234,7 @@ void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 
 		// Update derived data whenever a definition changes.
 		// Avoids an error when the definition changes on save and has a mismatch between harvested references and serialized derived data.
-		UpdateDerivedData(nullptr, true);
+		UpdateDerivedData(true, true);
 	}
 }
 #endif
