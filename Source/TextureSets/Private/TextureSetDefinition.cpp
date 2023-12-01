@@ -9,6 +9,7 @@
 #include "TextureSetsHelpers.h"
 #include "UObject/ObjectSaveContext.h"
 #if WITH_EDITOR
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "Misc/DataValidation.h"
 #include "ProcessingNodes/IProcessingNode.h"
 #endif
@@ -55,7 +56,7 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 		}
 		else
 		{
-			// Allow module to run it's own checks
+			// Allow module to run its own checks
 			Result = CombineDataValidationResults(Result, Module->IsDefinitionValid(this, Context));
 
 			// Validate AllowMultiple
@@ -261,6 +262,34 @@ void UTextureSetDefinition::ApplyEdits()
 	if (NewHash != CookingHash)
 	{
 		CookingHash = NewHash;
+
+		// Force all material graphs with a sample param referencing us to be loaded, so they will receive the notifications and regenerate if needed.
+		{
+			FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(FName("AssetRegistry"));
+			IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+			TArray<FAssetDependency> Referencers;
+			AssetRegistry.GetReferencers(GetPackage()->GetFName(), Referencers);
+
+			TArray<UClass*> SearchClases = {
+				UMaterialFunction::StaticClass(),
+				UMaterial::StaticClass()
+			};
+
+			for (const FAssetDependency& Dep : Referencers)
+			{
+				TArray<FAssetData> AssetsInPackage;
+				AssetRegistry.GetAssetsByPackageName(Dep.AssetId.PackageName, AssetsInPackage, false);
+
+				for (const FAssetData& AssetData : AssetsInPackage)
+				{
+					if (AssetData.GetClass()->GetDefaultObject()->IsA<UMaterial>() || AssetData.GetClass()->GetDefaultObject()->IsA<UMaterialFunction>())
+					{
+						AssetData.GetAsset();
+					}
+				}
+			}
+		}
 
 		// Broadcast with an async event so we get called from a consistent place in the main thread.
 		// (Not during load, save, etc.)
