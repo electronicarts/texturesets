@@ -261,7 +261,7 @@ void FTextureSetsEditorModule::OnAssetPostImport(UFactory* ImportFactory, UObjec
 				if (AssetData.IsAssetLoaded() && AssetData.IsInstanceOf(UTextureSet::StaticClass()))
 				{
 					UTextureSet* TS = Cast<UTextureSet>(AssetData.GetAsset());
-					TS->UpdateDerivedData(nullptr, false);
+					TS->UpdateDerivedData(true, true);
 				}
 			}
 		}
