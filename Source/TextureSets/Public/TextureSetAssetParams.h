@@ -51,6 +51,6 @@ public:
 #endif
 
 private:
-	UPROPERTY(EditAnywhere, EditFixedSize, NoClear)
+	UPROPERTY(Instanced, EditAnywhere, EditFixedSize, NoClear)
 	TArray<class UTextureSetAssetParams*> ParamList;
 };

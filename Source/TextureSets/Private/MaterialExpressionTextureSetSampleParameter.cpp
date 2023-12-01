@@ -23,7 +23,7 @@ UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampl
 	ParameterName = "Texture Set";
 
 	bShowOutputNameOnPin = true;
-	bShowOutputs         = true;
+	bShowOutputs = true;
 
 	bIsParameterExpression = true;
 
@@ -99,7 +99,7 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 void UMaterialExpressionTextureSetSampleParameter::ConfigureMaterialFunction(class UMaterialFunction* NewMaterialFunction)
 {
 	FDataValidationContext ValidationContext;
-	if (IsValid(Definition) && Definition->IsDataValid(ValidationContext) == EDataValidationResult::Invalid)
+	if (!IsValid(Definition) || Definition->IsDataValid(ValidationContext) == EDataValidationResult::Invalid)
 	{
 		return;
 	}

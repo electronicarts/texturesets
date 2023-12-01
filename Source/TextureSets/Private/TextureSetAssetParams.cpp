@@ -1,6 +1,7 @@
 // (c) Electronic Arts. All Rights Reserved.
 
 #include "TextureSetAssetParams.h"
+#include "UObject/UObjectGlobals.h"
 
 #if WITH_EDITOR
 FOnTextureSetAssetParamsCollectionChanged FTextureSetAssetParamsCollection::OnCollectionChangedDelegate;
@@ -15,6 +16,12 @@ void FTextureSetAssetParamsCollection::UpdateParamList(UObject* Outer, TArray<TS
 		if (IsValid(ParamList[i]) && RequiredParamClasses.Contains(ParamList[i]->GetClass()))
 		{
 			RequiredParamClasses.Remove(ParamList[i]->GetClass()); // Remove this sample param from required array, so duplicates will be removed
+
+			if (ParamList[i]->GetOuter() != Outer) // Mostly happens when a node is duplicated
+			{
+				// Replace the entry with a clone
+				ParamList[i] = DuplicateObject<UTextureSetAssetParams>(ParamList[i], Outer);
+			}
 		}
 		else
 		{
