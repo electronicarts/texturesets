@@ -116,7 +116,8 @@ public:
 			0,
 			1,
 			SourceImage->GetWidth(),
-			SourceImage->GetHeight());
+			SourceImage->GetHeight(),
+			SourceImage->GetSlices());
 
 		TArray64<float> SourceTextureData;
 		SourceTextureData.SetNumUninitialized(SourceChunk.DataEnd + 1);

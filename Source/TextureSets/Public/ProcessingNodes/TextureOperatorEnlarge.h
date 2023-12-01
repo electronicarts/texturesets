@@ -16,7 +16,7 @@ public:
 		, Slices(NewSlices)
 	{}
 
-	virtual FName GetNodeTypeName() const  { return "Enlarge"; }
+	virtual FName GetNodeTypeName() const  { return "Enlarge v2"; }
 
 	virtual const uint32 ComputeGraphHash() const override
 	{
@@ -34,10 +34,9 @@ public:
 	inline FIntVector TransformToSource(const FIntVector& Position) const
 	{
 		return FIntVector(
-			Position.X * (SourceImage->GetWidth() / Width),
-			Position.Y * (SourceImage->GetHeight() / Height),
-			Position.Z * (SourceImage->GetSlices() / Slices)
-		);
+			(int)(Position.X * (float)SourceImage->GetWidth() / (float)Width),
+			(int)(Position.Y * (float)SourceImage->GetHeight() / (float)Height),
+			(int)(Position.Z * (float)SourceImage->GetSlices() / (float)Slices));
 	}
 
 #if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
@@ -49,8 +48,9 @@ public:
 			Chunk.Channel,
 			0,
 			1,
-			Width,
-			Height);
+			SourceImage->GetWidth(),
+			SourceImage->GetHeight(),
+			SourceImage->GetSlices());
 
 		TArray64<float> SourceTextureData;
 		SourceTextureData.SetNumUninitialized(SourceChunk.DataEnd + 1);
@@ -59,15 +59,63 @@ public:
 
 		int DataIndex = Chunk.DataStart;
 		FIntVector Coord;
+		FVector3f Lerp;
 		for (Coord.Z = Chunk.StartCoord.Z; Coord.Z <= Chunk.EndCoord.Z; Coord.Z++)
 		{
+			Lerp.Z = FMath::Fmod(((float)Coord.Z / (float)Slices) * (float)SourceImage->GetSlices(), 1);
+
 			for (Coord.Y = Chunk.StartCoord.Y; Coord.Y <= Chunk.EndCoord.Y; Coord.Y++)
 			{
+				Lerp.Y = FMath::Fmod(((float)Coord.Y / (float)Height) * (float)SourceImage->GetHeight(), 1);
+
 				for (Coord.X = Chunk.StartCoord.X; Coord.X <= Chunk.EndCoord.X; Coord.X++)
 				{
-					// TODO: Bilinear/Trilinear interpolation
-					const int SourceDataIndex = SourceChunk.CoordToDataIndex(TransformToSource(Coord));
-					TextureData[DataIndex] = SourceTextureData[SourceDataIndex];
+					Lerp.X = FMath::Fmod(((float)Coord.X / (float)Width) * (float)SourceImage->GetWidth(), 1);
+
+					const FIntVector SourceBaseCoord = TransformToSource(Coord);
+
+					float Values[2][2][2];
+
+					for(int x = 0; x < 2; x++)
+					{
+						for(int y = 0; y < 2; y++)
+						{
+							for(int z = 0; z < 2; z++)
+							{
+								const FIntVector SourceCoord = SourceChunk.ClampCoord(SourceBaseCoord + FIntVector(x,y,z));
+								Values[x][y][z] = SourceTextureData[SourceChunk.CoordToDataIndex(SourceCoord)];
+							}
+						}
+					}
+
+					// Lerp in Z
+					if (Lerp.Z > 0)
+					{
+						for(int x = 0; x < 2; x++)
+						{
+							for(int y = 0; y < 2; y++)
+							{
+								Values[x][y][0] = FMath::Lerp(Values[x][y][0], Values[x][y][1], Lerp.Z);
+							}
+						}
+					}
+
+					// Lerp in Y
+					if (Lerp.Y > 0)
+					{
+						for(int x = 0; x < 2; x++)
+						{
+							Values[x][0][0] = FMath::Lerp(Values[x][0][0], Values[x][1][0], Lerp.Y);
+						}
+					}
+
+					// Lerp in X
+					if (Lerp.X > 0)
+					{
+						Values[0][0][0] = FMath::Lerp(Values[0][0][0], Values[1][0][0], Lerp.X);
+					}
+					
+					TextureData[DataIndex] = Values[0][0][0];
 					DataIndex += Chunk.DataPixelStride;
 				}
 			}

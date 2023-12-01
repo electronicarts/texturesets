@@ -574,7 +574,8 @@ void FTextureSetCooker::BuildTextureData(int Index) const
 				c,
 				PixelValueStride,
 				Width,
-				Height);
+				Height,
+				Slices);
 
 			ProcessedTexture->ComputeChunk(Chunk, PixelValues);
 

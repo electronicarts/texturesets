@@ -40,7 +40,7 @@ public:
 struct FTextureProcessingChunk
 {
 public:
-	FTextureProcessingChunk(FIntVector StartCoord, FIntVector EndCoord, int Channel, int DataStart, int DataPixelStride, int TextureWidth, int TextureHeight)
+	FTextureProcessingChunk(FIntVector StartCoord, FIntVector EndCoord, int Channel, int DataStart, int DataPixelStride, int TextureWidth, int TextureHeight, int TextureSlices)
 		: StartCoord(StartCoord)
 		, EndCoord(EndCoord)
 		, Channel(Channel)
@@ -48,6 +48,7 @@ public:
 		, DataPixelStride(DataPixelStride)
 		, TextureWidth(TextureWidth)
 		, TextureHeight(TextureHeight)
+		, TextureSlices(TextureSlices)
 	{
 		FirstPixel = CoordToPixel(StartCoord);
 		LastPixel = CoordToPixel(EndCoord);
@@ -65,6 +66,7 @@ public:
 	int DataPixelStride; // Stride between pixels
 	int TextureWidth; // How many pixels wide is the entire texture we're processing
 	int TextureHeight; // How many pixels high is the entire texture we're processing
+	int TextureSlices; // How many slices in the entire texture we're processing
 
 	// Computed
 	int FirstPixel; // Index of the first pixel we are processing in the chunk
@@ -76,6 +78,12 @@ public:
 	inline int CoordToPixel(const FIntVector& Coord) const
 	{
 		return (Coord.Z * TextureWidth * TextureHeight) + (Coord.Y * TextureWidth) + Coord.X;
+	}
+
+	// Clamps the coordinate to be within the texture's size
+	inline const FIntVector ClampCoord(const FIntVector& Coord) const
+	{
+		return FIntVector(FMath::Clamp(Coord.X, 0, TextureWidth - 1), FMath::Clamp(Coord.Y, 0, TextureHeight - 1), FMath::Clamp(Coord.Z, 0, TextureSlices - 1));
 	}
 
 	// Convert a coordinate (XYZ) into a data index (includes stride and data offset)
