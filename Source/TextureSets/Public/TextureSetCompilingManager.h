@@ -9,6 +9,7 @@
 #include "UObject/WeakObjectPtr.h"
 
 #if WITH_EDITOR
+DECLARE_LOG_CATEGORY_EXTERN(LogTextureSet, Log, All);
 
 class UTextureSet;
 class FQueuedThreadPool;

@@ -15,6 +15,8 @@
 
 #define LOCTEXT_NAMESPACE "TextureSets"
 
+DEFINE_LOG_CATEGORY(LogTextureSet);
+
 static AsyncCompilationHelpers::FAsyncCompilationStandardCVars CVarAsyncTextureSetStandard(
 	TEXT("TextureSet"),
 	TEXT("texturesets"),
@@ -155,10 +157,12 @@ void FTextureSetCompilingManager::StartCompilation(UTextureSet* const TextureSet
 	TRACE_CPUPROFILER_EVENT_SCOPE(FTextureSetCompilingManager::StartCompilation)
 	check(IsInGameThread());
 
-	// TEMP: Disable this check since it was failing the build
-	// TODO: Re-enable and find why this was happening
-	//checkf(!CompilingTextureSets.Contains(TextureSet), TEXT("Texture Set is already compiling so cannot be started. If you are unsure, call IsRegistered(), TryCancelCompilation() and/or FinishCompilation() before attempting to queue a texture set."));
-
+	if (CompilingTextureSets.Contains(TextureSet))
+	{
+		// Only log, because warnings count as a build failure on Hopper
+		// TODO: Upgrade to a warning when we are confident this is no-longer happening
+		UE_LOG(LogTextureSet, Log, TEXT("Texture Set %s is already compiling so cannot be started. If you are unsure, call IsRegistered(), TryCancelCompilation() and/or FinishCompilation() before attempting to queue a texture set."), *TextureSet->GetName());
+	}
 	QueuedTextureSets.Remove(TextureSet);
 
 	// Cancel or finish previous compilation
@@ -175,6 +179,7 @@ void FTextureSetCompilingManager::StartCompilation(UTextureSet* const TextureSet
 	if (Cooker->CookRequired())
 	{
 		CompilingTextureSets.Emplace(TextureSet);
+		UE_LOG(LogTextureSet, Log, TEXT("Texture Set %s compilation started"), *TextureSet->GetName());
 
 		if (IsAsyncCompilationAllowed(TextureSet))
 			Cooker->ExecuteAsync();
@@ -255,13 +260,10 @@ void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* cons
 			[&CompilableTextures](int32 Index)	-> ICompilable& { return CompilableTextures[Index]; },
 			CompilableTextures.Num(),
 			LOCTEXT("TextureSets", "TextureSets"),
-			LogTexture,
+			LogTextureSet,
 			[this](ICompilable* Object)
 			{
-				const FCompilableTextureSet* Compilable = static_cast<FCompilableTextureSet*>(Object);
-
-				UTextureSet* TextureSet = Compilable->TextureSet.Get();
-				CompilingTextureSets.Remove(TextureSet);
+				// Don't need to do anything here, as WaitCompletionWithTimeout calls ProcessTextureSets, which will remove them form the list
 			}
 		);
 	}
@@ -269,6 +271,8 @@ void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* cons
 
 bool FTextureSetCompilingManager::TryCancelCompilation(UTextureSet* const TextureSet)
 {
+	check(IsInGameThread());
+
 	if (!CompilingTextureSets.Contains(TextureSet))
 		return true;
 
@@ -276,6 +280,7 @@ bool FTextureSetCompilingManager::TryCancelCompilation(UTextureSet* const Textur
 	if (Cooker->TryCancel())
 	{
 		CompilingTextureSets.Remove(TextureSet);
+		UE_LOG(LogTextureSet, Log, TEXT("Texture Set %s cancelled"), *TextureSet->GetName());
 		return true;
 	}
 	else
@@ -301,7 +306,7 @@ void FTextureSetCompilingManager::PostCompilation(UTextureSet* TextureSet)
 		TextureSet->NotifyMaterialInstances();
 	}
 
-	UE_LOG(LogTexture, Verbose, TEXT("Texture set %s is ready"), *TextureSet->GetName());
+	UE_LOG(LogTextureSet, Verbose, TEXT("Texture set %s is ready"), *TextureSet->GetName());
 }
 
 TSharedRef<FTextureSetCooker> FTextureSetCompilingManager::GetOrCreateCooker(UTextureSet* TextureSet)
@@ -324,7 +329,7 @@ TSharedRef<FTextureSetCooker> FTextureSetCompilingManager::GetOrCreateCooker(UTe
 
 void FTextureSetCompilingManager::FinishAllCompilation()
 {
-	UE_SCOPED_ENGINE_ACTIVITY(TEXT("Finish TextureSet Compilation"));
+	UE_SCOPED_ENGINE_ACTIVITY(TEXT("Finish All TextureSet Compilation"));
 
 	check(IsInGameThread());
 	TRACE_CPUPROFILER_EVENT_SCOPE(FTextureSetCompilingManager::FinishAllCompilation)
@@ -403,6 +408,10 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 				{
 					TextureSetsToPostpone.Emplace(MoveTemp(TextureSet));
 				}
+				else
+				{
+					UE_LOG(LogTextureSet, Log, TEXT("Texture Set %s compiled"), *TextureSet->GetName());
+				}
 			}
 
 			CompilingTextureSets = MoveTemp(TextureSetsToPostpone);
@@ -458,6 +467,7 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 	if (QueuedTextureSets.Num() > 0 && Cookers.Num() < CVarMaxAsyncTextureSetCooks.GetValueOnGameThread())
 	{
 		TArray<UTextureSet*> TextureSetsToStart;
+		TArray<UTextureSet*> TextureSetsToDequeue;
 		TextureSetsToStart.Reserve(QueuedTextureSets.Num());
 
 		for (TSoftObjectPtr<UTextureSet> QueuedTextureSet : QueuedTextureSets)
@@ -465,20 +475,25 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 			if (!HasTimeLeft())
 				break;
 
-			UTextureSet* TextureSet = QueuedTextureSet.LoadSynchronous();
-
-			// Texture Set may be null if deleted
-			if (!IsValid(TextureSet))
-				continue;
+			UTextureSet* TextureSet = QueuedTextureSet.Get();
 			
-			if (!CompilingTextureSets.Contains(TextureSet) || TryCancelCompilation(TextureSet))
+			if (!IsValid(TextureSet))
+			{
+				// Texture Set may be null if deleted or garbage collected
+				TextureSetsToDequeue.Add(TextureSet);
+			}
+			else if (!CompilingTextureSets.Contains(TextureSet) || TryCancelCompilation(TextureSet))
 			{
 				// The texture set is not currently compiling, or was but the async job could be cancelled, so we are safe to kick it off.
 				TextureSetsToStart.Add(TextureSet);
 			}
 		}
 
-		// Remove all elements that we have started compilation of from the queued array
+		for (UTextureSet* TextureSet : TextureSetsToDequeue)
+		{
+			QueuedTextureSets.Remove(TextureSet);
+		}
+
 		for (UTextureSet* TextureSet : TextureSetsToStart)
 		{
 			// StartCompilation will remove the texture set from the queue
