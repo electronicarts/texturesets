@@ -35,29 +35,41 @@ UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampl
 #endif
 }
 
+#if WITH_EDITOR
 FName UMaterialExpressionTextureSetSampleParameter::GetTextureParameterName(int TextureIndex) const
 {
-	return MakeTextureParameterName(ParameterName, TextureIndex);
+	return MakeTextureParameterName(GetParameterName(), TextureIndex);
 }
+#endif
 
+#if WITH_EDITOR
 FName UMaterialExpressionTextureSetSampleParameter::GetConstantParameterName(FName ConstantName) const
 {
-	return MakeConstantParameterName(ParameterName, ConstantName);
+	return MakeConstantParameterName(GetParameterName(), ConstantName);
+}
+#endif
+
+FName UMaterialExpressionTextureSetSampleParameter::MakeTextureSetParameterName(FName ParameterName, UTextureSetDefinition* Definition)
+{
+	// The full internal name of the parameter uses the definition GUID as a "Namespace".
+	// This ensures parameters with the same name but different definitions will show up
+	// seperately, while parameters sharing a name and definition will appear only once.
+	return FName(FString::Format(TEXT("{0}::{1}"), { Definition->GetGuid().A, ParameterName.ToString()}));
 }
 
 FName UMaterialExpressionTextureSetSampleParameter::MakeTextureParameterName(FName ParameterName, int TextureIndex)
 {
-	return FName(FString::Format(TEXT("TEXSET_{0}_PACKED_{1}"), {ParameterName.ToString(), FString::FromInt(TextureIndex)}));
+	return FName(FString::Format(TEXT("TEXSET::{0}::TEXTURE::{1}"), {ParameterName.ToString(), FString::FromInt(TextureIndex)}));
 }
 
 FName UMaterialExpressionTextureSetSampleParameter::MakeConstantParameterName(FName ParameterName, FName ConstantName)
 {
-	return FName(FString::Format(TEXT("TEXSET_{0}_{1}"), {ParameterName.ToString(), ConstantName.ToString()}));
+	return FName(FString::Format(TEXT("TEXSET::{0}::{1}"), {ParameterName.ToString(), ConstantName.ToString()}));
 }
 
 bool UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(FName Name)
 {
-	return Name.ToString().StartsWith("TEXSET_", ESearchCase::IgnoreCase);
+	return Name.ToString().StartsWith("TEXSET::", ESearchCase::IgnoreCase);
 }
 
 #if WITH_EDITOR
@@ -66,12 +78,12 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 	if (!IsValid(Definition))
 		return 0;
 
-	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0.2"));
+	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0.3"));
 	Hash = HashCombine(Hash, GetTypeHash(Definition->GetUserKey()));
 
 	Hash = HashCombine(Hash, GetTypeHash(FTextureSetMaterialGraphBuilder::GetGraphBuilderVersion()));
 
-	Hash = HashCombine(Hash, GetTypeHash(ParameterName.ToString()));
+	Hash = HashCombine(Hash, GetTypeHash(GetParameterName().ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(Group.ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(SortPriority));
 
@@ -118,7 +130,10 @@ FGuid& UMaterialExpressionTextureSetSampleParameter::GetParameterExpressionId()
 #if WITH_EDITOR
 FName UMaterialExpressionTextureSetSampleParameter::GetParameterName() const
 {
-	return ParameterName;
+	if (IsValid(Definition))
+		return MakeTextureSetParameterName(ParameterName, Definition);
+	else
+		return ParameterName;
 }
 #endif
 
@@ -153,7 +168,7 @@ bool UMaterialExpressionTextureSetSampleParameter::SetParameterValue(const FName
 		UTextureSet* TextureSetValue = Cast<UTextureSet>(Meta.Value.AsCustomObject());
 		if (IsValid(TextureSetValue) || Meta.Value.AsCustomObject() == nullptr)
 		{
-			if (Name == ParameterName)
+			if (Name == GetParameterName())
 			{
 				DefaultTextureSet = TextureSetValue;
 
