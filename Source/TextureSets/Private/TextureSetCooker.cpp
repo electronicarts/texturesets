@@ -290,13 +290,9 @@ void FTextureSetCooker::Prepare()
 			}
 		}
 
-		// Default texture set derived textures need to be public so they can be referenced in the generated graphs
-		// Otherwise, they shouldn't be directly referenced
-		//Texture->SetFlags(bIsDefaultTextureSet ? RF_Public : RF_NoFlags);
-		
-		// TODO: For some reason derived textures are getting saved in material instances, and causing an error due to not being public.
-		// Setting to public as a quick fix, https://jaas.ea.com/browse/HOP-22896
-		Texture->SetFlags(RF_Public);
+		// Default texture set derived textures need to be public so they can be referenced as default textures
+		// in the generated graphs. Otherwise, derived textures shouldn't be directly referenced
+		Texture->SetFlags(bIsDefaultTextureSet ? RF_Public : RF_NoFlags);
 
 		// Before applying any modification to the texture
 		// make sure no compilation is still ongoing.
