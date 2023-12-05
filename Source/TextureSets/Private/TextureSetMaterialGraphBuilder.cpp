@@ -656,9 +656,6 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 		Connect(SampleCoord, AppendNode, 0);
 		Connect(Context.GetSharedValue(EGraphBuilderSharedValueType::ArrayIndex), AppendNode, 1);
 		SampleCoord = FGraphBuilderOutputAddress(AppendNode, 0);
-		DDX = FGraphBuilderOutputAddress(AppendNode, 0);
-		DDY = FGraphBuilderOutputAddress(AppendNode, 0);
-
 	}
 
 	static const FString ChannelSuffixLower[4] {"r", "g", "b", "a"};
