@@ -7,14 +7,14 @@
 #include "TextureSetProcessingGraph.h"
 #include "ProcessingNodes/IProcessingNode.h"
 #include "TextureSetCompilingManager.h"
-#include "TextureSetCooker.h"
+#include "TextureSetCompiler.h"
 
 UTextureSetTextureSourceProvider::UTextureSetTextureSourceProvider() : Super()
 #if WITH_EDITOR
 	, bIsPrepared(false)
 	, TextureSet(nullptr)
 	, Index (-1)
-	, Cooker(nullptr)
+	, Compiler(nullptr)
 	, LastUpdateID()
 #endif
 {
@@ -32,14 +32,14 @@ void UTextureSetTextureSourceProvider::ConfigureTexture(UTexture* Texture) const
 
 	if (IsValid(TmpTextureSet))
 	{
-		TSharedPtr<FTextureSetCooker> TmpCooker = FTextureSetCompilingManager::Get().BorrowCooker(TmpTextureSet);
+		TSharedPtr<FTextureSetCompiler> TmpCompiler = FTextureSetCompilingManager::Get().BorrowCompiler(TmpTextureSet);
 
-		TmpCooker->ConfigureTexture(TmpIndex);
+		TmpCompiler->ConfigureTexture(TmpIndex);
 
 		if (!bIsPrepared)
-			TmpCooker->InitializeTextureData(TmpIndex);
+			TmpCompiler->InitializeTextureData(TmpIndex);
 
-		FTextureSetCompilingManager::Get().ReturnCooker(TmpTextureSet);
+		FTextureSetCompilingManager::Get().ReturnCompiler(TmpTextureSet);
 	}
 }
 
@@ -53,18 +53,18 @@ void UTextureSetTextureSourceProvider::Prepare(UTexture* Texture)
 
 	if (!bIsPrepared && IsValid(TextureSet))
 	{
-		Cooker = FTextureSetCompilingManager::Get().BorrowCooker(TextureSet);
-		check(Cooker);
+		Compiler = FTextureSetCompilingManager::Get().BorrowCompiler(TextureSet);
+		check(Compiler);
 
-		if (LastUpdateID != Cooker->GetDerivedTextureID(Index))
+		if (LastUpdateID != Compiler->GetDerivedTextureID(Index))
 		{
 			// Only update source if Texture ID has changed since last time we were called
 			bIsPrepared = true;
 		}
 		else
 		{
-			FTextureSetCompilingManager::Get().ReturnCooker(TextureSet);
-			Cooker.Reset();
+			FTextureSetCompilingManager::Get().ReturnCompiler(TextureSet);
+			Compiler.Reset();
 		}
 	}
 }
@@ -75,11 +75,11 @@ void UTextureSetTextureSourceProvider::UpdateSource(FTextureSource& Source) cons
 
 	if (bIsPrepared)
 	{
-		check(Cooker);
+		check(Compiler);
 		check(Index != -1);
-		check(Cooker->GetDerivedData().Textures[Index].Get() == GetOuter()); // Sanity check
-		Cooker->BuildTextureData(Index);
-		LastUpdateID = Cooker->GetDerivedTextureID(Index);
+		check(Compiler->GetDerivedData().Textures[Index].Get() == GetOuter()); // Sanity check
+		Compiler->BuildTextureData(Index);
+		LastUpdateID = Compiler->GetDerivedTextureID(Index);
 	}
 	else if (!Source.IsValid())
 	{
@@ -97,12 +97,12 @@ void UTextureSetTextureSourceProvider::CleanUp()
 
 	if (bIsPrepared)
 	{
-		// Reset everything and return the cooker
-		check(Cooker);
+		// Reset everything and return the compiler
+		check(Compiler);
 		check(TextureSet);
 
-		FTextureSetCompilingManager::Get().ReturnCooker(TextureSet);
-		Cooker.Reset();
+		FTextureSetCompilingManager::Get().ReturnCompiler(TextureSet);
+		Compiler.Reset();
 
 		Index = -1;
 		TextureSet = nullptr;

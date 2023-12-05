@@ -8,7 +8,7 @@
 #include "TextureSetTextureSourceProvider.generated.h"
 
 class UTextureSet;
-class FTextureSetCooker;
+class FTextureSetCompiler;
 
 UCLASS()
 class TEXTURESETS_API UTextureSetTextureSourceProvider : public UProceduralTextureProvider
@@ -31,7 +31,7 @@ private:
 	bool bIsPrepared;
 	UTextureSet* TextureSet;
 	int Index;
-	TSharedPtr<FTextureSetCooker> Cooker;
+	TSharedPtr<FTextureSetCompiler> Compiler;
 	mutable FGuid LastUpdateID;
 #endif
 };

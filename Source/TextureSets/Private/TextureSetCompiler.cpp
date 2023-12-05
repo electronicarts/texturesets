@@ -1,6 +1,6 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#include "TextureSetCooker.h"
+#include "TextureSetCompiler.h"
 
 #if WITH_EDITOR
 
@@ -18,77 +18,71 @@
 #include "TextureSetTextureSourceProvider.h"
 #include "TextureCompiler.h"
 
-#define BENCHMARK_TEXTURESET_COOK
+#define BENCHMARK_TEXTURESET_COMPILATION 1
 
-DEFINE_LOG_CATEGORY(LogTextureSetCook);
+DEFINE_LOG_CATEGORY(LogTextureSetCompile);
 
-static TAutoConsoleVariable<int32> CVarTextureSetParallelCook(
-	TEXT("r.TextureSet.ParallelCook"),
-	1,
-	TEXT("Execute the texture cooking across multiple threads in parallel when possible"),
-	ECVF_Default);
-
-void FTextureSetCookerTaskWorker::DoWork()
+void FTextureSetCompilerTaskWorker::DoWork()
 {
-	Cooker->ExecuteInternal();
+	Compiler->ExecuteInternal();
 }
 
 class TextureSetDerivedTextureDataPlugin : public FDerivedDataPluginInterface
 {
 public:
-	TextureSetDerivedTextureDataPlugin(FTextureSetCooker& Cooker, int32 CookedTextureIndex)
-		: Cooker(Cooker)
-		, CookedTextureIndex(CookedTextureIndex)
+	TextureSetDerivedTextureDataPlugin(FTextureSetCompiler& Compiler, int32 DerivedTextureIndex)
+		: Compiler(Compiler)
+		, DerivedTextureIndex(DerivedTextureIndex)
 	{}
 
 	// FDerivedDataPluginInterface
 	virtual const TCHAR* GetPluginName() const override { return TEXT("TextureSet_FDerivedTextureData"); }
 	virtual const TCHAR* GetVersionString() const override { return TEXT("F956B1B9-3AD3-47B3-BD82-8826C71A3DCB"); }
-	virtual FString GetPluginSpecificCacheKeySuffix() const override { return Cooker.DerivedTextureIds[CookedTextureIndex].ToString(); }
+	virtual FString GetPluginSpecificCacheKeySuffix() const override { return Compiler.DerivedTextureIds[DerivedTextureIndex].ToString(); }
 	virtual bool IsBuildThreadsafe() const override { return true; }
 	virtual bool IsDeterministic() const override { return true; }
-	virtual FString GetDebugContextString() const override { return Cooker.TextureSetFullName; }
+	virtual FString GetDebugContextString() const override { return Compiler.TextureSetFullName; }
 	
 	virtual bool Build(TArray<uint8>& OutData) override
 	{
-		Cooker.InitializeTextureData(CookedTextureIndex);
-		Cooker.BuildTextureData(CookedTextureIndex);
+		Compiler.InitializeTextureData(DerivedTextureIndex);
+		Compiler.BuildTextureData(DerivedTextureIndex);
 
 		OutData.Empty(2048);
 		FMemoryWriter DataWriter(OutData);
-		DataWriter << Cooker.DerivedData.TextureData[CookedTextureIndex];
+		DataWriter << Compiler.DerivedData.TextureData[DerivedTextureIndex];
 		return true;
 	}
 
 private:
-	FTextureSetCooker& Cooker;
-	const int32 CookedTextureIndex;
+	FTextureSetCompiler& Compiler;
+	const int32 DerivedTextureIndex;
 };
 
 class TextureSetDerivedParameterDataPlugin : public FDerivedDataPluginInterface
 {
 public:
-	TextureSetDerivedParameterDataPlugin(FTextureSetCooker& Cooker, FName ParameterName)
-		: Cooker(Cooker)
+	TextureSetDerivedParameterDataPlugin(FTextureSetCompiler& Compiler, FName ParameterName)
+		: Compiler(Compiler)
 		, ParameterName(ParameterName)
 	{}
 
 	// FDerivedDataPluginInterface
 	virtual const TCHAR* GetPluginName() const override { return TEXT("TextureSet_FDerivedTextureData"); }
 	virtual const TCHAR* GetVersionString() const override { return TEXT("8D5EAAD9-8514-4957-B931-C7AF2698794F"); }
-	virtual FString GetPluginSpecificCacheKeySuffix() const override { return Cooker.ParameterIds.FindChecked(ParameterName).ToString(); }
+	virtual FString GetPluginSpecificCacheKeySuffix() const override { return Compiler.ParameterIds.FindChecked(ParameterName).ToString(); }
 	virtual bool IsBuildThreadsafe() const override { return false; } // TODO: Enable this if possible
 	virtual bool IsDeterministic() const override { return false; } // TODO: Enable this if possible
-	virtual FString GetDebugContextString() const override { return Cooker.TextureSetFullName; }
+	virtual FString GetDebugContextString() const override { return Compiler.TextureSetFullName; }
 	virtual bool Build(TArray<uint8>& OutData) override
 	{
-		TSharedRef<IParameterProcessingNode> Parameter = Cooker.GraphInstance->GetOutputParameters().FindChecked(ParameterName);
+		TSharedRef<IParameterProcessingNode> Parameter = Compiler.GraphInstance->GetOutputParameters().FindChecked(ParameterName);
 
-		Parameter->Initialize(*Cooker.GraphInstance);
+		Parameter->Initialize(*Compiler.GraphInstance);
 
 		FDerivedParameterData ParameterData;
 		ParameterData.Value = Parameter->GetValue();
-		ParameterData.Id = Cooker.ParameterIds.FindChecked(ParameterName);
+		ParameterData.Id = Compiler.ParameterIds.FindChecked(ParameterName);
 
 		OutData.Empty(sizeof(FDerivedParameterData));
 		FMemoryWriter DataReader(OutData);
@@ -97,11 +91,11 @@ public:
 	}
 
 private:
-	FTextureSetCooker& Cooker;
+	FTextureSetCompiler& Compiler;
 	const FName ParameterName;
 };
 
-FTextureSetCooker::FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerivedData& DerivedData)
+FTextureSetCompiler::FTextureSetCompiler(UTextureSet* TextureSet, FTextureSetDerivedData& DerivedData)
 	: DerivedData(DerivedData)
 	, Context(TextureSet)
 	, GraphInstance(nullptr)
@@ -130,7 +124,7 @@ FTextureSetCooker::FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerived
 		ParameterIds.Add(Name, ComputeParameterDataId(Parameter));
 }
 
-bool FTextureSetCooker::CookRequired() const
+bool FTextureSetCompiler::CompilationRequired() const
 {
 	check(IsInGameThread());
 
@@ -159,7 +153,7 @@ bool FTextureSetCooker::CookRequired() const
 	return false;
 }
 
-void FTextureSetCooker::Execute()
+void FTextureSetCompiler::Execute()
 {
 	check(!IsAsyncJobInProgress());
 	check(IsInGameThread());
@@ -167,22 +161,22 @@ void FTextureSetCooker::Execute()
 	ExecuteInternal();
 }
 
-void FTextureSetCooker::ExecuteAsync(FQueuedThreadPool* InQueuedPool, EQueuedWorkPriority InQueuedWorkPriority)
+void FTextureSetCompiler::ExecuteAsync(FQueuedThreadPool* InQueuedPool, EQueuedWorkPriority InQueuedWorkPriority)
 {
 	check(!IsAsyncJobInProgress());
 	check(IsInGameThread());
 	DerivedData.bIsCompiling = true;
-	AsyncTask = MakeUnique<FAsyncTask<FTextureSetCookerTaskWorker>>(this);
+	AsyncTask = MakeUnique<FAsyncTask<FTextureSetCompilerTaskWorker>>(this);
 	AsyncTask->StartBackgroundTask(InQueuedPool, InQueuedWorkPriority);
 }
 
-bool FTextureSetCooker::IsAsyncJobInProgress() const
+bool FTextureSetCompiler::IsAsyncJobInProgress() const
 {
 	check(IsInGameThread());
 	return AsyncTask.IsValid() && !AsyncTask->IsDone();
 }
 
-bool FTextureSetCooker::TryCancel()
+bool FTextureSetCompiler::TryCancel()
 {
 	check(IsInGameThread());
 	if (IsAsyncJobInProgress())
@@ -191,7 +185,7 @@ bool FTextureSetCooker::TryCancel()
 		return true;
 }
 
-FGuid FTextureSetCooker::ComputeTextureDataId(int PackedTextureIndex, const TMap<FName, TSharedRef<ITextureProcessingNode>>& ProcessedTextures) const
+FGuid FTextureSetCompiler::ComputeTextureDataId(int PackedTextureIndex, const TMap<FName, TSharedRef<ITextureProcessingNode>>& ProcessedTextures) const
 {
 	check(PackedTextureIndex < PackingInfo.NumPackedTextures());
 
@@ -219,7 +213,7 @@ FGuid FTextureSetCooker::ComputeTextureDataId(int PackedTextureIndex, const TMap
 	return IdBuilder.Build();
 }
 
-FGuid FTextureSetCooker::ComputeParameterDataId(const IParameterProcessingNode* Parameter) const
+FGuid FTextureSetCompiler::ComputeParameterDataId(const IParameterProcessingNode* Parameter) const
 {
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
 	IdBuilder << FString("TextureSetParameter_V0.2"); // Version string, bump this to invalidate everything
@@ -229,7 +223,7 @@ FGuid FTextureSetCooker::ComputeParameterDataId(const IParameterProcessingNode* 
 	return IdBuilder.Build();
 }
 
-void FTextureSetCooker::Prepare()
+void FTextureSetCompiler::Prepare()
 {
 	check(IsInGameThread());
 
@@ -248,7 +242,7 @@ void FTextureSetCooker::Prepare()
 
 	const int NumDerivedTextures = PackingInfo.NumPackedTextures();
 
-	// Garbage collection will destroy the unused cooked textures when all references from material instance are removed
+	// Garbage collection will destroy the unused derived textures when all references from material instance are removed
 	DerivedData.Textures.SetNum(NumDerivedTextures);
 	DerivedData.TextureData.SetNum(NumDerivedTextures);
 	TextureDataCS.SetNum(NumDerivedTextures);
@@ -322,7 +316,7 @@ void FTextureSetCooker::Prepare()
 	}
 }
 
-void FTextureSetCooker::ConfigureTexture(int Index) const
+void FTextureSetCompiler::ConfigureTexture(int Index) const
 {
 	// Configure texture MUST be called only in the game thread.
 	// Changing texture properties in a thread can cause a crash in the texture compiler.
@@ -344,7 +338,7 @@ void FTextureSetCooker::ConfigureTexture(int Index) const
 
 	Texture->VirtualTextureStreaming = TextureDef.bVirtualTextureStreaming;
 	// Set the ID of the generated source to match the hash ID of this texture.
-	// This will be used to recover the cooked texture data from the DDC if possible.
+	// This will be used to recover the derived texture data from the DDC if possible.
 	Texture->Source.SetId(DerivedTextureIds[Index], true);
 
 	// Transient source data since it's faster to recompute it than caching uncompressed floating point data.
@@ -357,12 +351,12 @@ void FTextureSetCooker::ConfigureTexture(int Index) const
 		TextureStates[Index] = ETextureState::Configured;
 }
 
-void FTextureSetCooker::ExecuteInternal()
+void FTextureSetCompiler::ExecuteInternal()
 {
 	check(DerivedData.bIsCompiling == true);
 
-	#ifdef BENCHMARK_TEXTURESET_COOK
-		UE_LOG(LogTextureSetCook, Log, TEXT("%s: Beginning texture set cook"), *OuterObject->GetName());
+	#if BENCHMARK_TEXTURESET_COMPILATION
+		UE_LOG(LogTextureSetCompile, Log, TEXT("%s: Beginning texture set compilation"), *OuterObject->GetName());
 		const double BuildStartTime = FPlatformTime::Seconds();
 		double SectionStartTime = BuildStartTime;
 	#endif
@@ -377,7 +371,7 @@ void FTextureSetCooker::ExecuteInternal()
 		{	
 			if (DerivedTextureIds[t] != DerivedData.TextureData[t].Id) // Only invoke DDC if keys don't match
 			{
-				// Retreive derived data from the DDC, or cook new data
+				// Retreive derived data from the DDC, or compute new data
 				TArray<uint8> Data;
 				bool bDataWasBuilt = false;
 				if (DDC.GetSynchronous(new TextureSetDerivedTextureDataPlugin(*this, t), Data, &bDataWasBuilt))
@@ -400,7 +394,7 @@ void FTextureSetCooker::ExecuteInternal()
 
 				if (!OldParameterData || (Id != OldParameterData->Id)) // Only invoke DDC param is missing or keys don't match
 				{
-					// Retreive derived data from the DDC, or cook new data
+					// Retreive derived data from the DDC, or compile new data
 					TArray<uint8> Data;
 					if (DDC.GetSynchronous(new TextureSetDerivedParameterDataPlugin(*this, Name), Data))
 					{
@@ -414,8 +408,8 @@ void FTextureSetCooker::ExecuteInternal()
 			}
 		});
 
-#ifdef BENCHMARK_TEXTURESET_COOK
-	UE_LOG(LogTextureSetCook, Log, TEXT("%s: Cook finished in %fs"), *OuterObject->GetName(), FPlatformTime::Seconds() - SectionStartTime);
+#if BENCHMARK_TEXTURESET_COMPILATION
+	UE_LOG(LogTextureSetCompile, Log, TEXT("%s: Compilation finished in %fs"), *OuterObject->GetName(), FPlatformTime::Seconds() - SectionStartTime);
 	SectionStartTime = FPlatformTime::Seconds();
 #endif
 
@@ -423,7 +417,7 @@ void FTextureSetCooker::ExecuteInternal()
 	DerivedData.bIsCompiling = false;
 }
 
-void FTextureSetCooker::InitializeTextureData(int Index) const
+void FTextureSetCompiler::InitializeTextureData(int Index) const
 {
 	FScopeLock Lock(&TextureDataCS[Index]);
 
@@ -485,7 +479,7 @@ void FTextureSetCooker::InitializeTextureData(int Index) const
 	TextureStates[Index] = ETextureState::Initialized;
 }
 
-void FTextureSetCooker::BuildTextureData(int Index) const
+void FTextureSetCompiler::BuildTextureData(int Index) const
 {
 	FScopeLock Lock(&TextureDataCS[Index]);
 
@@ -498,8 +492,8 @@ void FTextureSetCooker::BuildTextureData(int Index) const
 		return;
 	}
 
-#ifdef BENCHMARK_TEXTURESET_COOK
-	UE_LOG(LogTextureSetCook, Log, TEXT("%s: Beginning texture data build"), *DerivedData.Textures[Index].GetName());
+#if BENCHMARK_TEXTURESET_COMPILATION
+	UE_LOG(LogTextureSetCompile, Log, TEXT("%s: Beginning texture data build"), *DerivedData.Textures[Index].GetName());
 	const double BuildStartTime = FPlatformTime::Seconds();
 	double SectionStartTime = BuildStartTime;
 #endif
@@ -532,8 +526,8 @@ void FTextureSetCooker::BuildTextureData(int Index) const
 	FVector4f RestoreMul = FVector4f::One();
 	FVector4f RestoreAdd = FVector4f::Zero();
 
-#ifdef BENCHMARK_TEXTURESET_COOK
-	UE_LOG(LogTextureSetCook, Log, TEXT("%s Build: Initializing data took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
+#if BENCHMARK_TEXTURESET_COMPILATION
+	UE_LOG(LogTextureSetCompile, Log, TEXT("%s Build: Initializing data took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
 	SectionStartTime = FPlatformTime::Seconds();
 #endif
 
@@ -658,8 +652,8 @@ void FTextureSetCooker::BuildTextureData(int Index) const
 	// UnlockMip causes GUID to be set from a hash, so force it back to the one we want to use
 	Texture->Source.SetId(DerivedTextureIds[Index], true);
 
-#ifdef BENCHMARK_TEXTURESET_COOK
-	UE_LOG(LogTextureSetCook, Log, TEXT("%s Build: Filling channels data took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
+#if BENCHMARK_TEXTURESET_COMPILATION
+	UE_LOG(LogTextureSetCompile, Log, TEXT("%s Build: Filling channels data took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
 	SectionStartTime = FPlatformTime::Seconds();
 #endif
 
@@ -673,9 +667,9 @@ void FTextureSetCooker::BuildTextureData(int Index) const
 	}
 	TextureStates[Index] = ETextureState::Built;
 
-#ifdef BENCHMARK_TEXTURESET_COOK
+#if BENCHMARK_TEXTURESET_COMPILATION
 	const double BuildEndTime = FPlatformTime::Seconds();
-	UE_LOG(LogTextureSetCook, Log, TEXT("%s: Texture data build took %fs"), *DerivedData.Textures[Index].GetName(), BuildEndTime - BuildStartTime);
+	UE_LOG(LogTextureSetCompile, Log, TEXT("%s: Texture data build took %fs"), *DerivedData.Textures[Index].GetName(), BuildEndTime - BuildStartTime);
 #endif
 }
 #endif

@@ -98,7 +98,6 @@ private:
 	void NotifyMaterialInstances();
 
 #if WITH_EDITOR
-	void OnFinishCook();
 	void OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition);
 #endif
 };

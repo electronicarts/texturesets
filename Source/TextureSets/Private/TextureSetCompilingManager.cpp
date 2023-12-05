@@ -7,10 +7,9 @@
 #include "AsyncCompilationHelpers.h"
 #include "Misc/QueuedThreadPoolWrapper.h"
 #include "ObjectCacheContext.h"
-#include "ProfilingDebugging/CookStats.h"
 #include "ProfilingDebugging/CountersTrace.h"
 #include "TextureSet.h"
-#include "TextureSetCooker.h"
+#include "TextureSetCompiler.h"
 #include "TextureSetDefinition.h"
 
 #define LOCTEXT_NAMESPACE "TextureSets"
@@ -27,10 +26,10 @@ static AsyncCompilationHelpers::FAsyncCompilationStandardCVars CVarAsyncTextureS
 		}
 ));
 
-static TAutoConsoleVariable<int> CVarMaxAsyncTextureSetCooks(
-	TEXT("ts.MaxAsyncTextureSetCooks"),
+static TAutoConsoleVariable<int> CVarMaxAsyncTextureSetParallelCompiles(
+	TEXT("ts.MaxAsyncTextureSetParallelCompiles"),
 	4,
-	TEXT("Maximum number of async texture set cooks. Mainly used to limit memory usage"));
+	TEXT("Maximum number of async texture set compilations. Mainly used to limit memory usage"));
 
 
 namespace TextureSetCompilingManagerImpl
@@ -174,19 +173,19 @@ void FTextureSetCompilingManager::StartCompilation(UTextureSet* const TextureSet
 	// Should really be gone now unless cancel/finish don't work properly
 	check(!CompilingTextureSets.Contains(TextureSet));
 
-	TSharedRef<FTextureSetCooker> Cooker = GetOrCreateCooker(TextureSet);
+	TSharedRef<FTextureSetCompiler> Compiler = GetOrCreateCompiler(TextureSet);
 
-	if (Cooker->CookRequired())
+	if (Compiler->CompilationRequired())
 	{
 		CompilingTextureSets.Emplace(TextureSet);
 		UE_LOG(LogTextureSet, Log, TEXT("Texture Set %s compilation started"), *TextureSet->GetName());
 
 		if (IsAsyncCompilationAllowed(TextureSet))
-			Cooker->ExecuteAsync();
+			Compiler->ExecuteAsync();
 		else
-			Cooker->Execute();
+			Compiler->Execute();
 
-		// Will either update the materials to the new values, or swap out material instances with default values until cooking has finished
+		// Will either update the materials to the new values, or swap out material instances with default values until compiling has finished
 		TextureSet->NotifyMaterialInstances();
 	}
 
@@ -199,7 +198,7 @@ void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* cons
 
 	check(IsInGameThread());
 
-	TMap<TWeakObjectPtr<UTextureSet>, TSharedRef<FTextureSetCooker>> PendingTextureSets;
+	TMap<TWeakObjectPtr<UTextureSet>, TSharedRef<FTextureSetCompiler>> PendingTextureSets;
 	PendingTextureSets.Reserve(InTextureSets.Num());
 
 	for (UTextureSet* TextureSet : InTextureSets)
@@ -211,7 +210,7 @@ void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* cons
 
 		if (CompilingTextureSets.Contains(TextureSet))
 		{
-			PendingTextureSets.Add(TextureSet, Cookers.FindChecked(TextureSet));
+			PendingTextureSets.Add(TextureSet, Compilers.FindChecked(TextureSet));
 		}
 	}
 
@@ -220,16 +219,16 @@ void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* cons
 		class FCompilableTextureSet final : public AsyncCompilationHelpers::ICompilable
 		{
 		public:
-			FCompilableTextureSet(TPair<TWeakObjectPtr<UTextureSet>, TSharedRef<FTextureSetCooker>> Args)
+			FCompilableTextureSet(TPair<TWeakObjectPtr<UTextureSet>, TSharedRef<FTextureSetCompiler>> Args)
 				: TextureSet(Args.Get<TWeakObjectPtr<UTextureSet>>().Get())
-				, Cooker(Args.Get<TSharedRef<FTextureSetCooker>>())
+				, Compiler(Args.Get<TSharedRef<FTextureSetCompiler>>())
 			{
 				
 			}
 
 			FAsyncTaskBase* GetAsyncTask()
 			{
-				return Cooker->GetAsyncTask();
+				return Compiler->GetAsyncTask();
 			}
 
 			virtual void Reschedule(FQueuedThreadPool* InThreadPool, EQueuedWorkPriority InPriority) override final
@@ -241,14 +240,14 @@ void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* cons
 			virtual bool WaitCompletionWithTimeout(float TimeLimitSeconds) override final
 			{
 				FTextureSetCompilingManager::Get().ProcessTextureSets(true);
-				// Wait until all cookers have cleared
-				return !FTextureSetCompilingManager::Get().Cookers.Contains(TextureSet.Get());
+				// Wait until all compilers have cleared
+				return !FTextureSetCompilingManager::Get().Compilers.Contains(TextureSet.Get());
 			}
 
-			virtual FName GetName() override { return Cooker->GetTextureSetName(); }
+			virtual FName GetName() override { return Compiler->GetTextureSetName(); }
 
 			TStrongObjectPtr<UTextureSet> TextureSet;
-			TSharedRef<FTextureSetCooker> Cooker;
+			TSharedRef<FTextureSetCompiler> Compiler;
 
 		};
 
@@ -276,8 +275,8 @@ bool FTextureSetCompilingManager::TryCancelCompilation(UTextureSet* const Textur
 	if (!CompilingTextureSets.Contains(TextureSet))
 		return true;
 
-	TSharedRef<FTextureSetCooker> Cooker = Cookers.FindChecked(TextureSet);
-	if (Cooker->TryCancel())
+	TSharedRef<FTextureSetCompiler> Compiler = Compilers.FindChecked(TextureSet);
+	if (Compiler->TryCancel())
 	{
 		CompilingTextureSets.Remove(TextureSet);
 		UE_LOG(LogTextureSet, Log, TEXT("Texture Set %s cancelled"), *TextureSet->GetName());
@@ -309,21 +308,21 @@ void FTextureSetCompilingManager::PostCompilation(UTextureSet* TextureSet)
 	UE_LOG(LogTextureSet, Verbose, TEXT("Texture set %s is ready"), *TextureSet->GetName());
 }
 
-TSharedRef<FTextureSetCooker> FTextureSetCompilingManager::GetOrCreateCooker(UTextureSet* TextureSet)
+TSharedRef<FTextureSetCompiler> FTextureSetCompilingManager::GetOrCreateCompiler(UTextureSet* TextureSet)
 {
 	check(IsInGameThread());
 
-	if (!Cookers.Contains(TextureSet))
+	if (!Compilers.Contains(TextureSet))
 	{
-		TSharedRef<FTextureSetCooker> Cooker = MakeShared<FTextureSetCooker>(TextureSet, TextureSet->DerivedData);
-		Cookers.Add(TextureSet, Cooker);
-		// TODO: Prepare cooker ony if needed
-		Cooker->Prepare();
-		return Cooker;
+		TSharedRef<FTextureSetCompiler> Compiler = MakeShared<FTextureSetCompiler>(TextureSet, TextureSet->DerivedData);
+		Compilers.Add(TextureSet, Compiler);
+		// TODO: Prepare compiler ony if needed
+		Compiler->Prepare();
+		return Compiler;
 	}
 	else
 	{
-		return Cookers.FindChecked(TextureSet);
+		return Compilers.FindChecked(TextureSet);
 	}
 }
 
@@ -349,29 +348,29 @@ void FTextureSetCompilingManager::FinishAllCompilation()
 	}
 }
 
-TSharedRef<FTextureSetCooker> FTextureSetCompilingManager::BorrowCooker(UTextureSet* InTextureSet)
+TSharedRef<FTextureSetCompiler> FTextureSetCompilingManager::BorrowCompiler(UTextureSet* InTextureSet)
 {
 	check(IsValid(InTextureSet));
 
-	int& NumBorrowers = LentCookers.FindOrAdd(InTextureSet);
+	int& NumBorrowers = LentCompilers.FindOrAdd(InTextureSet);
 	NumBorrowers++;
 
-	if (!Cookers.Contains(InTextureSet))
+	if (!Compilers.Contains(InTextureSet))
 	{
 		check(IsInGameThread());
-		return GetOrCreateCooker(InTextureSet);
+		return GetOrCreateCompiler(InTextureSet);
 	}
 	else
 	{
-		return Cookers.FindChecked(InTextureSet);
+		return Compilers.FindChecked(InTextureSet);
 	}
 }
 
-void FTextureSetCompilingManager::ReturnCooker(UTextureSet* InTextureSet)
+void FTextureSetCompilingManager::ReturnCompiler(UTextureSet* InTextureSet)
 {
 	check(IsValid(InTextureSet));
 
-	int& NumBorrowers = LentCookers.FindOrAdd(InTextureSet);
+	int& NumBorrowers = LentCompilers.FindOrAdd(InTextureSet);
 	check(NumBorrowers > 0);
 	NumBorrowers--;
 }
@@ -401,10 +400,10 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 			{
 				check(IsValid(TextureSet));
 
-				TSharedRef<FTextureSetCooker> Cooker = Cookers.FindChecked(TextureSet);
+				TSharedRef<FTextureSetCompiler> Compiler = Compilers.FindChecked(TextureSet);
 
 				// HasTimeLeft() ensures we don't stall the editor if too many texture sets finish at the same time
-				if (!HasTimeLeft() || Cooker->IsAsyncJobInProgress())
+				if (!HasTimeLeft() || Compiler->IsAsyncJobInProgress())
 				{
 					TextureSetsToPostpone.Emplace(MoveTemp(TextureSet));
 				}
@@ -418,9 +417,9 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 		}
 	}
 
-	// Clean up any cookers that are not needed
-	TArray<UTextureSet*> CookersToDelete;
-	for (auto& [TextureSet, Cooker] : Cookers)
+	// Clean up any compilers that are no longer needed
+	TArray<UTextureSet*> CompilersToDelete;
+	for (auto& [TextureSet, Compiler] : Compilers)
 	{
 		if (!CompilingTextureSets.Contains(TextureSet))
 		{
@@ -448,23 +447,23 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 				}
 			}
 
-			if (LentCookers.FindOrAdd(TextureSet) > 0)
+			if (LentCompilers.FindOrAdd(TextureSet) > 0)
 				CanDelete = false;
 
 			if (CanDelete)
 			{
-				CookersToDelete.Add(TextureSet);
+				CompilersToDelete.Add(TextureSet);
 			}
 		}
 	}
 
-	for (UTextureSet* TextureSet : CookersToDelete)
+	for (UTextureSet* TextureSet : CompilersToDelete)
 	{
-		Cookers.Remove(TextureSet);
+		Compilers.Remove(TextureSet);
 		PostCompilation(TextureSet);
 	}
 
-	if (QueuedTextureSets.Num() > 0 && Cookers.Num() < CVarMaxAsyncTextureSetCooks.GetValueOnGameThread())
+	if (QueuedTextureSets.Num() > 0 && Compilers.Num() < CVarMaxAsyncTextureSetParallelCompiles.GetValueOnGameThread())
 	{
 		TArray<UTextureSet*> TextureSetsToStart;
 		TArray<UTextureSet*> TextureSetsToDequeue;
@@ -505,7 +504,7 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 int32 FTextureSetCompilingManager::GetNumRemainingAssets() const
 {
 	check(IsInGameThread());
-	return Cookers.Num();
+	return Compilers.Num();
 }
 
 void FTextureSetCompilingManager::ProcessAsyncTasks(bool bLimitExecutionTime)

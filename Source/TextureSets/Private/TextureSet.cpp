@@ -159,7 +159,7 @@ void UTextureSet::PreSave(FObjectPreSaveContext SaveContext)
 	// Important to call UpdateDerivedData before Super, otherwise it causes 
 	// the package to fail to save if any of the derived data's references
 	// have changed.
-	// Don't allow async cook if we're cooking
+	// Don't allow async update if we're cooking
 	UpdateDerivedData(!SaveContext.IsCooking());
 #endif
 
@@ -336,7 +336,7 @@ void UTextureSet::UpdateDerivedData(bool bAsync, bool bStartImmediately)
 			// Finish previous compilation
 			CompilingManager.FinishCompilation({this});
 
-			// Note: StartCompilation not QueueCompilation, so the cooker is kicked off immediately
+			// Note: StartCompilation not QueueCompilation, so compilation is kicked off immediately
 			CompilingManager.StartCompilation(this);
 		}
 		else
@@ -350,11 +350,19 @@ void UTextureSet::UpdateDerivedData(bool bAsync, bool bStartImmediately)
 		// Finish previous compilation
 		CompilingManager.FinishCompilation({this});
 
-		// Note: StartCompilation not QueueCompilation, so the cooker is kicked off immediately
+		// Note: StartCompilation not QueueCompilation, so compilation is kicked off immediately
 		CompilingManager.StartCompilation(this);
 
 		// Finish the current complilation before returning
 		CompilingManager.FinishCompilation({this});
+	}
+
+	if (FApp::CanEverRender())
+	{
+		for (UTexture* DerivedTexture : DerivedData.Textures)
+		{
+			DerivedTexture->BeginCachePlatformData();
+		}
 	}
 }
 #endif

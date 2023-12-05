@@ -57,7 +57,7 @@ public:
 	const UTextureSet* GetDefaultTextureSet() const;
 
 #if WITH_EDITOR
-	uint32 ComputeCookingHash();
+	uint32 ComputeCompilationHash();
 #endif
 
 	FGuid GetGuid() const { return UniqueID; }
@@ -94,7 +94,7 @@ private:
 	FTextureSetPackingInfo PackingInfo;
 	
 	UPROPERTY(VisibleAnywhere, Category="Debug")
-	uint32 CookingHash;
+	uint32 CompilationHash;
 
 #if WITH_EDITOR
 	void ApplyEdits();

@@ -89,7 +89,7 @@ inline uint32 GetTypeHash(const FTextureSetSourceTextureDef& Def)
 	return HashCombine(GetTypeHash((FTextureSetProcessedTextureDef)Def), GetTypeHash(Def.DefaultValue));
 }
 
-// Info about and derived from the definition modules. It's needed both for cooking and sampling from a texture set
+// Info about and derived from the definition modules. It's needed both for compiling and sampling from a texture set
 USTRUCT()
 struct FTextureSetDefinitionModuleInfo
 {

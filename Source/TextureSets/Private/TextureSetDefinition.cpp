@@ -182,7 +182,7 @@ const UTextureSet* UTextureSetDefinition::GetDefaultTextureSet() const
 }
 
 #if WITH_EDITOR
-uint32 UTextureSetDefinition::ComputeCookingHash()
+uint32 UTextureSetDefinition::ComputeCompilationHash()
 {
 	uint32 Hash = GetTypeHash(FString("TextureSetDefinition"));
 
@@ -258,10 +258,10 @@ void UTextureSetDefinition::ApplyEdits()
 	// Ensure default texture set always has up to date derived data available immediately
 	DefaultTextureSet->UpdateDerivedData(false);
 
-	const uint32 NewHash = ComputeCookingHash();
-	if (NewHash != CookingHash)
+	const uint32 NewHash = ComputeCompilationHash();
+	if (NewHash != CompilationHash)
 	{
-		CookingHash = NewHash;
+		CompilationHash = NewHash;
 
 		// Force all material graphs with a sample param referencing us to be loaded, so they will receive the notifications and regenerate if needed.
 		{

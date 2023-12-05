@@ -13,7 +13,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogTextureSet, Log, All);
 
 class UTextureSet;
 class FQueuedThreadPool;
-class FTextureSetCooker;
+class FTextureSetCompiler;
 enum class EQueuedWorkPriority : uint8;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FTextureSetPostCompileEvent, const TArrayView<UTextureSet* const>&);
@@ -39,8 +39,8 @@ public:
 	// Blocks until completion of all async texture set compilation.
 	void FinishAllCompilation() override;
 
-	TSharedRef<FTextureSetCooker> BorrowCooker(UTextureSet* InTextureSet);
-	void ReturnCooker(UTextureSet* InTextureSet);
+	TSharedRef<FTextureSetCompiler> BorrowCompiler(UTextureSet* InTextureSet);
+	void ReturnCompiler(UTextureSet* InTextureSet);
 
 	// Returns if asynchronous compilation is allowed for this texture set.
 	bool IsAsyncCompilationAllowed(UTextureSet* InTextureSets) const;
@@ -72,15 +72,15 @@ private:
 
 	void PostCompilation(UTextureSet* TextureSet);
 
-	TSharedRef<FTextureSetCooker> GetOrCreateCooker(UTextureSet* TextureSet);
+	TSharedRef<FTextureSetCompiler> GetOrCreateCompiler(UTextureSet* TextureSet);
 
 	double LastReschedule = 0.0f;
 	bool bHasShutdown = false;
 
 	TSet<TSoftObjectPtr<UTextureSet>> QueuedTextureSets;
-	TMap<UTextureSet*, TSharedRef<FTextureSetCooker>> Cookers;
+	TMap<UTextureSet*, TSharedRef<FTextureSetCompiler>> Compilers;
 	TArray<UTextureSet*> CompilingTextureSets;
-	TMap<UTextureSet*, int> LentCookers;
+	TMap<UTextureSet*, int> LentCompilers;
 	FAsyncCompilationNotification Notification;
 
 	/** Event issued at the end of the compile process */

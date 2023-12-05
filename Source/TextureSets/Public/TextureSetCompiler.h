@@ -12,51 +12,52 @@
 #include "TextureSetProcessingContext.h"
 
 class UTextureSet;
-class FTextureSetCooker;
+class FTextureSetCompiler;
 class ITextureProcessingNode;
 
-DECLARE_LOG_CATEGORY_EXTERN(LogTextureSetCook, Log, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogTextureSetCompile, Log, All);
 
-class FTextureSetCookerTaskWorker : public FNonAbandonableTask
+class FTextureSetCompilerTaskWorker : public FNonAbandonableTask
 {
 public:
-	FTextureSetCookerTaskWorker (FTextureSetCooker* Cooker)
-		: Cooker(Cooker) {}
+	FTextureSetCompilerTaskWorker (FTextureSetCompiler* Compiler)
+		: Compiler(Compiler) {}
 
-	FORCEINLINE TStatId GetStatId() const { RETURN_QUICK_DECLARE_CYCLE_STAT(FTextureSetCookerTaskWorker, STATGROUP_ThreadPoolAsyncTasks); }
+	FORCEINLINE TStatId GetStatId() const { RETURN_QUICK_DECLARE_CYCLE_STAT(FTextureSetCompilerTaskWorker, STATGROUP_ThreadPoolAsyncTasks); }
 	void DoWork();
 
 private:
-	FTextureSetCooker* Cooker;
+	FTextureSetCompiler* Compiler;
 };
 
 /**
-* The Texture Set Cooker generates derived data for a given texture set.
+* The Texture Set Compiler generates derived data for a given texture set.
 * It copies everything it needs from the texture set and the definition in
-* the constructor, so changes to the data won't affect a cook in progress.
+* the constructor, so changes to the data won't affect a compilation in
+* progress.
 * 
 * Intended usage looks something like:
 * 
-*	FTextureSetCooker Cooker(TextureSet, DerivedData);
-*	if (Cooker.CookRequired())
+*	FTextureSetCompiler Compiler(TextureSet, DerivedData);
+*	if (Compiler.CompilationRequired())
 *	{
-*		Cooker.Prepare();
-*		Cooker.Execute();
-*		Cooker.Finalize();
+*		Compiler.Prepare();
+*		Compiler.Execute();
+*		Compiler.Finalize();
 *	}
 * 
-* The cooker also supports async execution, which can check for completion with IsAsyncJobInProgress()
+* The compiler also supports async execution, which can check for completion with IsAsyncJobInProgress()
 */
-class FTextureSetCooker
+class FTextureSetCompiler
 {
 	friend class TextureSetDerivedTextureDataPlugin;
 	friend class TextureSetDerivedParameterDataPlugin;
-	friend class FTextureSetCookerTaskWorker;
+	friend class FTextureSetCompilerTaskWorker;
 public:
 
-	FTextureSetCooker(UTextureSet* TextureSet, FTextureSetDerivedData& DerivedData);
+	FTextureSetCompiler(UTextureSet* TextureSet, FTextureSetDerivedData& DerivedData);
 
-	bool CookRequired() const;
+	bool CompilationRequired() const;
 
 	void Prepare();
 
@@ -103,10 +104,10 @@ private:
 		Built
 	};
 
-	// Keeps track of which state textures are in so we avoid doing the same operations multiple times for a cooker
+	// Keeps track of which state textures are in so we avoid doing the same operations multiple times for a compiler
 	mutable TArray<ETextureState> TextureStates;
 
-	TUniquePtr<FAsyncTask<FTextureSetCookerTaskWorker>> AsyncTask;
+	TUniquePtr<FAsyncTask<FTextureSetCompilerTaskWorker>> AsyncTask;
 
 	// Compute the hashed Guid for a specific hashed texture. Used by the DDC to cache the data.
 	FGuid ComputeTextureDataId(int Index, const TMap<FName, TSharedRef<ITextureProcessingNode>>& ProcessedTextures) const;

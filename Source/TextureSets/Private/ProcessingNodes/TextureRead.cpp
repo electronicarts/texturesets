@@ -103,7 +103,7 @@ void FTextureRead::Initialize(const FTextureSetProcessingGraph& Graph)
 	{
 		check(Texture->Source.IsValid());
 
-		// This does two copies, and ends up being a bottleneck in the cook
+		// This does two copies, and ends up being a bottleneck in the compilation
 		// TODO: Read the mip data without needing to do a copy every time
 		FImage RawImage;
 		bValidImage = Texture->Source.GetMipImage(RawImage, 0, 0, 0);
