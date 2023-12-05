@@ -83,12 +83,9 @@ public:
 	UPROPERTY(EditAnywhere, Category=Context)
 	ECameraVectorSource CameraVectorSource = ECameraVectorSource::World;
 
-#if WITH_EDITOR
 	FName GetTextureParameterName(int TextureIndex) const;
 	FName GetConstantParameterName(FName ConstantName) const;
-#endif
 
-	static FName MakeTextureSetParameterName(FName ParameterName, UTextureSetDefinition* Definition);
 	static FName MakeTextureParameterName(FName ParameterName, int TextureIndex);
 	static FName MakeConstantParameterName(FName ParameterName, FName ConstantName);
 	static bool IsTextureSetParameterName(FName Name);
