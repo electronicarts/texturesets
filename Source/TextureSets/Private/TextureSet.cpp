@@ -356,14 +356,6 @@ void UTextureSet::UpdateDerivedData(bool bAsync, bool bStartImmediately)
 		// Finish the current complilation before returning
 		CompilingManager.FinishCompilation({this});
 	}
-
-	if (FApp::CanEverRender())
-	{
-		for (UTexture* DerivedTexture : DerivedData.Textures)
-		{
-			DerivedTexture->BeginCachePlatformData();
-		}
-	}
 }
 #endif
 
