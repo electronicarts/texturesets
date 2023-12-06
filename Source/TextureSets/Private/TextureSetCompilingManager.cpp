@@ -149,6 +149,9 @@ FTextureSetCompilingManager& FTextureSetCompilingManager::Get()
 void FTextureSetCompilingManager::QueueCompilation(UTextureSet* const InTextureSet)
 {
 	QueuedTextureSets.Add(InTextureSet);
+
+	// Swap out material instances with default values until compiling has finished
+	InTextureSet->NotifyMaterialInstances();
 }
 
 void FTextureSetCompilingManager::StartCompilation(UTextureSet* const TextureSet)
@@ -463,15 +466,17 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 		PostCompilation(TextureSet);
 	}
 
-	if (QueuedTextureSets.Num() > 0 && Compilers.Num() < CVarMaxAsyncTextureSetParallelCompiles.GetValueOnGameThread())
+	const int32 MaxParallel = CVarMaxAsyncTextureSetParallelCompiles.GetValueOnGameThread();
+
+	if (QueuedTextureSets.Num() > 0 && CompilingTextureSets.Num() < MaxParallel)
 	{
 		TArray<UTextureSet*> TextureSetsToStart;
 		TArray<UTextureSet*> TextureSetsToDequeue;
-		TextureSetsToStart.Reserve(QueuedTextureSets.Num());
+		TextureSetsToStart.Reserve(FMath::Min(QueuedTextureSets.Num(), MaxParallel));
 
 		for (TSoftObjectPtr<UTextureSet> QueuedTextureSet : QueuedTextureSets)
 		{
-			if (!HasTimeLeft())
+			if (!HasTimeLeft() || (CompilingTextureSets.Num() + TextureSetsToStart.Num()) >= MaxParallel)
 				break;
 
 			UTextureSet* TextureSet = QueuedTextureSet.Get();
@@ -504,7 +509,7 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 int32 FTextureSetCompilingManager::GetNumRemainingAssets() const
 {
 	check(IsInGameThread());
-	return Compilers.Num();
+	return Compilers.Num() + QueuedTextureSets.Num();
 }
 
 void FTextureSetCompilingManager::ProcessAsyncTasks(bool bLimitExecutionTime)

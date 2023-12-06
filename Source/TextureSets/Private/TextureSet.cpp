@@ -61,7 +61,7 @@ void UTextureSet::AugmentMaterialTextureParameters(const FCustomParameterValue& 
 		return;
 
 #if WITH_EDITOR
-	if (!DerivedData.IsValid())
+	if (!DerivedData.IsValid() || IsCompiling())
 	{
 		if (FApp::CanEverRender())
 		{
