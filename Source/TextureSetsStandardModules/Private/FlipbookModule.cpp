@@ -1,6 +1,6 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#include "Modules/FlipbookModule.h"
+#include "FlipbookModule.h"
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "MaterialGraphBuilder/HLSLFunctionCallNodeBuilder.h"

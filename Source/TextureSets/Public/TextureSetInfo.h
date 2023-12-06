@@ -14,7 +14,7 @@ class UTextureSetModule;
 UENUM(meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor="true"))
 enum class ETextureSetTextureFlags : uint8
 {
-	None = 0 UMETA(Hidden),
+	Default = 0 UMETA(Hidden),
 	Array = 1 << 0,
 	// Additional texture flags such as 1D, 3D, cubemaps, etc. could be supported
 };
@@ -24,7 +24,7 @@ ENUM_CLASS_FLAGS(ETextureSetTextureFlags);
 UENUM(meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor="true"))
 enum class ETextureSetChannelEncoding  : uint8
 {
-	None = 0 UMETA(Hidden),
+	Default = 0 UMETA(Hidden),
 	RangeCompression = 1 << 0,
 	SRGB = 1 << 1,
 };
@@ -37,9 +37,9 @@ struct FTextureSetProcessedTextureDef
 	GENERATED_BODY()
 
 public:
-	FTextureSetProcessedTextureDef() : FTextureSetProcessedTextureDef(1, ETextureSetChannelEncoding::None) {}
+	FTextureSetProcessedTextureDef() : FTextureSetProcessedTextureDef(1, ETextureSetChannelEncoding::Default) {}
 
-	FTextureSetProcessedTextureDef(int ChannelCount, ETextureSetChannelEncoding Encoding, ETextureSetTextureFlags Flags = ETextureSetTextureFlags::None)
+	FTextureSetProcessedTextureDef(int ChannelCount, ETextureSetChannelEncoding Encoding, ETextureSetTextureFlags Flags = ETextureSetTextureFlags::Default)
 		: ChannelCount(ChannelCount)
 		, Encoding((uint8)Encoding)
 		, Flags((uint8)Flags)
@@ -73,7 +73,7 @@ struct FTextureSetSourceTextureDef : public FTextureSetProcessedTextureDef
 	GENERATED_BODY()
 
 public:
-	FTextureSetSourceTextureDef() : FTextureSetSourceTextureDef(1, ETextureSetChannelEncoding::None, FVector4::Zero()) {}
+	FTextureSetSourceTextureDef() : FTextureSetSourceTextureDef(1, ETextureSetChannelEncoding::Default, FVector4::Zero()) {}
 
 	FTextureSetSourceTextureDef(int ChannelCount, ETextureSetChannelEncoding Encoding, FVector4 DefaultValue)
 		: Super(ChannelCount, Encoding)
@@ -106,15 +106,16 @@ public:
 	const TMap<FName, FTextureSetProcessedTextureDef>& GetSourceTextures() const { return SourceTextures; }
 	const TMap<FName, FTextureSetProcessedTextureDef>& GetProcessedTextures() const { return ProcessedTextures; }
 
-	const TArray<const UTextureSetModule*>& GetModules() const { return Modules; }
-
 #if WITH_EDITOR
+	const TArray<const UTextureSetModule*>& GetModules() const { return Modules; }
 	const FTextureSetProcessingGraph* GetProcessingGraph() const;
 #endif
 
 private:
+#if WITH_EDITORONLY_DATA
 	UPROPERTY(VisibleAnywhere)
 	TArray<const UTextureSetModule*> Modules;
+#endif
 
 	// Input texture maps which are to be processed
 	UPROPERTY(VisibleAnywhere)
@@ -159,7 +160,7 @@ public:
 	FTextureSetPackedTextureInfo()
 		: ChannelCount(0)
 		, HardwareSRGB(false)
-		, Flags((uint8)ETextureSetTextureFlags::None)
+		, Flags((uint8)ETextureSetTextureFlags::Default)
 	{}
 
 	UPROPERTY(VisibleAnywhere)

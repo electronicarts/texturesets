@@ -22,7 +22,7 @@ class UMaterialExpressionMaterialFunctionCall;
 #if WITH_EDITOR
 // Class responsible for building the material graph of a texture set sampler node.
 // Texture set modules use this node to customize the sampling logic.
-class FTextureSetMaterialGraphBuilder
+class TEXTURESETS_API FTextureSetMaterialGraphBuilder
 {
 public:
 	// Used to define SortPriority of input pins, regardless of which order they're created in.

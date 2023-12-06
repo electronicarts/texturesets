@@ -1,6 +1,6 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#include "Modules/TextureSetElementCollection.h"
+#include "TextureSetElementCollection.h"
 
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"

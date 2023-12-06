@@ -64,7 +64,7 @@ FTextureSetPackingInfo::FTextureSetPackingInfo(const TArray<FTextureSetPackedTex
 		// Enabled initially, but can be disabled if it's found to be incompatible with the current packing
 		TextureInfo.HardwareSRGB = TextureDef.GetHardwareSRGBSupported();
 
-		TextureInfo.ChannelEncodings = (uint8)ETextureSetChannelEncoding::None;
+		TextureInfo.ChannelEncodings = (uint8)ETextureSetChannelEncoding::Default;
 
 		bool bIsFirstSource = true;
 

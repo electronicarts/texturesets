@@ -144,6 +144,7 @@ TArray<FName> UTextureSetDefinition::EditGetUnpackedChannelNames() const
 }
 #endif
 
+#if WITH_EDITOR
 TArray<TSubclassOf<UTextureSetAssetParams>> UTextureSetDefinition::GetRequiredAssetParamClasses() const
 {
 	TArray<TSubclassOf<UTextureSetAssetParams>> RequiredTypes;
@@ -160,7 +161,9 @@ TArray<TSubclassOf<UTextureSetAssetParams>> UTextureSetDefinition::GetRequiredAs
 	}
 	return RequiredTypes;
 }
+#endif
 
+#if WITH_EDITOR
 TArray<TSubclassOf<UTextureSetSampleParams>> UTextureSetDefinition::GetRequiredSampleParamClasses() const
 {
 	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredTypes;
@@ -174,6 +177,7 @@ TArray<TSubclassOf<UTextureSetSampleParams>> UTextureSetDefinition::GetRequiredS
 	}
 	return RequiredTypes;
 }
+#endif
 
 const UTextureSet* UTextureSetDefinition::GetDefaultTextureSet() const
 {

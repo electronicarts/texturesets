@@ -71,7 +71,6 @@ public:
 	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const { return UFlipbookAssetParams::StaticClass(); }
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UFlipbookSampleParams::StaticClass(); }
 	
-#if WITH_EDITOR
 	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
@@ -80,5 +79,4 @@ public:
 		FTextureSetMaterialGraphBuilder* Builder) const override;
 
 	virtual EDataValidationResult IsDefinitionValid(const UTextureSetDefinition* Definition, FDataValidationContext& Context) const override;
-#endif
 };

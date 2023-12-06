@@ -33,15 +33,13 @@ class UTextureSetElementCollection : public UTextureSetModule
 	GENERATED_BODY()
 public:
 	virtual bool AllowMultiple() const override { return bAllowMultiple; }
-	
-#if WITH_EDITOR
+
 	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
 
 	virtual void ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 		FTextureSetMaterialGraphBuilder* Builder) const override;
-#endif
 
 protected:
 	UPROPERTY(EditDefaultsOnly)

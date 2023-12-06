@@ -8,7 +8,7 @@
 class FTextureSetMaterialGraphBuilder;
 
 #if WITH_EDITOR
-struct HLSLFunctionCallNodeBuilder
+struct TEXTURESETS_API HLSLFunctionCallNodeBuilder
 {
 public:
 	HLSLFunctionCallNodeBuilder(FString FunctionName, FString IncludePath);

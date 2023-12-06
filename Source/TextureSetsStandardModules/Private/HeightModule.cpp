@@ -1,6 +1,6 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#include "Modules/HeightModule.h"
+#include "HeightModule.h"
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "TextureSetDefinition.h"
@@ -23,7 +23,7 @@
 void UHeightModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	// TODO: Use range compression on the heightmap
-	const FTextureSetSourceTextureDef HeightDef(1, ETextureSetChannelEncoding::None, FVector4(1, 0, 0, 0));
+	const FTextureSetSourceTextureDef HeightDef(1, ETextureSetChannelEncoding::Default, FVector4(1, 0, 0, 0));
 
 	Graph.AddOutputParameter("HeightParams", TSharedRef<IParameterProcessingNode>(new ParameterPassThrough<UHeightAssetParams>(
 		"HeightParams", 

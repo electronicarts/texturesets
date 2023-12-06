@@ -15,7 +15,7 @@ enum class ETriplanarMappingMode : uint8
 };
 
 UCLASS()
-class TEXTURESETS_API UProceduralMappingSampleParams : public UTextureSetSampleParams
+class UProceduralMappingSampleParams : public UTextureSetSampleParams
 {
 	GENERATED_BODY()
 public:

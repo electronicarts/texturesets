@@ -7,7 +7,7 @@
 
 class MaterialExpression;
 
-struct FGraphBuilderGraphAddress
+struct TEXTURESETS_API FGraphBuilderGraphAddress
 {
 public:
 	FGraphBuilderGraphAddress()
@@ -41,7 +41,7 @@ FORCEINLINE uint32 GetTypeHash(const FGraphBuilderGraphAddress& Address)
 }
 
 // Address of an input pin to a material expression
-struct FGraphBuilderInputAddress : public FGraphBuilderGraphAddress
+struct TEXTURESETS_API FGraphBuilderInputAddress : public FGraphBuilderGraphAddress
 {
 public:
 	FGraphBuilderInputAddress()
@@ -58,7 +58,7 @@ public:
 };
 
 // Address of an output pin of a material expression
-struct FGraphBuilderOutputAddress : public FGraphBuilderGraphAddress
+struct TEXTURESETS_API FGraphBuilderOutputAddress : public FGraphBuilderGraphAddress
 {
 public:
 	FGraphBuilderOutputAddress()

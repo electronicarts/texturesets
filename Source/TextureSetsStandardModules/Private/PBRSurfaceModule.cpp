@@ -1,6 +1,6 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#include "Modules/PBRSurfaceModule.h"
+#include "PBRSurfaceModule.h"
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #if WITH_EDITOR
@@ -31,7 +31,7 @@ void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Gra
 		// Metal
 		if (Paramaterization == EPBRParamaterization::Basecolor_Metal)
 		{
-			static const FTextureSetSourceTextureDef MetalDef(1, ETextureSetChannelEncoding::None, FVector4(0, 0, 0, 0));
+			static const FTextureSetSourceTextureDef MetalDef(1, ETextureSetChannelEncoding::Default, FVector4(0, 0, 0, 0));
 			Graph.AddOutputTexture(MetalName, Graph.AddInputTexture(MetalName, MetalDef));
 		}
 	}

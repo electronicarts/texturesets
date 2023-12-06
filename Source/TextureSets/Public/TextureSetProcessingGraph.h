@@ -15,7 +15,7 @@ class IParameterProcessingNode;
 
 #define CreateOperatorFunc TFunction<TSharedRef<ITextureProcessingNode>(TSharedRef<ITextureProcessingNode>)>
 
-class FTextureSetProcessingGraph
+class TEXTURESETS_API FTextureSetProcessingGraph
 {
 public:
 	FTextureSetProcessingGraph();

@@ -34,7 +34,7 @@ class FTextureSetSubsampleContext;
 
 typedef FGuid SubSampleHandle;
 
-struct FSubSampleAddress
+struct TEXTURESETS_API FSubSampleAddress
 {
 private:
 	FSubSampleAddress();
@@ -55,7 +55,7 @@ private:
 	uint32 Hash;
 };
 
-struct FSubSampleDefinition
+struct TEXTURESETS_API FSubSampleDefinition
 {
 
 public:
@@ -71,7 +71,7 @@ public:
 	FGraphBuilderOutputAddress Weight;
 };
 
-class FTextureSetSubsampleContext
+class TEXTURESETS_API FTextureSetSubsampleContext
 {
 	friend class FTextureSetMaterialGraphBuilder;
 

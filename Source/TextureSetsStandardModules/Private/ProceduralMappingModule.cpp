@@ -1,9 +1,9 @@
 // Copyright (c) Electronic Arts. All Rights Reserved.
 
 
-#include "Modules/ProceduralMappingModule.h"
+#include "ProceduralMappingModule.h"
 
-#include "Modules/ProceduralMappingSampleParams.h"
+#include "ProceduralMappingSampleParams.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "MaterialGraphBuilder/HLSLFunctionCallNodeBuilder.h"
 #include "Materials/MaterialExpressionComponentMask.h"

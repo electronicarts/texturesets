@@ -50,8 +50,10 @@ public:
 	const FORCEINLINE FTextureSetDefinitionModuleInfo& GetModuleInfo() const { return ModuleInfo; }
 	const FORCEINLINE FTextureSetPackingInfo& GetPackingInfo() const { return PackingInfo; }
 
+#if WITH_EDITOR
 	TArray<TSubclassOf<UTextureSetAssetParams>> GetRequiredAssetParamClasses() const;
 	TArray<TSubclassOf<UTextureSetSampleParams>> GetRequiredSampleParamClasses() const;
+#endif
 
 	// Get the default packed texture for a specific packed texture index
 	const UTextureSet* GetDefaultTextureSet() const;
@@ -90,7 +92,7 @@ private:
 	UPROPERTY(VisibleAnywhere, Category="Debug")
 	FTextureSetDefinitionModuleInfo ModuleInfo;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, Category="Debug")
 	FTextureSetPackingInfo PackingInfo;
 	
 	UPROPERTY(VisibleAnywhere, Category="Debug")

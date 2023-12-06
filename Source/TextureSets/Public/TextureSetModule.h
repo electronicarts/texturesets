@@ -12,12 +12,13 @@
 
 // Abstract class for texture set modules. Modules provide a mechanism for extending textures sets with additional functionality.
 UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
-class UTextureSetModule : public UObject
+class TEXTURESETS_API UTextureSetModule : public UObject
 {
 	GENERATED_BODY()
 public:
+#if WITH_EDITOR
 	// Can there be more than one of these modules on a definition?
-	virtual bool AllowMultiple() const { return false; } // TODO: Not validated/enforced
+	virtual bool AllowMultiple() const { return false; }
 
 	// Allow children to override name of an instance of this module.
 	// Useful for modules which allow multiple instances on the same definition.
@@ -29,7 +30,6 @@ public:
 	// Which class this module uses to attach parameters to the sampler material expression
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const { return nullptr; }
 
-#if WITH_EDITOR
 	// Process the source data into the intermediate results
 	// Transforms source elements into processed data
 	// Sets values of shader constants

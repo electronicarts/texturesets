@@ -15,7 +15,6 @@ public:
 	virtual bool AllowMultiple() const override { return true; }
 	virtual FString GetInstanceName() const override { return ElementName.ToString(); }
 
-#if WITH_EDITOR
 	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 
 	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
@@ -23,7 +22,6 @@ public:
 	virtual void ConfigureSamplingGraphBuilder(
 		const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 		FTextureSetMaterialGraphBuilder* Builder) const override;
-#endif
 
 private:
 	UPROPERTY(EditAnywhere)
