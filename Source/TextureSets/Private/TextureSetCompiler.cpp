@@ -640,6 +640,8 @@ void FTextureSetCompiler::BuildTextureData(int Index) const
 	FDerivedTextureData& Data = DerivedData.TextureData[Index];
 	Data.Id = DerivedTextureIds[Index];
 
+	Data.TextureParameters.Empty();
+
 	if (RestoreMul != FVector4f::One() || RestoreAdd != FVector4f::Zero())
 	{
 		Data.TextureParameters.Add(TextureInfo.RangeCompressMulName, RestoreMul);
