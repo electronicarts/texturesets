@@ -95,8 +95,6 @@ private:
 
 	FDelegateHandle OnTextureSetDefinitionChangedHandle;
 
-	void NotifyMaterialInstances();
-
 #if WITH_EDITOR
 	void OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition);
 #endif

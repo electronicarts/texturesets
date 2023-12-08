@@ -360,24 +360,6 @@ void UTextureSet::UpdateDerivedData(bool bAsync, bool bStartImmediately)
 #endif
 
 #if WITH_EDITOR
-void UTextureSet::NotifyMaterialInstances()
-{
-	for (TObjectIterator<UMaterialInstance> It; It; ++It)
-	{
-		for (FCustomParameterValue& Param : It->CustomParameterValues)
-		{
-			if (Param.ParameterValue == this)
-			{
-				FPropertyChangedEvent Event(nullptr);
-				It->PostEditChangeProperty(Event);
-				break;
-			}
-		}
-	}
-}
-#endif
-
-#if WITH_EDITOR
 void UTextureSet::OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition)
 {
 	if (ChangedDefinition == Definition && !HasAnyFlags(RF_NeedPostLoad))

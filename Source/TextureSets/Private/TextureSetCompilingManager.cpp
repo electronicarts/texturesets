@@ -11,6 +11,7 @@
 #include "TextureSet.h"
 #include "TextureSetCompiler.h"
 #include "TextureSetDefinition.h"
+#include "EditorSupportDelegates.h"
 
 #define LOCTEXT_NAMESPACE "TextureSets"
 
@@ -151,7 +152,7 @@ void FTextureSetCompilingManager::QueueCompilation(UTextureSet* const InTextureS
 	QueuedTextureSets.Add(InTextureSet);
 
 	// Swap out material instances with default values until compiling has finished
-	InTextureSet->NotifyMaterialInstances();
+	NotifyMaterialInstances({InTextureSet});
 }
 
 void FTextureSetCompilingManager::StartCompilation(UTextureSet* const TextureSet)
@@ -189,7 +190,7 @@ void FTextureSetCompilingManager::StartCompilation(UTextureSet* const TextureSet
 			Compiler->Execute();
 
 		// Will either update the materials to the new values, or swap out material instances with default values until compiling has finished
-		TextureSet->NotifyMaterialInstances();
+		NotifyMaterialInstances({TextureSet});
 	}
 
 	TRACE_COUNTER_SET(QueuedTextureSetCompilation, GetNumRemainingAssets());
@@ -297,18 +298,18 @@ bool FTextureSetCompilingManager::IsRegistered(const UTextureSet* TextureSet) co
 	return CompilingTextureSets.Contains(TextureSet) || QueuedTextureSets.Contains(TextureSet);
 }
 
-void FTextureSetCompilingManager::PostCompilation(UTextureSet* TextureSet)
+void FTextureSetCompilingManager::NotifyMaterialInstances(TArrayView<UTextureSet* const> InTextureSets)
 {
 	check(IsInGameThread());
-	TRACE_CPUPROFILER_EVENT_SCOPE(FTextureSetCompilingManager::PostCompilation);
 
 	if (FApp::CanEverRender())
 	{
-		// Update loaded material instances that use this texture set
-		TextureSet->NotifyMaterialInstances();
+		for (const UTextureSet* TextureSet : InTextureSets)
+		{
+			// Update loaded material instances that use this texture set
+			MaterialInstancesToUpdate.Add(TextureSet);
+		}
 	}
-
-	UE_LOG(LogTextureSet, Verbose, TEXT("Texture set %s is ready"), *TextureSet->GetName());
 }
 
 TSharedRef<FTextureSetCompiler> FTextureSetCompilingManager::GetOrCreateCompiler(UTextureSet* TextureSet)
@@ -462,9 +463,11 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 
 	for (UTextureSet* TextureSet : CompilersToDelete)
 	{
+		UE_LOG(LogTextureSet, Verbose, TEXT("Texture set %s is ready"), *TextureSet->GetName());
 		Compilers.Remove(TextureSet);
-		PostCompilation(TextureSet);
 	}
+
+	NotifyMaterialInstances({CompilersToDelete});
 
 	const int32 MaxParallel = CVarMaxAsyncTextureSetParallelCompiles.GetValueOnGameThread();
 
@@ -503,6 +506,28 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 			// StartCompilation will remove the texture set from the queue
 			StartCompilation(TextureSet);
 		}
+	}
+
+	// Refresh all material instances that need to be, and invalidate the viewport
+	if (!MaterialInstancesToUpdate.IsEmpty())
+	{
+		for (TObjectIterator<UMaterialInstance> It; It; ++It)
+		{
+			for (FCustomParameterValue& Param : It->CustomParameterValues)
+			{
+				const UTextureSet* TextureSet = Cast<UTextureSet>(Param.ParameterValue);
+				if (IsValid(TextureSet) && MaterialInstancesToUpdate.Contains(TextureSet))
+				{
+					FPropertyChangedEvent Event(nullptr);
+					It->PostEditChangeProperty(Event);
+					break; // Don't need to check other properties, since we've already refreshed this one
+				}
+			}
+		}
+		MaterialInstancesToUpdate.Empty();
+
+		// Update all the viewports
+		FEditorSupportDelegates::RedrawAllViewports.Broadcast();
 	}
 }
 

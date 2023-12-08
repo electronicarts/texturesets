@@ -56,6 +56,8 @@ public:
 
 	FTextureSetPostCompileEvent& OnTextureSetPostCompileEvent() { return TextureSetPostCompileEvent; }
 
+	void NotifyMaterialInstances(TArrayView<UTextureSet* const> InTextureSets);
+
 private:
 	friend class FAssetCompilingManager;
 
@@ -70,8 +72,6 @@ private:
 	void ProcessTextureSets(bool bLimitExecutionTime);
 	void UpdateCompilationNotification();
 
-	void PostCompilation(UTextureSet* TextureSet);
-
 	TSharedRef<FTextureSetCompiler> GetOrCreateCompiler(UTextureSet* TextureSet);
 
 	double LastReschedule = 0.0f;
@@ -82,6 +82,7 @@ private:
 	TArray<UTextureSet*> CompilingTextureSets;
 	TMap<UTextureSet*, int> LentCompilers;
 	FAsyncCompilationNotification Notification;
+	TSet<const UTextureSet*> MaterialInstancesToUpdate;
 
 	/** Event issued at the end of the compile process */
 	FTextureSetPostCompileEvent TextureSetPostCompileEvent;
