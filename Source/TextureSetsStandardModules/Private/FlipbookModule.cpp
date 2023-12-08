@@ -103,14 +103,7 @@ public:
 			return;
 		}
 
-		// Hack: Just compute all the data in the source so we don't need to worry about being out of of bounds
-		// We'll want to make the source chunk encompass just what we need
-		FIntVector SourceStart = FIntVector(0,0,0);
-		FIntVector SourceEnd = FIntVector(SourceImage->GetWidth() - 1, SourceImage->GetHeight() - 1, SourceImage->GetSlices() - 1);
-
 		FTextureProcessingChunk SourceChunk(
-			SourceStart,
-			SourceEnd,
 			Chunk.Channel,
 			0,
 			1,
@@ -125,11 +118,11 @@ public:
 
 		int DataIndex = Chunk.DataStart;
 		FIntVector Coord;
-		for (Coord.Z = Chunk.StartCoord.Z; Coord.Z <= Chunk.EndCoord.Z; Coord.Z++)
+		for (Coord.Z = 0; Coord.Z < Chunk.TextureSlices; Coord.Z++)
 		{
-			for (Coord.Y = Chunk.StartCoord.Y; Coord.Y <= Chunk.EndCoord.Y; Coord.Y++)
+			for (Coord.Y = 0; Coord.Y < Chunk.TextureWidth; Coord.Y++)
 			{
-				for (Coord.X = Chunk.StartCoord.X; Coord.X <= Chunk.EndCoord.X; Coord.X++)
+				for (Coord.X = 0; Coord.X < Chunk.TextureHeight; Coord.X++)
 				{
 					const int SourceDataIndex = SourceChunk.CoordToDataIndex(TransformToSource(Coord));
 					TextureData[DataIndex] = SourceTextureData[SourceDataIndex];

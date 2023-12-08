@@ -178,7 +178,7 @@ void FTextureRead::ComputeChunk(const FTextureProcessingChunk& Chunk, float* Tex
 		constexpr int RawImagePixelStride = 4;
 
 		int DataIndex = Chunk.DataStart;
-		int PixelIndex = (Chunk.FirstPixel * RawImagePixelStride) + Chunk.Channel;
+		int PixelIndex = Chunk.Channel;
 		for (; DataIndex <= Chunk.DataEnd; DataIndex += Chunk.DataPixelStride, PixelIndex += RawImagePixelStride)
 		{
 			TextureData[DataIndex] = RawImageData[PixelIndex];

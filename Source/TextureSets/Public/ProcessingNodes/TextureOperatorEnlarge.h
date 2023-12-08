@@ -11,9 +11,9 @@ class FTextureOperatorEnlarge : public FTextureOperator
 {
 public:
 	FTextureOperatorEnlarge(TSharedRef<ITextureProcessingNode> I, int NewWidth, int NewHeight, int NewSlices) : FTextureOperator(I)
-		, Width(NewWidth)
-		, Height(NewHeight)
-		, Slices(NewSlices)
+		, TargetWidth(NewWidth)
+		, TargetHeight(NewHeight)
+		, TargetSlices(NewSlices)
 	{}
 
 	virtual FName GetNodeTypeName() const  { return "Enlarge v2"; }
@@ -22,28 +22,26 @@ public:
 	{
 		uint32 Hash = FTextureOperator::ComputeGraphHash();
 
-		Hash = HashCombine(Hash, GetTypeHash(Width));
-		Hash = HashCombine(Hash, GetTypeHash(Height));
+		Hash = HashCombine(Hash, GetTypeHash(TargetWidth));
+		Hash = HashCombine(Hash, GetTypeHash(TargetHeight));
 
 		return Hash;
 	}
 
-	virtual int GetWidth() const override { return Width; }
-	virtual int GetHeight() const override { return Height; }
+	virtual int GetWidth() const override { return TargetWidth; }
+	virtual int GetHeight() const override { return TargetHeight; }
 
 	inline FIntVector TransformToSource(const FIntVector& Position) const
 	{
 		return FIntVector(
-			(int)(Position.X * (float)SourceImage->GetWidth() / (float)Width),
-			(int)(Position.Y * (float)SourceImage->GetHeight() / (float)Height),
-			(int)(Position.Z * (float)SourceImage->GetSlices() / (float)Slices));
+			(int)(Position.X * (float)SourceImage->GetWidth() / (float)TargetWidth),
+			(int)(Position.Y * (float)SourceImage->GetHeight() / (float)TargetHeight),
+			(int)(Position.Z * (float)SourceImage->GetSlices() / (float)TargetSlices));
 	}
 
 	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override
 	{
 		FTextureProcessingChunk SourceChunk = FTextureProcessingChunk(
-			TransformToSource(Chunk.StartCoord),
-			TransformToSource(Chunk.EndCoord),
 			Chunk.Channel,
 			0,
 			1,
@@ -59,17 +57,17 @@ public:
 		int DataIndex = Chunk.DataStart;
 		FIntVector Coord;
 		FVector3f Lerp;
-		for (Coord.Z = Chunk.StartCoord.Z; Coord.Z <= Chunk.EndCoord.Z; Coord.Z++)
+		for (Coord.Z = 0; Coord.Z < Chunk.TextureSlices; Coord.Z++)
 		{
-			Lerp.Z = FMath::Fmod(((float)Coord.Z / (float)Slices) * (float)SourceImage->GetSlices(), 1);
+			Lerp.Z = FMath::Fmod(((float)Coord.Z / (float)TargetSlices) * (float)SourceImage->GetSlices(), 1);
 
-			for (Coord.Y = Chunk.StartCoord.Y; Coord.Y <= Chunk.EndCoord.Y; Coord.Y++)
+			for (Coord.Y = 0; Coord.Y < Chunk.TextureHeight; Coord.Y++)
 			{
-				Lerp.Y = FMath::Fmod(((float)Coord.Y / (float)Height) * (float)SourceImage->GetHeight(), 1);
+				Lerp.Y = FMath::Fmod(((float)Coord.Y / (float)TargetHeight) * (float)SourceImage->GetHeight(), 1);
 
-				for (Coord.X = Chunk.StartCoord.X; Coord.X <= Chunk.EndCoord.X; Coord.X++)
+				for (Coord.X = 0; Coord.X < Chunk.TextureWidth; Coord.X++)
 				{
-					Lerp.X = FMath::Fmod(((float)Coord.X / (float)Width) * (float)SourceImage->GetWidth(), 1);
+					Lerp.X = FMath::Fmod(((float)Coord.X / (float)TargetWidth) * (float)SourceImage->GetWidth(), 1);
 
 					const FIntVector SourceBaseCoord = TransformToSource(Coord);
 
@@ -122,8 +120,8 @@ public:
 	}
 
 private:
-	const int Width;
-	const int Height;
-	const int Slices;
+	const int TargetWidth;
+	const int TargetHeight;
+	const int TargetSlices;
 };
 #endif

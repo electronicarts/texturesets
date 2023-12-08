@@ -34,27 +34,19 @@ public:
 struct FTextureProcessingChunk
 {
 public:
-	FTextureProcessingChunk(FIntVector StartCoord, FIntVector EndCoord, int Channel, int DataStart, int DataPixelStride, int TextureWidth, int TextureHeight, int TextureSlices)
-		: StartCoord(StartCoord)
-		, EndCoord(EndCoord)
-		, Channel(Channel)
+	FTextureProcessingChunk(int Channel, int DataStart, int DataPixelStride, int TextureWidth, int TextureHeight, int TextureSlices)
+		: Channel(Channel)
 		, DataStart(DataStart)
 		, DataPixelStride(DataPixelStride)
 		, TextureWidth(TextureWidth)
 		, TextureHeight(TextureHeight)
 		, TextureSlices(TextureSlices)
 	{
-		FirstPixel = CoordToPixel(StartCoord);
-		LastPixel = CoordToPixel(EndCoord);
-		check(FirstPixel <= LastPixel)
-
-		NumPixels = LastPixel - FirstPixel + 1;
-		DataEnd = DataStart + ((LastPixel - FirstPixel) * DataPixelStride);
+		NumPixels = TextureWidth * TextureHeight * TextureSlices;
+		DataEnd = DataStart + ((NumPixels - 1) * DataPixelStride);
 	}
 
 	// Passed in
-	FIntVector StartCoord; // Coordinate of the first pixel we're processing
-	FIntVector EndCoord; // Coordinate of the last pixel we're processing
 	int Channel; // Processed texture channel that we're computing, indexed from RGBA
 	int DataStart; // First index into the data buffer where we are expected to write
 	int DataPixelStride; // Stride between pixels
@@ -63,8 +55,6 @@ public:
 	int TextureSlices; // How many slices in the entire texture we're processing
 
 	// Computed
-	int FirstPixel; // Index of the first pixel we are processing in the chunk
-	int LastPixel; // Index of the last pixel we are processing
 	int NumPixels; // How many pixels are we processing
 	int DataEnd; // Last index into the data buffer where we are expected to write
 
@@ -91,7 +81,7 @@ public:
 	// Can then be used to lookup into the data buffer
 	inline int PixelToDataIndex(const int& Pixel) const
 	{
-		return DataStart + ((Pixel - FirstPixel) * DataPixelStride);
+		return DataStart + (Pixel * DataPixelStride);
 	}
 
 	inline int NextDataIndex(const int& DataIndex) const

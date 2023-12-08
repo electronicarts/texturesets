@@ -557,8 +557,6 @@ void FTextureSetCompiler::BuildTextureData(int Index) const
 
 			// Do the whole channel as a single chunk
 			FTextureProcessingChunk Chunk(
-				FIntVector(0,0,0),
-				FIntVector(Width - 1, Height - 1, Slices - 1),
 				ChanelInfo.ProessedTextureChannel,
 				c,
 				PixelValueStride,
