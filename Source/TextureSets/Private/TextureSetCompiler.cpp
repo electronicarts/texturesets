@@ -555,7 +555,6 @@ void FTextureSetCompiler::BuildTextureData(int Index) const
 			float Min = TNumericLimits<float>::Max();
 			float Max = TNumericLimits<float>::Lowest();
 
-#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
 			// Do the whole channel as a single chunk
 			FTextureProcessingChunk Chunk(
 				FIntVector(0,0,0),
@@ -576,23 +575,6 @@ void FTextureSetCompiler::BuildTextureData(int Index) const
 				Min = FMath::Min(Min, PixelValue);
 				Max = FMath::Max(Max, PixelValue);
 			}
-#else
-			for (int x = 0; x < Width; x++)
-			{
-				for (int y = 0; y < Height; y++)
-				{
-					for (int z = 0; z < Slices; z++)
-					{
-						int PixelIndex = GetPixelIndex(x, y, z, c, Width, Height, PixelValueStride);
-
-						float PixelValue = ProcessedTexture->GetPixel(x, y, z, ChanelInfo.ProessedTextureChannel);
-						MaxPixelValues[c] = FMath::Max(MaxPixelValues[c], PixelValue);
-						MinPixelValues[c] = FMath::Min(MinPixelValues[c], PixelValue);
-						PixelValues[PixelIndex] = PixelValue;
-					}
-				}
-			}
-#endif
 
 			// Channel encoding (decoding happens in FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode)
 			if (ChanelInfo.ChannelEncoding & (uint8)ETextureSetChannelEncoding::RangeCompression)

@@ -33,11 +33,7 @@ public:
 	virtual int GetSlices() const override { check(bLoaded); return Slices; }
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() override { return SourceDefinition; }
 
-#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
 	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override;
-#else
-	virtual float GetPixel(int X, int Y, int Z, int Channel) const override;
-#endif
 
 	void AddOperator(CreateOperatorFunc Operator) { CreateOperatorFuncs.Add(Operator); }
 

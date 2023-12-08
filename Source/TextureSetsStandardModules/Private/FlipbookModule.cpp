@@ -94,7 +94,6 @@ public:
 		);
 	}
 
-#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
 	void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override
 	{
 		if (FramesPerImage == 1)
@@ -139,13 +138,6 @@ public:
 			}
 		}
 	}
-#else
-	virtual float GetPixel(int X, int Y, int Z, int Channel) const override
-	{
-		FIntVector SourcePixel = TransformToSource(FIntVector(X, Y, Z));
-		return SourceImage->GetPixel(SourcePixel.X, SourcePixel.Y, SourcePixel.Z, Channel);
-	}
-#endif
 
 private:
 	int SubImageWidth;

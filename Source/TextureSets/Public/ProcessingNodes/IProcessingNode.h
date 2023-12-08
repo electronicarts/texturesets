@@ -7,11 +7,6 @@
 #include "CoreMinimal.h"
 #include "TextureSetProcessingContext.h"
 
-#define PROCESSING_METHOD_PERPIXEL 1
-#define PROCESSING_METHOD_CHUNK 2
-
-#define PROCESSING_METHOD PROCESSING_METHOD_CHUNK
-
 class FTextureSetProcessingGraph;
 
 class IProcessingNode
@@ -36,7 +31,6 @@ public:
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const = 0;
 };
 
-#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
 struct FTextureProcessingChunk
 {
 public:
@@ -105,7 +99,6 @@ public:
 		return DataIndex + DataPixelStride;
 	}
 };
-#endif
 
 class ITextureProcessingNode : public IProcessingNode
 {
@@ -115,12 +108,7 @@ public:
 	virtual int GetSlices() const = 0;
 	virtual const struct FTextureSetProcessedTextureDef GetTextureDef() = 0;
 
-#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
 	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const = 0;
-#else
-	// Initialize must be called before calls to GetPixel
-	virtual float GetPixel(int X, int Y, int Z, int Channel) const = 0;
-#endif
 };
 
 class IParameterProcessingNode : public IProcessingNode

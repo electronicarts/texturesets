@@ -15,7 +15,6 @@ public:
 
 	virtual FName GetNodeTypeName() const  { return "Invert"; }
 
-#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
 	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override
 	{
 		SourceImage->ComputeChunk(Chunk, TextureData);
@@ -25,11 +24,5 @@ public:
 			TextureData[DataIndex] = 1.0f - TextureData[DataIndex];
 		}
 	}
-#else
-	virtual float GetPixel(int X, int Y, int Z, int Channel) const override
-	{
-		return 1.0f - SourceImage->GetPixel(X, Y, Z, Channel);
-	}
-#endif
 };
 #endif

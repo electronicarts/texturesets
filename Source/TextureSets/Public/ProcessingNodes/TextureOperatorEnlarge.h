@@ -39,7 +39,6 @@ public:
 			(int)(Position.Z * (float)SourceImage->GetSlices() / (float)Slices));
 	}
 
-#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
 	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override
 	{
 		FTextureProcessingChunk SourceChunk = FTextureProcessingChunk(
@@ -121,17 +120,6 @@ public:
 			}
 		}
 	}
-#else
-	virtual float GetPixel(int X, int Y, int Z, int Channel) const override
-	{
-		// TODO: Bilinear/Trilinear interpolation
-		const int SourceX = X * (SourceImage->GetWidth() / Width);
-		const int SourceY = Y * (SourceImage->GetHeight() / Height);
-		const int SourceZ = Z * (SourceImage->GetSlices() / Slices);
-
-		return SourceImage->GetPixel(SourceX, SourceY, SourceZ, Channel);
-	}
-#endif
 
 private:
 	const int Width;

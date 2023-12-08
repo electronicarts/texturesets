@@ -170,7 +170,6 @@ const uint32 FTextureRead::ComputeDataHash(const FTextureSetProcessingContext& C
 	return Hash;
 }
 
-#if PROCESSING_METHOD == PROCESSING_METHOD_CHUNK
 void FTextureRead::ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const
 {
 	if (bValidImage)
@@ -194,31 +193,4 @@ void FTextureRead::ComputeChunk(const FTextureProcessingChunk& Chunk, float* Tex
 		}
 	}
 }
-#else
-float FTextureRead::GetPixel(int X, int Y, int Z, int Channel) const
-{
-#ifdef UE_BUILD_DEBUG
-	// Too slow to be used in development builds
-	check(bInitialized);
-	check(Channel < SourceDefinition.ChannelCount);
-#endif
-
-	// TODO: Can we avoid a branch on every pixel?
-	if (bValidImage)
-	{
-		const int I = Z * Image.GetWidth() * Image.GetHeight() + Y * Image.GetWidth() + X;
-#ifdef UE_BUILD_DEBUG
-		check(X < Image.GetWidth());
-		check(Y < Image.GetHeight());
-		check(Z < Image.NumSlices);
-		check(I < Image.GetNumPixels());
-#endif
-		return Image.AsRGBA32F()[I].Component(ChannelSwizzle[Channel]);
-	}
-	else
-	{
-		return SourceDefinition.DefaultValue[Channel];
-	}
-}
-#endif
 #endif
