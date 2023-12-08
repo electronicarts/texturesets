@@ -3,7 +3,6 @@
 #include "PBRSurfaceModule.h"
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
-#if WITH_EDITOR
 #include "MaterialEditingLibrary.h"
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionAdd.h"
@@ -15,9 +14,50 @@
 #include "Materials/MaterialExpressionSubtract.h"
 #include "ProcessingNodes/TextureInput.h"
 #include "ProcessingNodes/TextureOperatorInvert.h"
-#endif
 
-#if WITH_EDITOR
+class FTextureOperatorFlipNormalGreen : public FTextureOperator
+{
+public:
+	FTextureOperatorFlipNormalGreen(TSharedRef<ITextureProcessingNode> I) : FTextureOperator(I) {}
+
+	virtual FName GetNodeTypeName() const  { return "FlipNormalGreen"; }
+
+	virtual void LoadResources(const FTextureSetProcessingContext& Context) override
+	{
+		FTextureOperator::LoadResources(Context);
+
+		const UPBRAssetParams* FlipbookAssetParams = Context.GetAssetParam<UPBRAssetParams>();
+
+		bFlipGreen = FlipbookAssetParams->bFlipNormalGreen;
+	}
+
+	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override
+	{ 
+		uint32 Hash = FTextureOperator::ComputeDataHash(Context);
+
+		const UPBRAssetParams* FlipbookAssetParams = Context.GetAssetParam<UPBRAssetParams>();
+		Hash = HashCombine(Hash, GetTypeHash(FlipbookAssetParams->bFlipNormalGreen));
+
+		return Hash;
+	}
+
+	void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override
+	{
+		SourceImage->ComputeChunk(Chunk, TextureData);
+
+		if (Chunk.Channel == 1 && bFlipGreen)
+		{
+			for (int DataIndex = Chunk.DataStart; DataIndex <= Chunk.DataEnd; DataIndex += Chunk.DataPixelStride)
+			{
+				TextureData[DataIndex] = 1.0f - TextureData[DataIndex];
+			}
+		}
+	}
+
+private:
+	bool bFlipGreen;
+};
+
 void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	if (Paramaterization == EPBRParamaterization::Basecolor_Metal || Paramaterization == EPBRParamaterization::Dielectric)
@@ -70,16 +110,21 @@ void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Gra
 	if (Normal == EPBRNormal::Tangent)
 	{
 		static const FTextureSetSourceTextureDef TangentNormalDef (2, ETextureSetChannelEncoding::RangeCompression, FVector4(0.5, 0.5, 1, 0));
-		Graph.AddOutputTexture(TangentNormalName, Graph.AddInputTexture(TangentNormalName, TangentNormalDef));
+		TSharedRef<FTextureInput> NormalInput = Graph.AddInputTexture(TangentNormalName, TangentNormalDef);
+		
+		NormalInput->AddOperator([](TSharedRef<ITextureProcessingNode> Node)
+		{
+			return TSharedRef<ITextureProcessingNode>(new FTextureOperatorFlipNormalGreen(Node));
+		});
+
+		Graph.AddOutputTexture(TangentNormalName,NormalInput);
 	}
 	else if (Normal != EPBRNormal::None)
 	{
 		unimplemented();
 	}
 }
-#endif
 
-#if WITH_EDITOR
 int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
 {
 	const UPBRSampleParams* SampleParams = SampleExpression->SampleParams.Get<UPBRSampleParams>();
@@ -94,9 +139,7 @@ int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSet
 
 	return Hash;
 }
-#endif
 
-#if WITH_EDITOR
 void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {
@@ -206,4 +249,3 @@ void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionT
 		}
 	}));
 }
-#endif

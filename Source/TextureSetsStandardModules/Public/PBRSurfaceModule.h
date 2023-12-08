@@ -50,6 +50,15 @@ public:
 };
 
 UCLASS()
+class UPBRAssetParams : public UTextureSetAssetParams
+{
+	GENERATED_BODY()
+public:
+	UPROPERTY(EditAnywhere);
+	bool bFlipNormalGreen;
+};
+
+UCLASS()
 class UPBRSurfaceModule : public UTextureSetModule
 {
 	GENERATED_BODY()
@@ -66,6 +75,7 @@ public:
 	const FName SurfaceGradientName = "SurfaceGradient";
 
 	virtual bool AllowMultiple() const override { return false; }
+	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const override { return UPBRAssetParams::StaticClass(); }
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UPBRSampleParams::StaticClass(); }
 
 	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
