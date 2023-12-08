@@ -113,14 +113,14 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::CreateFunctionCall(FSoftOb
 
 	if (!FunctionObject)
 		FunctionObject = Cast<UMaterialFunction>(FunctionPath.TryLoad());
-	
+
 	if (IsValid(FunctionObject))
 	{
 		UMaterialExpressionMaterialFunctionCall* FunctionCall = CreateExpression<UMaterialExpressionMaterialFunctionCall>();
 		FunctionCall->SetMaterialFunction(FunctionObject);
 		return FunctionCall;
 	}
-	
+
 	return nullptr;
 }
 
@@ -315,12 +315,12 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeConstantParameter(FNam
 	NewParam->ParameterName = ParameterName;
 	NewParam->DefaultValue = FLinearColor(Default);
 	NewParam->Group = Node->Group;
-	
+
 	// Main pin on the parameter is actually a float3, need to append the alpha to make it a float4.
 	UMaterialExpression* AppendNode = CreateExpression<UMaterialExpressionAppendVector>();
 	NewParam->ConnectExpression(AppendNode->GetInput(0), 0);
 	NewParam->ConnectExpression(AppendNode->GetInput(1), 4);
-	
+
 	ConstantParameters.Add(Name, AppendNode);
 	return AppendNode;
 }
@@ -525,7 +525,7 @@ void FTextureSetMaterialGraphBuilder::SetupFallbackValues()
 
 		SetFallbackValue(PositionSource, EGraphBuilderSharedValueType::Position);
 	}
-	
+
 	if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_Streaming))
 	{
 		SetFallbackValue(GetFallbackValue(EGraphBuilderSharedValueType::Texcoord_Sampling), EGraphBuilderSharedValueType::Texcoord_Streaming);
@@ -569,7 +569,7 @@ void FTextureSetMaterialGraphBuilder::SetupFallbackValues()
 
 	// Link all shared value sources to the reroute nodes
 	for (auto& [Type, Value] : FallbackValues)
-	{			
+	{
 		check(Value.Source.IsValid());
 		check(Value.Reroute.IsValid());
 		Connect(Value.Source, Value.Reroute.GetExpression(), 0);
@@ -629,7 +629,7 @@ void FTextureSetMaterialGraphBuilder::SetupTextureValues(FTextureSetSubsampleCon
 
 	// Link all shared value sources to the reroute nodes
 	for (auto& [Type, Value] : TextureValues)
-	{			
+	{
 		check(Value.Source.IsValid());
 		if (Value.Reroute.IsValid())
 			Connect(Value.Source, Value.Reroute.GetExpression(), 0);
@@ -642,7 +642,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 	const FTextureSetPackedTextureInfo& TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
 
 	FGraphBuilderOutputAddress TextureObject = GetPackedTextureObject(
-		Index, 
+		Index,
 		Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming));
 
 	FGraphBuilderOutputAddress SampleCoord = Context.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Sampling);
@@ -669,7 +669,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 	CustomExp->Code = "";
 
 	FString SampleType = FString::Format(TEXT("MaterialFloat{0} Sample = "), {(TextureInfo.ChannelCount > 1) ? FString::FromInt(TextureInfo.ChannelCount) : ""});
-	
+
 	if (bVirtualTextureStreaming)
 	{
 		TObjectPtr<UMaterialExpressionTextureSample> SampleExpression = CreateExpression<UMaterialExpressionTextureSample>();
@@ -713,7 +713,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 			CustomExp->Code += TEXT("Texture2DSample(Tex, TexSampler, UV).");
 		}
 	}
-	
+
 	for (int c = 0; c < TextureInfo.ChannelCount; c++)
 		CustomExp->Code += ChannelSuffixLower[c];
 
@@ -806,14 +806,14 @@ int32 FTextureSetMaterialGraphBuilder::FindInputIndexChecked(UMaterialExpression
 			break;
 		}
 	}
-	checkf(InputIndex >= 0, TEXT("Could not find input with name {0}"), InputName);
+	checkf(InputIndex >= 0, TEXT("Could not find input with name %s"), *InputName.ToString());
 	return InputIndex;
 }
 
 int32 FTextureSetMaterialGraphBuilder::FindOutputIndexChecked(UMaterialExpression* OutputNode, FName OutputName)
 {
 	const TArray<FExpressionOutput>& Outputs = OutputNode->GetOutputs();
-	
+
 	int32 OutputIndex = -1;
 	for (int i = 0; i < Outputs.Num(); i++)
 	{
@@ -823,7 +823,7 @@ int32 FTextureSetMaterialGraphBuilder::FindOutputIndexChecked(UMaterialExpressio
 			break;
 		}
 	}
-	checkf(OutputIndex >= 0, TEXT("Could not find output with name {0}"), OutputName);
+	checkf(OutputIndex >= 0, TEXT("Could not find output with name %s"), *OutputName.ToString());
 	return OutputIndex;
 }
 
