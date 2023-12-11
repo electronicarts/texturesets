@@ -243,9 +243,9 @@ void UMaterialExpressionTextureSetSampleParameter::OnDefinitionChanged(UTextureS
 	// Only update if this is our definition, or if we're not going to call post-load later (that will update everything anyway).
 	if (ChangedDefinition == Definition && !HasAnyFlags(RF_NeedPostLoad))
 	{
-		if (UpdateMaterialFunction() && IsValid(Material))
+		if (UpdateMaterialFunction())
 		{
-			UMaterialEditingLibrary::RecompileMaterial(Material);
+			UMaterialEditingLibrary::UpdateMaterialFunction(MaterialFunction);
 		}
 	}
 }
