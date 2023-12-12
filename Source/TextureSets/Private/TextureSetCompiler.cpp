@@ -191,7 +191,7 @@ FGuid FTextureSetCompiler::ComputeTextureDataId(int PackedTextureIndex, const TM
 
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
 
-	IdBuilder << FString("TextureSetDerivedTexture_V0.3"); // Version string, bump this to invalidate everything
+	IdBuilder << FString("TextureSetDerivedTexture_V0.4"); // Version string, bump this to invalidate everything
 	IdBuilder << UserKey; // Key for debugging, easily force rebuild
 	IdBuilder << GetTypeHash(PackingInfo.GetPackedTextureDef(PackedTextureIndex));
 
@@ -586,7 +586,7 @@ void FTextureSetCompiler::BuildTextureData(int Index) const
 				else
 				{
 					// Adjust the texture and set the constant values for decompression
-					float CompressMul = Max - Min;
+					float CompressMul = 1.0f / (Max - Min);
 					float CompressAdd = -Min * CompressMul;
 
 					for (int i = c; i < NumPixelValues; i += PixelValueStride)
@@ -594,7 +594,7 @@ void FTextureSetCompiler::BuildTextureData(int Index) const
 						PixelValues[i] = PixelValues[i] * CompressMul + CompressAdd;
 					}
 
-					RestoreMul[c] = 1.0f / (Max - Min);
+					RestoreMul[c] = Max - Min;
 					RestoreAdd[c] = Min;
 				}
 			}
