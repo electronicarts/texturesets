@@ -798,15 +798,21 @@ int32 FTextureSetMaterialGraphBuilder::FindInputIndexChecked(UMaterialExpression
 	const int32 NumInputs = InputNode->GetInputs().Num();
 
 	int32 InputIndex = -1;
+	FString FoundNodes;
 	for (int32 Idx = 0; Idx < NumInputs; Idx++)
 	{
-		if (InputNode->GetInputName(Idx).Compare(InputName) == 0)
+		FName InputNodeName = InputNode->GetInputName(Idx);		
+		if (InputNodeName.Compare(InputName) == 0)
 		{
 			InputIndex = Idx;
 			break;
 		}
+		else
+		{
+			FoundNodes.Append(InputNodeName.ToString() + ", ");
+		}
 	}
-	checkf(InputIndex >= 0, TEXT("Could not find input with name %s"), *InputName.ToString());
+	checkf(InputIndex >= 0, TEXT("Could not find input with name %s\r\nFound nodes: %s"), *InputName.ToString(), *FoundNodes);
 	return InputIndex;
 }
 

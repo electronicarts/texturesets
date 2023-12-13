@@ -222,10 +222,10 @@ void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionT
 			else
 			{
 				UMaterialExpression* Transform3x3 = Builder->CreateFunctionCall(FSoftObjectPath(TEXT("/Engine/Functions/Engine_MaterialFunctions02/Math/Transform3x3Matrix.Transform3x3Matrix")));
-				Builder->Connect(DeriveZ, 0, Transform3x3, "VectorToTransform");
-				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Tangent), Transform3x3, "BasisX");
-				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Bitangent), Transform3x3, "BasisY");
-				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::BaseNormal), Transform3x3, "BasisZ");
+				Builder->Connect(DeriveZ, 0, Transform3x3, "VectorToTransform (V3)");
+				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Tangent), Transform3x3, "BasisX (V3)");
+				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Bitangent), Transform3x3, "BasisY (V3)");
+				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::BaseNormal), Transform3x3, "BasisZ (V3)");
 
 				if (PBRSampleParams->NormalOutput == EPBRNormalSpace::World)
 				{
