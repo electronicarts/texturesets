@@ -72,8 +72,10 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(UMaterialFuncti
 	// Call out to modules to do the work of connecting processed texture samples to outputs
 	for (const UTextureSetModule* Module : Definition->GetModuleInfo().GetModules())
 	{
+		WorkingModule = Module;
 		Module->ConfigureSamplingGraphBuilder(Node, this);
 	}
+	WorkingModule = nullptr;
 
 	// Build all the sub-samples
 	TMap<FName, FGraphBuilderOutputAddress> SampleResults = BuildSubsamplesRecursive(FSubSampleAddress::Root());
@@ -153,8 +155,26 @@ const void FTextureSetMaterialGraphBuilder::SetFallbackValue(FGraphBuilderOutput
 {
 	FGraphBuilderValue& Value = FallbackValues.FindOrAdd(ValueType);
 
-	if (ensureMsgf(!Value.Source.IsValid(), TEXT("Shared value has already been set. Multiple overrides are not currently supported")))
+	if (!Value.Source.IsValid())
+	{
 		Value.Source = Address;
+		Value.Owner = WorkingModule;
+	}
+	else // Error logging
+	{
+		if (IsValid(Value.Owner))
+		{
+			LogError(FText::Format(INVTEXT("Shared value {0} has already been set by {1}. Multiple overrides are not currently supported"),
+				UEnum::GetDisplayValueAsText(ValueType),
+				FText::FromString(Value.Owner->GetInstanceName())));
+		}
+		else
+		{
+			LogError(FText::Format(INVTEXT("Shared value {0} has already been set. Multiple overrides are not currently supported"),
+				UEnum::GetDisplayValueAsText(ValueType)));
+		}
+		
+	}
 }
 
 void FTextureSetMaterialGraphBuilder::Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, UMaterialExpression* InputNode, uint32 InputIndex)
@@ -278,9 +298,14 @@ const TTuple<FGraphBuilderOutputAddress, FGraphBuilderOutputAddress> FTextureSet
 	}
 }
 
+void FTextureSetMaterialGraphBuilder::LogError(FText ErrorText)
+{
+	Errors.Add(WorkingModule ? FText::Format(INVTEXT("{0}: {1}"), FText::FromString(WorkingModule->GetInstanceName()), ErrorText) : ErrorText);
+}
+
 void FTextureSetMaterialGraphBuilder::AddSampleBuilder(SampleBuilderFunction SampleBuilder)
 {
-	SampleBuilders.Add(SampleBuilder);
+	SampleBuilders.Add({SampleBuilder, WorkingModule});
 }
 
 UMaterialExpressionFunctionInput* FTextureSetMaterialGraphBuilder::CreateInput(FName Name, EFunctionInputType Type, EInputSort Sort)
@@ -335,10 +360,12 @@ TMap<FName, FGraphBuilderOutputAddress> FTextureSetMaterialGraphBuilder::BuildSu
 	{
 		FTextureSetSubsampleContext Context(this, Address);
 
-		for (SampleBuilderFunction SampleBuilder : SampleBuilders)
+		for (auto& [SampleBuilder, Module] : SampleBuilders)
 		{
+			WorkingModule = Module;
 			SampleBuilder(Context);
 		}
+		WorkingModule = nullptr;
 
 		SetupTextureValues(Context);
 		SetupSharedValues(Context);

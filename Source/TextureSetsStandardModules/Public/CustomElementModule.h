@@ -12,7 +12,6 @@ class UCustomElementModule : public UTextureSetModule
 	GENERATED_BODY()
 public:
 
-	virtual bool AllowMultiple() const override { return true; }
 	virtual FString GetInstanceName() const override { return ElementName.ToString(); }
 
 	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;

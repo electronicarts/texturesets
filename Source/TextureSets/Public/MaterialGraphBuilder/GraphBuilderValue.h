@@ -37,6 +37,9 @@ struct FGraphBuilderValue
 public:
 	FGraphBuilderOutputAddress Source;
 	FGraphBuilderOutputAddress Reroute;
+
+	// The module that set the value. Can be null, and is used for debugging.
+	const class UTextureSetModule* Owner;
 };
 
 #endif // WITH_EDITOR

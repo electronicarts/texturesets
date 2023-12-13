@@ -74,7 +74,6 @@ public:
 	const FName WorldNormalName = "WorldNormal";
 	const FName SurfaceGradientName = "SurfaceGradient";
 
-	virtual bool AllowMultiple() const override { return false; }
 	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const override { return UPBRAssetParams::StaticClass(); }
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UPBRSampleParams::StaticClass(); }
 

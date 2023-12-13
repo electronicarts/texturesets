@@ -101,8 +101,6 @@ private:
 #if WITH_EDITOR
 	void ApplyEdits();
 	void ResetEdits();
-
-	FTextureSetPackingInfo CreatePackingInfo(const TArray<FTextureSetPackedTextureDef>& PackedTextures, const FTextureSetProcessingGraph& ProcessingGraph);
 #endif
 
 };

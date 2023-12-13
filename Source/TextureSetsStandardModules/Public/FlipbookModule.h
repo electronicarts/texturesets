@@ -67,7 +67,6 @@ public:
 	UPROPERTY(EditAnywhere);
 	bool bUseMotionVectors = false;
 
-	virtual bool AllowMultiple() const override { return false; }
 	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const { return UFlipbookAssetParams::StaticClass(); }
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UFlipbookSampleParams::StaticClass(); }
 	

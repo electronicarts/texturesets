@@ -93,7 +93,7 @@ public:
 	// UProceduralMaterialFunction Interface
 #if WITH_EDITOR
 	virtual uint32 ComputeMaterialFunctionHash() override;
-	virtual void ConfigureMaterialFunction(class UMaterialFunction* NewMaterialFunction) override;
+	virtual bool ConfigureMaterialFunction(class UMaterialFunction* NewMaterialFunction) override;
 #endif
 
 	// UMaterialExpression Interface
@@ -121,4 +121,7 @@ private:
 
 	void OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition);
 #endif
+
+	UPROPERTY(VisibleAnywhere)
+	TArray<FText> BuilderErrors;
 };

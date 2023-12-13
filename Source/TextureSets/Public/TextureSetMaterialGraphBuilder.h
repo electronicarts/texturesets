@@ -74,13 +74,15 @@ public:
 	// Gets the addresses of the range compress multiply and add parameters for a specific packed texture.
 	const TTuple<FGraphBuilderOutputAddress, FGraphBuilderOutputAddress> GetRangeCompressParams(int Index);
 
-	void LogError(FText ErrorText) { Errors.Add(ErrorText); }
-	const TArray<FText>& GetErrors() { return Errors; }
+	void LogError(FText ErrorText);
+	const TArray<FText>& GetErrors() const { return Errors; }
 
 	FString SubsampleAddressToString(const FSubSampleAddress& Address);
 
 	const FGraphBuilderOutputAddress& GetFallbackValue(EGraphBuilderSharedValueType Value);
 	const void SetFallbackValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType Value);
+
+	const UTextureSetModule* GetWorkingModule() { return WorkingModule; }
 private:
 
 	TArray<TArray<SubSampleHandle>> SampleGroups;
@@ -105,9 +107,13 @@ private:
 
 	TMap<FGraphBuilderInputAddress, FGraphBuilderOutputAddress> DeferredConnections;
 
-	TArray<SampleBuilderFunction> SampleBuilders;
+	TArray<TTuple<SampleBuilderFunction, const class UTextureSetModule*>> SampleBuilders;
 
 	TArray<FText> Errors;
+
+	// The module that is currently executing some code (if any)
+	// Should mainly be used for error reporting and validation
+	const UTextureSetModule* WorkingModule;
 
 	TMap<FName, FGraphBuilderOutputAddress> BuildSubsamplesRecursive(const FSubSampleAddress& Address);
 	TMap<FName, FGraphBuilderOutputAddress> BlendSubsampleResults(const FSubSampleAddress& Address, TArray<TMap<FName, FGraphBuilderOutputAddress>>);

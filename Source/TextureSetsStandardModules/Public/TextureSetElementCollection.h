@@ -32,7 +32,6 @@ class UTextureSetElementCollection : public UTextureSetModule
 {
 	GENERATED_BODY()
 public:
-	virtual bool AllowMultiple() const override { return bAllowMultiple; }
 
 	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 

@@ -103,7 +103,7 @@ FTextureSetPackingInfo::FTextureSetPackingInfo(const TArray<FTextureSetPackedTex
 			if (SourceChannel >= Processed.ChannelCount)
 			{
 				// Trying to pack a channel that doesn't exist in the processed texture output
-				Warnings.Add(FText::Format(LOCTEXT("NonExistingSourceChannel", "Processed texture '{0}' only has {1} channels, but '{2}' exists in packed texture {3}."), 
+				Errors.Add(FText::Format(LOCTEXT("NonExistingSourceChannel", "Processed texture '{0}' only has {1} channels, but '{2}' exists in packed texture {3}."), 
 					{FText::FromName(SourceTexName), Processed.ChannelCount, FText::FromName(Source), i}));
 				continue;
 			}

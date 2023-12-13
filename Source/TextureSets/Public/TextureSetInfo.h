@@ -224,8 +224,5 @@ private:
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(VisibleAnywhere)
 	TArray<FText> Errors;
-
-	UPROPERTY(VisibleAnywhere)
-	TArray<FText> Warnings;
 #endif
 };

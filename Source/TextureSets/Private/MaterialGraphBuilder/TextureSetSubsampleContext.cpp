@@ -3,6 +3,8 @@
 #include "MaterialGraphBuilder/TextureSetSubsampleContext.h"
 #include "Materials/MaterialExpressionNamedReroute.h"
 #include "TextureSetMaterialGraphBuilder.h"
+#include "TextureSetModule.h"
+
 
 #if WITH_EDITOR
 
@@ -40,6 +42,21 @@ void FSubSampleAddress::UpdateHash()
 	}
 }
 
+void FTextureSetSubsampleContext::AddResult(FName Name, FGraphBuilderOutputAddress Output)
+{
+	if (!ResultOwners.Contains(Name))
+	{
+		Results.Add(Name, Output);
+		ResultOwners.Add(Name, Builder->GetWorkingModule());
+	}
+	else
+	{
+		Builder->LogError(FText::Format(INVTEXT("Sample result {0} has already been declared by {1}. Multiple results with the same name are not supported."),
+			FText::FromName(Name),
+			FText::FromString(ResultOwners.FindChecked(Name)->GetInstanceName())));
+	}
+}
+
 const FGraphBuilderOutputAddress& FTextureSetSubsampleContext::GetSharedValue(EGraphBuilderSharedValueType ValueType)
 {
 
@@ -59,8 +76,25 @@ const void FTextureSetSubsampleContext::SetSharedValue(FGraphBuilderOutputAddres
 {
 	FGraphBuilderValue& Value = SubsampleValues.FindOrAdd(ValueType);
 
-	if (ensureMsgf(!Value.Source.IsValid(), TEXT("Shared value has already been set. Multiple overrides are not currently supported")))
+	if (!Value.Source.IsValid())
+	{
 		Value.Source = OutputAddress;
+		Value.Owner = Builder->GetWorkingModule();
+	}
+	else // Error logging
+	{
+		if (IsValid(Value.Owner))
+		{
+			Builder->LogError(FText::Format(INVTEXT("Shared value {0} has already been set by {1}. Multiple overrides are not currently supported"),
+				UEnum::GetDisplayValueAsText(ValueType),
+				FText::FromString(Value.Owner->GetInstanceName())));
+		}
+		else
+		{
+			Builder->LogError(FText::Format(INVTEXT("Shared value {0} has already been set. Multiple overrides are not currently supported"),
+				UEnum::GetDisplayValueAsText(ValueType)));
+		}
+	}
 }
 
 const FGraphBuilderOutputAddress FTextureSetSubsampleContext::GetProcessedTextureSample(FName Name)

@@ -32,14 +32,9 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 	EDataValidationResult Result = EDataValidationResult::Valid;
 
 	// Packing validation
-	for (int i = 0; i < PackingInfo.Warnings.Num(); i++)
+	for (const FText& Error : PackingInfo.Errors)
 	{
-		Context.AddWarning(PackingInfo.Warnings[i]);
-	}
-
-	for (int i = 0; i < PackingInfo.Errors.Num(); i++)
-	{
-		Context.AddError(PackingInfo.Errors[i]);
+		Context.AddError(Error);
 		Result = EDataValidationResult::Invalid;
 	}
 
@@ -56,25 +51,36 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 		}
 		else
 		{
-			// Allow module to run its own checks
-			Result = CombineDataValidationResults(Result, Module->IsDefinitionValid(this, Context));
-
-			// Validate AllowMultiple
-			if (!Module->AllowMultiple())
+			// Check for multiple modules with the same instance name
+			for (int j = i + 1; j < Modules.Num(); j++)
 			{
-				for (const UTextureSetModule* OtherModule : GetModuleInfo().GetModules())
+				const UTextureSetModule* OtherModule = Modules[j];
+
+				if (Module->GetInstanceName() == OtherModule->GetInstanceName())
 				{
-					if (OtherModule != Module && OtherModule->IsA(Module->GetClass()))
-					{
-						Context.AddError(FText::Format(LOCTEXT("MultipleModules","Module {0} at index {1} does not permit multiple modules of type {2} on a definition."),
-							FText::FromString(Module->GetInstanceName()),
-							i,
-							FText::FromName(Module->GetClass()->GetFName())));
-						Result = EDataValidationResult::Invalid;
-					}
+					Context.AddError(FText::Format(LOCTEXT("MultipleModules","Module {0} at index {1} has the same instance name as module at index {2}."),
+						FText::FromString(Module->GetInstanceName()),
+						i,
+						j));
+					Result = EDataValidationResult::Invalid;
+
+					break;
 				}
 			}
+
+			if (Result != EDataValidationResult::Invalid)
+			{
+				// Allow module to run its own checks
+				Result = CombineDataValidationResults(Result, Module->IsDefinitionValid(this, Context));
+			}
 		}
+	}
+
+	// Check processing graph for errors
+	for (const FText& Error : GetModuleInfo().GetProcessingGraph()->GetErrors())
+	{
+		Context.AddError(Error);
+		Result = EDataValidationResult::Invalid;
 	}
 
 	return CombineDataValidationResults(Result, Super::IsDataValid(Context));

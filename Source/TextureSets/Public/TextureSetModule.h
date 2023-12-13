@@ -17,9 +17,6 @@ class TEXTURESETS_API UTextureSetModule : public UObject
 	GENERATED_BODY()
 public:
 #if WITH_EDITOR
-	// Can there be more than one of these modules on a definition?
-	virtual bool AllowMultiple() const { return false; }
-
 	// Allow children to override name of an instance of this module.
 	// Useful for modules which allow multiple instances on the same definition.
 	virtual FString GetInstanceName() const { return this->GetClass()->GetName(); }

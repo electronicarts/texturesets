@@ -96,17 +96,23 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 #endif
 
 #if WITH_EDITOR
-void UMaterialExpressionTextureSetSampleParameter::ConfigureMaterialFunction(class UMaterialFunction* NewMaterialFunction)
+bool UMaterialExpressionTextureSetSampleParameter::ConfigureMaterialFunction(class UMaterialFunction* NewMaterialFunction)
 {
+	// Clear builder errors, because we don't want previous build errors preventing us from rebuilding
+	BuilderErrors.Empty();
+
 	FDataValidationContext ValidationContext;
-	if (!IsValid(Definition) || Definition->IsDataValid(ValidationContext) == EDataValidationResult::Invalid)
-	{
-		return;
-	}
+	if (IsDataValid(ValidationContext) == EDataValidationResult::Invalid)
+		return false;
+
 	// Make sure our samping parameters are up to date before generating the sampling graph
 	UpdateSampleParamArray();
 
-	FTextureSetMaterialGraphBuilder(NewMaterialFunction, this);
+	const FTextureSetMaterialGraphBuilder Builder(NewMaterialFunction, this);
+
+	BuilderErrors = Builder.GetErrors();
+
+	return BuilderErrors.IsEmpty();
 }
 #endif
 
@@ -199,12 +205,14 @@ EDataValidationResult UMaterialExpressionTextureSetSampleParameter::IsDataValid(
 {
 	EDataValidationResult Result = EDataValidationResult::Valid;
 
+	// Validate parameter name
 	if (ParameterName.IsNone())
 	{
 		Context.AddError(LOCTEXT("BadParamName","Texture Set Parameter name cannot be 'None', please specify a valid name."));
 		Result = EDataValidationResult::Invalid;
 	}
 
+	// Validate definition
 	if (!IsValid(Definition))
 	{
 		Context.AddError(LOCTEXT("MissingDefinition","A texture set sample must reference a valid definition."));
@@ -215,9 +223,19 @@ EDataValidationResult UMaterialExpressionTextureSetSampleParameter::IsDataValid(
 		Result = EDataValidationResult::Invalid;
 	}
 
+	// Validate default texture set
 	if (DefaultTextureSet.IsValid() && DefaultTextureSet->Definition != Definition)
 	{
 		Context.AddError(LOCTEXT("MismatchedDefinition","The Default texture set does not use the same definition as specified in the material expression parameter."));
+		Result = EDataValidationResult::Invalid;
+	}
+
+	// Validate builder errors
+	if (!BuilderErrors.IsEmpty())
+	{
+		for (FText Error : BuilderErrors)
+			Context.AddError(Error);
+
 		Result = EDataValidationResult::Invalid;
 	}
 
@@ -243,10 +261,10 @@ void UMaterialExpressionTextureSetSampleParameter::OnDefinitionChanged(UTextureS
 	// Only update if this is our definition, or if we're not going to call post-load later (that will update everything anyway).
 	if (ChangedDefinition == Definition && !HasAnyFlags(RF_NeedPostLoad))
 	{
-		if (UpdateMaterialFunction())
-		{
-			UMaterialEditingLibrary::UpdateMaterialFunction(MaterialFunction);
-		}
+		// Regenerates the material function
+		UpdateMaterialFunction();
+		// Notifies the editor the function has changed and things need to be recompiled/redrawn
+		UMaterialEditingLibrary::UpdateMaterialFunction(MaterialFunction);
 	}
 }
 #endif

@@ -34,7 +34,6 @@ class UHeightModule : public UTextureSetModule
 {
 	GENERATED_BODY()
 public:
-	virtual bool AllowMultiple() const override { return false; }
 	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const override { return UHeightAssetParams::StaticClass(); }
 	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UHeightSampleParams::StaticClass(); }
 	

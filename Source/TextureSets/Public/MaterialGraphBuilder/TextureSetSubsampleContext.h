@@ -85,7 +85,7 @@ public:
 
 	bool IsRelevant(const SubSampleHandle& SubSample) { return Address.GetHandleChain().Contains(SubSample); }
 
-	void AddResult(FName Name, FGraphBuilderOutputAddress Output) { Results.Add(Name, Output); }
+	void AddResult(FName Name, FGraphBuilderOutputAddress Output);
 
 	const FGraphBuilderOutputAddress& GetSharedValue(EGraphBuilderSharedValueType Value);
 	const void SetSharedValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType Value);
@@ -101,6 +101,7 @@ private:
 	TMap<EGraphBuilderSharedValueType, FGraphBuilderValue> SubsampleValues;
 
 	TMap<FName, FGraphBuilderOutputAddress> Results;
+	TMap<FName, const class UTextureSetModule*> ResultOwners;
 };
 
 #endif // WITH_EDITOR
