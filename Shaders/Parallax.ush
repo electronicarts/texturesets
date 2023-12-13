@@ -14,6 +14,8 @@ float2 ParallaxOcclusionMapping(
 	float2 heightmapSize,
 	float3 tangent,
 	float3 bitangent,
+	float4 rangeCompressMul,
+	float4 rangeCompressAdd,
 	out float2 texcoordOffset,
 	out float depthOffset,
 	out float heightOut)
@@ -27,7 +29,14 @@ float2 ParallaxOcclusionMapping(
 
 	// Multiply backwards for a world to tangent hack
 	float3 viewTangentSpace = mul(tangentToWorld, worldSpaceViewDirection);
-
+	
+	// Modify reference plane so it's relative to the pre range compressed texture
+	referencePlane = (referencePlane - rangeCompressAdd[heightmapChannel]) / rangeCompressMul[heightmapChannel];
+	// Modify heightscale to account for range compression
+	heightScale *= rangeCompressMul[heightmapChannel];
+	
+	float heightOffset = 1.0f - referencePlane;
+	
 	texcoordOffset = 0;
 	depthOffset = 0;
 	
@@ -79,8 +88,8 @@ float2 ParallaxOcclusionMapping(
 		parallax_offset_in_tangent_space *= heightScale;
 
 		float2 texcoord_offset_per_step = step_size * parallax_offset_in_tangent_space;
-
-		float2 current_texcoord_offset = texcoord + referencePlane * parallax_offset_in_tangent_space;
+		
+		float2 current_texcoord_offset = texcoord + heightOffset * parallax_offset_in_tangent_space;
 		float current_bound = 1.0;
 
 		float current_parallax_amount = 0.0;
@@ -107,8 +116,8 @@ float2 ParallaxOcclusionMapping(
 			}
 		}
 
-		pt1 = float2(current_bound, current_height) + referencePlane.xx;
-		pt2 = float2(current_bound + step_size, previous_height) + referencePlane.xx;
+		pt1 = float2(current_bound, current_height) + heightOffset.xx;
+		pt2 = float2(current_bound + step_size, previous_height) + heightOffset.xx;
 		
 		float delta2 = pt2.x - pt2.y;
 		float delta1 = pt1.x - pt1.y;
@@ -127,7 +136,7 @@ float2 ParallaxOcclusionMapping(
 		
 		// START Depth Offset
 		float maxHeight = heightScale; // ?
-		float height = current_height + referencePlane; // ?
+		float height = current_height + heightOffset; // ?
 		
 		// Since POM "pushes" geometry inwards (rather than extrude it), { height = height - 1 }.
 		// Since the result is used as a 'depthOffsetVS', it needs to be positive, so we flip the sign.

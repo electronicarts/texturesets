@@ -22,8 +22,7 @@
 #if WITH_EDITOR
 void UHeightModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
-	// TODO: Use range compression on the heightmap
-	const FTextureSetSourceTextureDef HeightDef(1, ETextureSetChannelEncoding::Default, FVector4(1, 0, 0, 0));
+	const FTextureSetSourceTextureDef HeightDef(1, ETextureSetChannelEncoding::RangeCompression, FVector4(1, 0, 0, 0));
 
 	Graph.AddOutputParameter("HeightParams", TSharedRef<IParameterProcessingNode>(new ParameterPassThrough<UHeightAssetParams>(
 		"HeightParams", 
@@ -48,7 +47,7 @@ int32 UHeightModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSamp
 
 	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
 
-	Hash = HashCombine(Hash, GetTypeHash("HeightModuleV1"));
+	Hash = HashCombine(Hash, GetTypeHash("HeightModuleV2"));
 	Hash = HashCombine(Hash, GetTypeHash(HeightSampleParams->bEnableParallaxOcclusionMapping));
 
 	return Hash;
@@ -131,6 +130,8 @@ void UHeightModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextu
 			const uint32 PackedTextureIndex = POMSampleBuilderParams.HeightPackingSource.Key;
 			const uint32 PackedTextureChannel = POMSampleBuilderParams.HeightPackingSource.Value;
 
+			auto [RangeCompressMul, RangeCompressAdd] = Builder->GetRangeCompressParams(PackedTextureIndex);
+
 			HLSLFunctionCallNodeBuilder FunctionCall("ParallaxOcclusionMapping", "/Plugin/TextureSets/Parallax.ush");
 
 			FunctionCall.SetReturnType(ECustomMaterialOutputType::CMOT_Float2);
@@ -148,6 +149,8 @@ void UHeightModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextu
 			FunctionCall.InArgument("HeightmapSize", Builder->GetPackedTextureSize(PackedTextureIndex));
 			FunctionCall.InArgument("Tangent", SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Tangent));
 			FunctionCall.InArgument("Bitangent", SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Bitangent));
+			FunctionCall.InArgument("RangeCompressMul", RangeCompressMul);
+			FunctionCall.InArgument("RangeCompressAdd", RangeCompressAdd);
 
 			FunctionCall.OutArgument("TexcoordOffset", ECustomMaterialOutputType::CMOT_Float2);
 			FunctionCall.OutArgument("DepthOffset", ECustomMaterialOutputType::CMOT_Float1);
