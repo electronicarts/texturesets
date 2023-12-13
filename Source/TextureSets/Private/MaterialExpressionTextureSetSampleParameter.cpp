@@ -263,8 +263,12 @@ void UMaterialExpressionTextureSetSampleParameter::OnDefinitionChanged(UTextureS
 	{
 		// Regenerates the material function
 		UpdateMaterialFunction();
-		// Notifies the editor the function has changed and things need to be recompiled/redrawn
-		UMaterialEditingLibrary::UpdateMaterialFunction(MaterialFunction);
+
+		if (!IsLoading())
+		{
+			// Notifies the editor the function has changed and things need to be recompiled/redrawn
+			UMaterialEditingLibrary::UpdateMaterialFunction(MaterialFunction);
+		}
 	}
 }
 #endif
