@@ -23,6 +23,7 @@
 #include "TextureSetAssetParamsCollectionCustomization.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetSourceTextureReferenceCustomization.h"
+#include "TextureSetThumbnailRenderer.h"
 #include "TextureSetsHelpers.h"
 #include "UObject/Object.h"
 
@@ -157,6 +158,8 @@ void FTextureSetsEditorModule::StartupModule()
 			OnAssetPostImportDelegateHandle = GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.AddStatic(&FTextureSetsEditorModule::OnAssetPostImport);
 		}
 	});
+
+	UThumbnailManager::Get().RegisterCustomRenderer(UTextureSet::StaticClass(), UTextureSetThumbnailRenderer::StaticClass());
 }
 
 void FTextureSetsEditorModule::ShutdownModule()
@@ -175,6 +178,11 @@ void FTextureSetsEditorModule::ShutdownModule()
 	if (GEditor)
 	{
 		GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.Remove(OnAssetPostImportDelegateHandle);
+	}
+
+	if (UObjectInitialized())
+	{
+		UThumbnailManager::Get().UnregisterCustomRenderer(UTextureSet::StaticClass());
 	}
 }
 
