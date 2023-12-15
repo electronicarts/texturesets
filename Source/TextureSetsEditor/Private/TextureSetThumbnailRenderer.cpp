@@ -36,7 +36,7 @@ void UTextureSetThumbnailRenderer::GetThumbnailSize(UObject* Object, float Zoom,
 
 		for (auto& [Name, TextureRef] : TextureSet->SourceTextures)
 		{
-			if (!IsValid(LargestTexture) || (!TextureRef.Valid() && TextureRef.GetTexture()->GetSurfaceWidth() > LargestTexture->GetSurfaceWidth()))
+			if (!IsValid(LargestTexture) || (TextureRef.Valid() && TextureRef.GetTexture()->GetSurfaceWidth() > LargestTexture->GetSurfaceWidth()))
 			{
 				LargestTexture = TextureRef.GetTexture();
 			}
@@ -72,10 +72,8 @@ void UTextureSetThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint3
 		FVector2D Size(ItemWidth, Height);
 		FVector2D Position(X, Y);
 
-		for (int i = 0; i < PreviewTextures.Num(); i++)
+		for (int i = 0; i < PreviewTextures.Num(); i++, Position.X += ItemWidth)
 		{
-			Position.X += ItemWidth;
-		
 			UTexture* PreviewTexture = PreviewTextures[i];
 
 			// Use A canvas tile item to draw
