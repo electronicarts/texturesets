@@ -201,7 +201,7 @@ void UMaterialExpressionTextureSetSampleParameter::BeginDestroy()
 }
 
 #if WITH_EDITOR
-EDataValidationResult UMaterialExpressionTextureSetSampleParameter::IsDataValid(FDataValidationContext& Context)
+EDataValidationResult UMaterialExpressionTextureSetSampleParameter::IsDataValid(FDataValidationContext& Context) const
 {
 	EDataValidationResult Result = EDataValidationResult::Valid;
 

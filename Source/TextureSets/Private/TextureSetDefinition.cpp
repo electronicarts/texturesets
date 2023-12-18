@@ -27,7 +27,7 @@ UTextureSetDefinition::UTextureSetDefinition() : Super()
 }
 
 #if WITH_EDITOR
-EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext& Context)
+EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext& Context) const
 {
 	EDataValidationResult Result = EDataValidationResult::Valid;
 

@@ -822,7 +822,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeSynthesizeTangentCusto
 
 int32 FTextureSetMaterialGraphBuilder::FindInputIndexChecked(UMaterialExpression* InputNode, FName InputName)
 {
-	const int32 NumInputs = InputNode->GetInputs().Num();
+	const int32 NumInputs = InputNode->GetInputsView().Num();
 
 	int32 InputIndex = -1;
 	FString FoundNodes;

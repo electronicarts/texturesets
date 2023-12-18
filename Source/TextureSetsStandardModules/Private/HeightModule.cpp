@@ -47,7 +47,8 @@ int32 UHeightModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSamp
 
 	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
 
-	Hash = HashCombine(Hash, GetTypeHash("HeightModuleV2"));
+	static const char* name = "HeightModuleV2";
+	Hash = HashCombine(Hash, GetArrayHash(name, sizeof(name)));
 	Hash = HashCombine(Hash, GetTypeHash(HeightSampleParams->bEnableParallaxOcclusionMapping));
 
 	return Hash;

@@ -21,7 +21,9 @@ int32 UProceduralMappingModule::ComputeSamplingHash(const UMaterialExpressionTex
 	const UProceduralMappingSampleParams* SampleParams = SampleExpression->SampleParams.Get<UProceduralMappingSampleParams>();
 
 	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
-	Hash = HashCombine(Hash, GetTypeHash("ProceduralMappingModuleV1"));
+
+	static const char* name = "ProceduralMappingModuleV1";
+	Hash = HashCombine(Hash, GetArrayHash(name, sizeof(name)));
 	Hash = HashCombine(Hash, GetTypeHash(SampleParams->TriplanarMapping));
 
 	return Hash;

@@ -109,7 +109,7 @@ public:
 	// UObject Interface
 	virtual void BeginDestroy();
 #if WITH_EDITOR
-	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) override;
+	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) const override;
 #endif
 
 private:

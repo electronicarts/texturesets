@@ -13,7 +13,7 @@
 #include "Interfaces/IPluginManager.h"
 #include "MaterialEditor/DEditorParameterValue.h"
 #include "MaterialEditor/MaterialEditorInstanceConstant.h"
-#include "MaterialEditor/Public/MaterialEditorModule.h"
+#include "MaterialEditorModule.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "MaterialPropertyHelpers.h"
 #include "Materials/MaterialFunctionInterface.h"

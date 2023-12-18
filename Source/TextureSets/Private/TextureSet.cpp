@@ -106,15 +106,15 @@ void UTextureSet::AugmentMaterialVectorParameters(const FCustomParameterValue& C
 	if (!DerivedData.IsValid())
 	{
 		if (FApp::CanEverRender())
-		{
+	{
 			// If we are able to render, fall back to the default texture set if possible, to avoid 
-			if(IsValid(Definition->GetDefaultTextureSet()) && Definition->GetDefaultTextureSet() != this)
-			{
+		if (IsValid(Definition->GetDefaultTextureSet()) && Definition->GetDefaultTextureSet() != this)
+		{
 				// Fall back to default texture if possible
 				Definition->GetDefaultTextureSet()->AugmentMaterialVectorParameters(CustomParameter, VectorParameters);
-			}
-			return;
 		}
+		return;
+	}
 		else
 		{
 			// Likely we're in a commandlet and cooking, so wait until we have valid derived data
@@ -185,7 +185,7 @@ void UTextureSet::BeginDestroy()
 }
 
 #if WITH_EDITOR
-EDataValidationResult UTextureSet::IsDataValid(FDataValidationContext& Context)
+EDataValidationResult UTextureSet::IsDataValid(FDataValidationContext& Context) const
 {
 	EDataValidationResult Result = EDataValidationResult::Valid;
 
@@ -331,8 +331,8 @@ void UTextureSet::UpdateDerivedData(bool bAsync, bool bStartImmediately)
 
 	if (bAsync)
 	{
-		if (bStartImmediately)
-		{
+	if (bStartImmediately)
+	{
 			// Finish previous compilation
 			CompilingManager.FinishCompilation({this});
 

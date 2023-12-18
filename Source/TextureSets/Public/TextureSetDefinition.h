@@ -34,7 +34,7 @@ public:
 
 	// UObject Overrides
 #if WITH_EDITOR
-	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) override;
+	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) const override;
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PreSave(FObjectPreSaveContext ObjectSaveContext) override;
 #endif
