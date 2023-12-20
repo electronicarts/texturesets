@@ -70,6 +70,7 @@ private:
 	void ProcessAsyncTasks(bool bLimitExecutionTime = false) override;
 
 	void ProcessTextureSets(bool bLimitExecutionTime);
+	bool AllDependenciesLoaded(UMaterialInstance* MaterialInstance);
 	void UpdateCompilationNotification();
 
 	TSharedRef<FTextureSetCompiler> GetOrCreateCompiler(UTextureSet* TextureSet);

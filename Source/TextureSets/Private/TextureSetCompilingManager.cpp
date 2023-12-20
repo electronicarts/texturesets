@@ -519,7 +519,13 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 				if (IsValid(TextureSet) && MaterialInstancesToUpdate.Contains(TextureSet))
 				{
 					FPropertyChangedEvent Event(nullptr);
-					It->PostEditChangeProperty(Event);
+					if (AllDependenciesLoaded(*It))
+					{
+						// Todo: We cannot afford to keep this like this, it's just part one of a larger fix.
+						//       Step 2 would be to requeue the PostEditChangeProperty request, and process that queue in an Editor tick callback.
+						It->PostEditChangeProperty(Event);
+					}
+					
 					break; // Don't need to check other properties, since we've already refreshed this one
 				}
 			}
@@ -529,6 +535,22 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 		// Update all the viewports
 		FEditorSupportDelegates::RedrawAllViewports.Broadcast();
 	}
+}
+
+bool FTextureSetCompilingManager::AllDependenciesLoaded(UMaterialInstance* MaterialInstance)
+{
+	FMaterialLayersFunctions Functions;
+	MaterialInstance->GetMaterialLayers(Functions);
+	for(TObjectPtr<class UMaterialFunctionInterface> BlendFunction : Functions.Blends)
+	{
+		if (BlendFunction->HasAnyFlags(RF_NeedPostLoad))
+		{
+			UE_LOG(LogTemp, Log, TEXT("Skipping material update for '%s' because dependency '%s' was not loaded."), *MaterialInstance->GetName(), *BlendFunction->GetName());
+			return false;			
+		}
+	}
+
+	return true;	
 }
 
 int32 FTextureSetCompilingManager::GetNumRemainingAssets() const
