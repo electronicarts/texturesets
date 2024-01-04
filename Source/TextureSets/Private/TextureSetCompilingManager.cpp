@@ -543,7 +543,7 @@ bool FTextureSetCompilingManager::AllDependenciesLoaded(UMaterialInstance* Mater
 	MaterialInstance->GetMaterialLayers(Functions);
 	for(TObjectPtr<class UMaterialFunctionInterface> BlendFunction : Functions.Blends)
 	{
-		if (BlendFunction->HasAnyFlags(RF_NeedPostLoad))
+		if (BlendFunction && BlendFunction->HasAnyFlags(RF_NeedPostLoad))
 		{
 			UE_LOG(LogTemp, Log, TEXT("Skipping material update for '%s' because dependency '%s' was not loaded."), *MaterialInstance->GetName(), *BlendFunction->GetName());
 			return false;			
