@@ -545,8 +545,17 @@ bool FTextureSetCompilingManager::AllDependenciesLoaded(UMaterialInstance* Mater
 	{
 		if (BlendFunction && BlendFunction->HasAnyFlags(RF_NeedPostLoad))
 		{
-			UE_LOG(LogTemp, Log, TEXT("Skipping material update for '%s' because dependency '%s' was not loaded."), *MaterialInstance->GetName(), *BlendFunction->GetName());
+			UE_LOG(LogTextureSet, Log, TEXT("Skipping material update for '%s' because dependency '%s' was not loaded."), *MaterialInstance->GetName(), *BlendFunction->GetName());
 			return false;			
+		}
+	}
+
+	for (TObjectPtr<class UMaterialFunctionInterface> LayerFunction : Functions.Layers)
+	{
+		if (LayerFunction && LayerFunction->HasAnyFlags(RF_NeedPostLoad))
+		{
+			UE_LOG(LogTextureSet, Log, TEXT("Skipping material update for '%s' because dependency '%s' was not loaded."), *MaterialInstance->GetName(), *LayerFunction->GetName());
+			return false;
 		}
 	}
 
