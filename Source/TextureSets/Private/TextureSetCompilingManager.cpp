@@ -423,8 +423,16 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 
 	// Clean up any compilers that are no longer needed
 	TArray<UTextureSet*> CompilersToDelete;
+	TArray<TWeakObjectPtr<UTextureSet>> StaleCompilers;
 	for (auto& [TextureSet, Compiler] : Compilers)
 	{
+		if (!TextureSet.IsValid())
+		{
+			UE_LOG(LogTextureSet, Display, TEXT("Texture set %s in Compiler collection was GCed. Removing."), Compiler->GetTextureSetName());
+			StaleCompilers.Add(TextureSet);
+			continue;
+		}
+		
 		if (!CompilingTextureSets.Contains(TextureSet))
 		{
 			bool CanDelete = true;
@@ -451,12 +459,12 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 				}
 			}
 
-			if (LentCompilers.FindOrAdd(TextureSet) > 0)
+			if (LentCompilers.FindOrAdd(TextureSet.Get()) > 0)
 				CanDelete = false;
 
 			if (CanDelete)
 			{
-				CompilersToDelete.Add(TextureSet);
+				CompilersToDelete.Add(TextureSet.Get());
 			}
 		}
 	}
@@ -468,6 +476,11 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 	}
 
 	NotifyMaterialInstances({CompilersToDelete});
+
+	for (TWeakObjectPtr<UTextureSet> StalePointer : StaleCompilers)
+	{
+		Compilers.Remove(StalePointer);
+	}
 
 	const int32 MaxParallel = CVarMaxAsyncTextureSetParallelCompiles.GetValueOnGameThread();
 
