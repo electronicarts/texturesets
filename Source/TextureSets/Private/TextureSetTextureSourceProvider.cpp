@@ -41,6 +41,14 @@ void UTextureSetTextureSourceProvider::ConfigureTexture(UTexture* Texture) const
 
 		FTextureSetCompilingManager::Get().ReturnCompiler(TmpTextureSet);
 	}
+	else
+	{
+		// Can happen if a texture is orphaned but still resides in the TS package
+		// and is loaded. In this case, ensure the placeholder source is at least
+		// 4x4 to gracefully handle the case this texture was configured BC-compressed
+		ensure(!bIsPrepared);
+		UpdateSource(Texture->Source);
+	}
 }
 
 void UTextureSetTextureSourceProvider::Prepare(UTexture* Texture)
@@ -84,9 +92,10 @@ void UTextureSetTextureSourceProvider::UpdateSource(FTextureSource& Source) cons
 	else if (!Source.IsValid())
 	{
 		// Can happen when a texture is removed from a definition
-		// Just fill it with some valid data until it gets removed
-		float WhitePixel[1] = {1.0f};
-		Source.Init(1, 1, 1, 1, TSF_R32F, (uint8*)WhitePixel);
+		// Just fill it with valid data and dims matching that in
+		// FTextureSetCompiler::InitializeTextureData() until it gets removed
+		constexpr float BlackPixels[16] = { 0.0f };
+		Source.Init(4, 4, 1, 1, TSF_R32F, reinterpret_cast<const uint8*>(BlackPixels));
 	}
 }
 

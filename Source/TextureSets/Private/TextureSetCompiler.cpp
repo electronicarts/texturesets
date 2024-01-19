@@ -191,7 +191,7 @@ FGuid FTextureSetCompiler::ComputeTextureDataId(int PackedTextureIndex, const TM
 
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
 
-	IdBuilder << FString("TextureSetDerivedTexture_V0.4"); // Version string, bump this to invalidate everything
+	IdBuilder << FString("TextureSetDerivedTexture_V0.5"); // Version string, bump this to invalidate everything
 	IdBuilder << UserKey; // Key for debugging, easily force rebuild
 	IdBuilder << GetTypeHash(PackingInfo.GetPackedTextureDef(PackedTextureIndex));
 
