@@ -520,8 +520,12 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 			StartCompilation(TextureSet);
 		}
 	}
+}
 
+void FTextureSetCompilingManager::RefreshMaterialInstances()
+{
 	// Refresh all material instances that need to be, and invalidate the viewport
+	TSet<const UTextureSet*> PostPonedMaterialInstances;
 	if (!MaterialInstancesToUpdate.IsEmpty())
 	{
 		for (TObjectIterator<UMaterialInstance> It; It; ++It)
@@ -534,17 +538,20 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 					FPropertyChangedEvent Event(nullptr);
 					if (AllDependenciesLoaded(*It))
 					{
-						// Todo: We cannot afford to keep this like this, it's just part one of a larger fix.
-						//       Step 2 would be to requeue the PostEditChangeProperty request, and process that queue in an Editor tick callback.
 						It->PostEditChangeProperty(Event);
 					}
-					
+					else
+					{
+						PostPonedMaterialInstances.Add(TextureSet);
+					}
+
 					break; // Don't need to check other properties, since we've already refreshed this one
 				}
 			}
 		}
-		MaterialInstancesToUpdate.Empty();
 
+		MaterialInstancesToUpdate = MoveTemp(PostPonedMaterialInstances);
+		
 		// Update all the viewports
 		FEditorSupportDelegates::RedrawAllViewports.Broadcast();
 	}
@@ -586,6 +593,8 @@ void FTextureSetCompilingManager::ProcessAsyncTasks(bool bLimitExecutionTime)
 	FObjectCacheContextScope ObjectCacheScope;
 
 	ProcessTextureSets(bLimitExecutionTime);
+
+	RefreshMaterialInstances();
 
 	UpdateCompilationNotification();
 }

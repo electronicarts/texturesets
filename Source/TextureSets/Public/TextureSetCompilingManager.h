@@ -71,6 +71,7 @@ private:
 
 	void ProcessTextureSets(bool bLimitExecutionTime);
 	bool AllDependenciesLoaded(UMaterialInstance* MaterialInstance);
+	void RefreshMaterialInstances();
 	void UpdateCompilationNotification();
 
 	TSharedRef<FTextureSetCompiler> GetOrCreateCompiler(UTextureSet* TextureSet);
@@ -83,7 +84,7 @@ private:
 	TArray<UTextureSet*> CompilingTextureSets;
 	TMap<UTextureSet*, int> LentCompilers;
 	FAsyncCompilationNotification Notification;
-	TSet<const UTextureSet*> MaterialInstancesToUpdate;
+	TSet<const UTextureSet*> MaterialInstancesToUpdate;	
 
 	/** Event issued at the end of the compile process */
 	FTextureSetPostCompileEvent TextureSetPostCompileEvent;
