@@ -120,9 +120,9 @@ public:
 		FIntVector Coord;
 		for (Coord.Z = 0; Coord.Z < Chunk.TextureSlices; Coord.Z++)
 		{
-			for (Coord.Y = 0; Coord.Y < Chunk.TextureWidth; Coord.Y++)
+			for (Coord.Y = 0; Coord.Y < Chunk.TextureHeight; Coord.Y++)
 			{
-				for (Coord.X = 0; Coord.X < Chunk.TextureHeight; Coord.X++)
+				for (Coord.X = 0; Coord.X < Chunk.TextureWidth; Coord.X++)
 				{
 					const int SourceDataIndex = SourceChunk.CoordToDataIndex(TransformToSource(Coord));
 					TextureData[DataIndex] = SourceTextureData[SourceDataIndex];
@@ -198,7 +198,7 @@ public:
 	{
 		const UFlipbookAssetParams* Parameter = Context.GetAssetParam<UFlipbookAssetParams>();
 		uint32 Hash = 0;
-		
+
 		Hash = HashCombine(Hash, GetTypeHash(Parameter->FlipbookFramerate));
 		Hash = HashCombine(Hash, GetTypeHash(Parameter->bFlipbookLooping));
 		Hash = HashCombine(Hash, GetTypeHash(Parameter->MotionVectorScale));
