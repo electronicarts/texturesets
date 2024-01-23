@@ -10,6 +10,10 @@ void FTextureSetsModule::StartupModule()
 {
 	FString PluginShaderDir = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("TextureSets"))->GetBaseDir(), TEXT("Shaders"));
 	AddShaderSourceDirectoryMapping(TEXT("/Plugin/TextureSets"), PluginShaderDir);
+
+#if WITH_EDITOR
+	FModuleManager::Get().LoadModule("TextureSetsStandardModules");
+#endif
 }
 
 void FTextureSetsModule::ShutdownModule()
@@ -18,5 +22,5 @@ void FTextureSetsModule::ShutdownModule()
 }
 
 #undef LOCTEXT_NAMESPACE
-	
+
 IMPLEMENT_MODULE(FTextureSetsModule, TextureSets)
