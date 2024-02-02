@@ -86,7 +86,7 @@ private:
 	const FTextureSetPackingInfo PackingInfo;
 	const FTextureSetDefinitionModuleInfo ModuleInfo;
 
-	UObject* OuterObject;
+	TStrongObjectPtr<UObject> OuterObject;
 	FString TextureSetName;
 	FString TextureSetFullName;
 	FString UserKey;

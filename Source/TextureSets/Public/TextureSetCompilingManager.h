@@ -80,7 +80,7 @@ private:
 	bool bHasShutdown = false;
 
 	TSet<TSoftObjectPtr<UTextureSet>> QueuedTextureSets;
-	TMap<TWeakObjectPtr<UTextureSet>, TSharedRef<FTextureSetCompiler>> Compilers;
+	TMap<UTextureSet*, TSharedRef<FTextureSetCompiler>> Compilers;
 	TArray<UTextureSet*> CompilingTextureSets;
 	TMap<UTextureSet*, int> LentCompilers;
 	FAsyncCompilationNotification Notification;

@@ -108,7 +108,7 @@ FTextureSetCompiler::FTextureSetCompiler(UTextureSet* TextureSet, FTextureSetDer
 	check(IsValid(TextureSet->Definition));
 	check(DerivedData.bIsCompiling == false);
 	
-	OuterObject = TextureSet;
+	OuterObject = TStrongObjectPtr(TextureSet);
 	TextureSetName = TextureSet->GetName();
 	TextureSetFullName = TextureSet->GetFullName();
 	UserKey = TextureSet->GetUserKey() + TextureSet->Definition->GetUserKey();
@@ -275,12 +275,12 @@ void FTextureSetCompiler::Prepare()
 			// Try to find an existing texture stored in our package that may have become unreferenced, but still exists.
 			// This could happen if the number of derived textures was higher, became lower, and then was set higher again,
 			// before the previous texture was garbage-collected.
-			Texture = static_cast<UTexture*>(FindObjectWithOuter(OuterObject, nullptr, TextureName));
+			Texture = static_cast<UTexture*>(FindObjectWithOuter(OuterObject.Get(), nullptr, TextureName));
 
 			// No existing texture or texture was of the wrong type, create a new one
 			if (!IsValid(Texture) || Texture.GetClass() != DerivedTextureClass)
 			{
-				Texture = NewObject<UTexture>(OuterObject, DerivedTextureClass, TextureName, RF_NoFlags);
+				Texture = NewObject<UTexture>(OuterObject.Get(), DerivedTextureClass, TextureName, RF_NoFlags);
 			}
 		}
 
@@ -300,7 +300,7 @@ void FTextureSetCompiler::Prepare()
 		if (Texture->GetFName() != TextureName)
 			Texture->Rename(*TextureName.ToString());
 
-		check(Texture->IsInOuter(OuterObject));
+		check(Texture->IsInOuter(OuterObject.Get()));
 
 		// Create a source provider and assign it if it doesn't already exist
 		if (!IsValid(Cast<UTextureSetTextureSourceProvider>(Texture->ProceduralTextureProvider)))
