@@ -11,6 +11,9 @@ UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
 class TEXTURESETSCOMMON_API UTextureSetAssetParams : public UObject
 {
 	GENERATED_BODY()
+	
+public:
+	virtual void FixupData(UObject* Outer) {}
 };
 
 UCLASS()

@@ -38,6 +38,11 @@ void FTextureSetAssetParamsCollection::UpdateParamList(UObject* Outer, TArray<TS
 		bListChanged = true;
 	}
 
+	for (UTextureSetAssetParams* Params : ParamList)
+	{
+		Params->FixupData(Outer);
+	}
+
 	if (bListChanged)
 		OnCollectionChangedDelegate.Broadcast();
 }
