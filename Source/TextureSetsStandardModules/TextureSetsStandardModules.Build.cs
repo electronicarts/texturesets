@@ -14,7 +14,15 @@ public class TextureSetsStandardModules : ModuleRules
 				"Core",
 				"Engine",
 				"ImageCore",
+				"DerivedDataCache",
+				"EditorScriptingUtilities",
+				"GraphEditor",
+				"MaterialEditor",
+				"UnrealEd",
+				"TextureSetsCommon",
 				"TextureSets",
+				"TextureSetsCompiler",
+				"TextureSetsMaterialBuilder",
 			}
 			);
 
@@ -27,19 +35,5 @@ public class TextureSetsStandardModules : ModuleRules
 				"RenderCore",
 			}
 			);
-
-		if (Target.bBuildEditor)
-		{
-			PrivateDependencyModuleNames.AddRange(
-				new string[]
-				{
-					"DerivedDataCache",
-					"EditorScriptingUtilities",
-					"GraphEditor",
-					"MaterialEditor",
-					"UnrealEd",
-				}
-				);
-		}
 	}
 }

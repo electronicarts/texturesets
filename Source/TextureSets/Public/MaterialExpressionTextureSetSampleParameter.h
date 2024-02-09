@@ -5,41 +5,13 @@
 #include "CoreMinimal.h"
 #include "ProceduralMaterialFunction.h"
 #include "TextureSetAssetParams.h"
+#include "TextureSetSampleContext.h"
 
 #include "MaterialExpressionTextureSetSampleParameter.generated.h"
 
 class UTextureSet;
 class FObjectInitializer;
 class FArguments;
-
-UENUM()
-enum class EBaseNormalSource : uint8
-{
-	Explicit UMETA(ToolTip = "Explicitly define base normal input."),
-	Vertex UMETA(ToolTip = "Use the mesh's vertex normal as the base normal."),
-};
-
-UENUM()
-enum class ETangentSource : uint8
-{
-	Explicit UMETA(ToolTip = "Explicitly define tangent and bitangent inputs."),
-	Synthesized UMETA(ToolTip = "Synthesized the tangent and bitangent with screen-space derivatives based on input UVs, base normal, and position."),
-	Vertex UMETA(ToolTip = "Read the tangent and bitangent from the mesh's vertex data. More accurate than Synthesized tangents, but only works correctly if your input UVs are based on the UV0 of the mesh!"),
-};
-
-UENUM()
-enum class EPositionSource : uint8
-{
-	Explicit UMETA(ToolTip = "Explicitly position to use for internal calculations."),
-	World UMETA(ToolTip = "Use the world position if a position is needed for any internal calculations."),
-};
-
-UENUM()
-enum class ECameraVectorSource : uint8
-{
-	Explicit UMETA(ToolTip = "Explicitly camera vector to use for internal calculations."),
-	World UMETA(ToolTip = "Use the world camera vector if it's needed for any internal calculations."),
-};
 
 
 UCLASS(HideCategories = (MaterialExpressionMaterialFunctionCall))
@@ -71,6 +43,7 @@ public:
 	UPROPERTY(EditAnywhere)
 	FTextureSetAssetParamsCollection SampleParams;
 
+	// TODO: Replace with FTextureSetSampleContext and/or make FTextureSetSampleContext a SampleParam (will require data fixup)
 	UPROPERTY(EditAnywhere, Category=Context)
 	EBaseNormalSource BaseNormalSource = EBaseNormalSource::Vertex;
 
@@ -85,10 +58,6 @@ public:
 
 	FName GetTextureParameterName(int TextureIndex) const;
 	FName GetConstantParameterName(FName ConstantName) const;
-
-	static FName MakeTextureParameterName(FName ParameterName, int TextureIndex);
-	static FName MakeConstantParameterName(FName ParameterName, FName ConstantName);
-	static bool IsTextureSetParameterName(FName Name);
 
 	// UProceduralMaterialFunction Interface
 #if WITH_EDITOR

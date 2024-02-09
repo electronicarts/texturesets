@@ -3,11 +3,10 @@
 #include "TextureSetTextureSourceProvider.h"
 
 #include "TextureSet.h"
-#include "TextureSetDefinition.h"
-#include "TextureSetProcessingGraph.h"
-#include "ProcessingNodes/IProcessingNode.h"
 #include "TextureSetCompilingManager.h"
+#if WITH_EDITOR
 #include "TextureSetCompiler.h"
+#endif
 
 UTextureSetTextureSourceProvider::UTextureSetTextureSourceProvider() : Super()
 #if WITH_EDITOR

@@ -2,17 +2,16 @@
 
 #include "HeightModule.h"
 
-#include "MaterialExpressionTextureSetSampleParameter.h"
+#include "TextureSetProcessingGraph.h"
+#include "TextureSetMaterialGraphBuilder.h"
 #include "TextureSetDefinition.h"
-#include "MaterialGraphBuilder/HLSLFunctionCallNodeBuilder.h"
+#include "HLSLFunctionCallNodeBuilder.h"
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionAdd.h"
 #include "Materials/MaterialExpressionComponentMask.h"
 #include "Materials/MaterialExpressionCustom.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
-#include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionMultiply.h"
-#include "Materials/MaterialExpressionTextureObjectParameter.h"
 #include "Misc/DataValidation.h"
 #include "ProcessingNodes/ParameterPassthrough.h"
 #include "ProcessingNodes/TextureInput.h"
@@ -41,11 +40,11 @@ void UHeightModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) 
 #endif
 
 #if WITH_EDITOR
-int32 UHeightModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+int32 UHeightModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
 {
-	const UHeightSampleParams* HeightSampleParams = SampleExpression->SampleParams.Get<UHeightSampleParams>();
+	const UHeightSampleParams* HeightSampleParams = SampleParams->Get<UHeightSampleParams>();
 
-	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
+	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
 
 	static const char* name = "HeightModuleV2";
 	Hash = HashCombine(Hash, GetArrayHash(name, sizeof(name)));
@@ -56,10 +55,10 @@ int32 UHeightModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSamp
 #endif
 
 #if WITH_EDITOR
-void UHeightModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+void UHeightModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {
-	const UHeightSampleParams* HeightSampleParams = SampleExpression->SampleParams.Get<UHeightSampleParams>();
+	const UHeightSampleParams* HeightSampleParams = SampleParams->Get<UHeightSampleParams>();
 
 	if (HeightSampleParams->bEnableParallaxOcclusionMapping)
 	{

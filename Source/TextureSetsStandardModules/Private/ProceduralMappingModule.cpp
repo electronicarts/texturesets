@@ -4,8 +4,8 @@
 #include "ProceduralMappingModule.h"
 
 #include "ProceduralMappingSampleParams.h"
-#include "MaterialExpressionTextureSetSampleParameter.h"
-#include "MaterialGraphBuilder/HLSLFunctionCallNodeBuilder.h"
+#include "TextureSetMaterialGraphBuilder.h"
+#include "HLSLFunctionCallNodeBuilder.h"
 #include "Materials/MaterialExpressionComponentMask.h"
 #include "Materials/MaterialExpressionDDX.h"
 #include "Materials/MaterialExpressionDDY.h"
@@ -16,24 +16,24 @@ TSubclassOf<UTextureSetSampleParams> UProceduralMappingModule::GetSampleParamCla
 }
 
 #if WITH_EDITOR
-int32 UProceduralMappingModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+int32 UProceduralMappingModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
 {
-	const UProceduralMappingSampleParams* SampleParams = SampleExpression->SampleParams.Get<UProceduralMappingSampleParams>();
+	const UProceduralMappingSampleParams* ProceduralMappingSampleParams = SampleParams->Get<UProceduralMappingSampleParams>();
 
-	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
+	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
 
 	static const char* name = "ProceduralMappingModuleV1";
 	Hash = HashCombine(Hash, GetArrayHash(name, sizeof(name)));
-	Hash = HashCombine(Hash, GetTypeHash(SampleParams->TriplanarMapping));
+	Hash = HashCombine(Hash, GetTypeHash(ProceduralMappingSampleParams->TriplanarMapping));
 
 	return Hash;
 }
 
-void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression, FTextureSetMaterialGraphBuilder* Builder) const
+void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams, FTextureSetMaterialGraphBuilder* Builder) const
 {
-	const UProceduralMappingSampleParams* SampleParams = SampleExpression->SampleParams.Get<UProceduralMappingSampleParams>();
+	const UProceduralMappingSampleParams* ProceduralMappingSampleParams = SampleParams->Get<UProceduralMappingSampleParams>();
 
-	if (SampleParams->TriplanarMapping == ETriplanarMappingMode::Off)
+	if (ProceduralMappingSampleParams->TriplanarMapping == ETriplanarMappingMode::Off)
 		return;
 
 	UMaterialExpressionFunctionInput* FalloffInputExpression = Builder->CreateInput("Falloff", EFunctionInputType::FunctionInput_Scalar);
@@ -81,7 +81,7 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const UMaterialExpr
 
 	UMaterialExpression* TriplanarTangentsFunctionCallExp = TriplanarTangentsFunctionCall.Build(Builder);
 
-	switch (SampleParams->TriplanarMapping)
+	switch (ProceduralMappingSampleParams->TriplanarMapping)
 	{
 		case ETriplanarMappingMode::Triplanar:
 		{

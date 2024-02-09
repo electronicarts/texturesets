@@ -12,6 +12,7 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Misc/DataValidation.h"
 #include "ProcessingNodes/IProcessingNode.h"
+#include "ProcessingNodes/TextureInput.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "TextureSets"
@@ -21,6 +22,9 @@ FOnTextureSetDefinitionChanged UTextureSetDefinition::FOnTextureSetDefinitionCha
 #endif
 
 UTextureSetDefinition::UTextureSetDefinition() : Super()
+#if WITH_EDITOR
+	, ProcessingGraph(new FTextureSetProcessingGraph())
+#endif
 {
 	if (!UniqueID.IsValid())
 		UniqueID = FGuid::NewGuid();
@@ -77,7 +81,7 @@ EDataValidationResult UTextureSetDefinition::IsDataValid(FDataValidationContext&
 	}
 
 	// Check processing graph for errors
-	for (const FText& Error : GetModuleInfo().GetProcessingGraph()->GetErrors())
+	for (const FText& Error : ProcessingGraph->GetErrors())
 	{
 		Context.AddError(Error);
 		Result = EDataValidationResult::Invalid;
@@ -139,9 +143,9 @@ void UTextureSetDefinition::Serialize(FArchive& Ar)
 #if WITH_EDITOR
 TArray<FName> UTextureSetDefinition::EditGetUnpackedChannelNames() const
 {
-	FTextureSetProcessingGraph ProcessingGraph = FTextureSetProcessingGraph(TArray<const UTextureSetModule*>(EditModules));
+	FTextureSetProcessingGraph TempProcessingGraph = FTextureSetProcessingGraph(TArray<const UTextureSetModule*>(EditModules));
 	TMap<FName, FTextureSetProcessedTextureDef> ProcessedTextures;
-	for (const auto&[Name, Output] : ProcessingGraph.GetOutputTextures())
+	for (const auto&[Name, Output] : TempProcessingGraph.GetOutputTextures())
 	{
 		ProcessedTextures.Add(Name, Output->GetTextureDef());
 	}
@@ -199,15 +203,13 @@ uint32 UTextureSetDefinition::ComputeCompilationHash()
 	// Key for debugging, easily force rebuild
 	Hash = HashCombine(Hash, GetTypeHash(UserKey));
 
-	const FTextureSetProcessingGraph* Graph = GetModuleInfo().GetProcessingGraph();
-
-	for (const auto& [Name, Node] : Graph->GetOutputTextures())
+	for (const auto& [Name, Node] : ProcessingGraph->GetOutputTextures())
 		Hash = HashCombine(Hash, Node->ComputeGraphHash());
 
 	for (int i = 0; i < PackingInfo.PackedTextureDefs.Num(); i++)
 		Hash = HashCombine(Hash, GetTypeHash(PackingInfo.PackedTextureDefs[i]));
 
-	for (const auto& [Name, Node] : Graph->GetOutputParameters())
+	for (const auto& [Name, Node] : ProcessingGraph->GetOutputParameters())
 		Hash = HashCombine(Hash, Node->ComputeGraphHash());
 
 	return Hash;
@@ -251,8 +253,12 @@ void UTextureSetDefinition::ApplyEdits()
 			Modules.Add(DuplicateObject(EditModule, this));
 	}
 	
+	// Update cached processing graph
+	if (!ProcessingGraph->HasGenerated())
+		ProcessingGraph->Regenerate(Modules);
+
 	// Update module info
-	ModuleInfo = FTextureSetDefinitionModuleInfo(Modules);
+	ModuleInfo = CreateModuleInfo(Modules, ProcessingGraph);
 
 	// Update packing info
 	PackingInfo = FTextureSetPackingInfo(EditPackedTextures, ModuleInfo);
@@ -308,6 +314,27 @@ void UTextureSetDefinition::ApplyEdits()
 			FOnTextureSetDefinitionChangedEvent.Broadcast(this);
 		});
 	}
+}
+#endif
+
+#if WITH_EDITOR
+FTextureSetDefinitionModuleInfo UTextureSetDefinition::CreateModuleInfo(const TArray<const UTextureSetModule*>& Modules, const TSharedRef<FTextureSetProcessingGraph> ProcessingGraph)
+{
+	FTextureSetDefinitionModuleInfo Info;
+
+	Info.Modules = Modules;
+
+	for (const auto&[Name, Input] : ProcessingGraph->GetInputTextures())
+	{
+		Info.SourceTextures.Add(Name, Input->GetTextureDef());
+	}
+
+	for (const auto&[Name, Output] : ProcessingGraph->GetOutputTextures())
+	{
+		Info.ProcessedTextures.Add(Name, Output->GetTextureDef());
+	}
+
+	return Info;
 }
 #endif
 

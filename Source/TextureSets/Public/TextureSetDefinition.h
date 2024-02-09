@@ -99,8 +99,11 @@ private:
 	uint32 CompilationHash;
 
 #if WITH_EDITOR
+	TSharedRef<FTextureSetProcessingGraph> ProcessingGraph;
+
 	void ApplyEdits();
 	void ResetEdits();
+	static FTextureSetDefinitionModuleInfo CreateModuleInfo(const TArray<const UTextureSetModule*>& Modules, const TSharedRef<FTextureSetProcessingGraph> ProcessingGraph);
 #endif
 
 };

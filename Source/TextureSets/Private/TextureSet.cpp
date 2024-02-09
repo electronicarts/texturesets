@@ -5,12 +5,12 @@
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "TextureSetDefinition.h"
 #include "TextureSetDerivedData.h"
-#include "TextureSetModule.h"
+#include "TextureSetsHelpers.h"
 #include "UObject/ObjectSaveContext.h"
 #if WITH_EDITOR
-#include "DerivedDataBuildVersion.h"
 #include "Misc/DataValidation.h"
 #include "TextureSetCompilingManager.h"
+#include "TextureSetTextureSourceProvider.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "TextureSets"
@@ -90,7 +90,7 @@ void UTextureSet::AugmentMaterialTextureParameters(const FCustomParameterValue& 
 		// Set the texture parameter for each packed texture
 		FTextureParameterValue TextureParameter;
 		TextureParameter.ParameterValue = DerivedData.Textures[i].Get();
-		TextureParameter.ParameterInfo.Name = UMaterialExpressionTextureSetSampleParameter::MakeTextureParameterName(CustomParameter.ParameterInfo.Name, i);
+		TextureParameter.ParameterInfo.Name = TextureSetsHelpers::MakeTextureParameterName(CustomParameter.ParameterInfo.Name, i);
 		TextureParameter.ParameterInfo.Association = CustomParameter.ParameterInfo.Association;
 		TextureParameter.ParameterInfo.Index = CustomParameter.ParameterInfo.Index;
 		TextureParameters.Add(TextureParameter);
@@ -130,7 +130,7 @@ void UTextureSet::AugmentMaterialVectorParameters(const FCustomParameterValue& C
 	{
 		FVectorParameterValue Parameter;
 		Parameter.ParameterValue = FLinearColor(Data.Value);
-		Parameter.ParameterInfo.Name = UMaterialExpressionTextureSetSampleParameter::MakeConstantParameterName(CustomParameter.ParameterInfo.Name, ParameterName);
+		Parameter.ParameterInfo.Name = TextureSetsHelpers::MakeConstantParameterName(CustomParameter.ParameterInfo.Name, ParameterName);
 		Parameter.ParameterInfo.Association = CustomParameter.ParameterInfo.Association;
 		Parameter.ParameterInfo.Index = CustomParameter.ParameterInfo.Index;
 		VectorParameters.Add(Parameter);
@@ -145,7 +145,7 @@ void UTextureSet::AugmentMaterialVectorParameters(const FCustomParameterValue& C
 		{
 			FVectorParameterValue Parameter;
 			Parameter.ParameterValue = FLinearColor(Value);
-			Parameter.ParameterInfo.Name = UMaterialExpressionTextureSetSampleParameter::MakeConstantParameterName(CustomParameter.ParameterInfo.Name, ParameterName);
+			Parameter.ParameterInfo.Name = TextureSetsHelpers::MakeConstantParameterName(CustomParameter.ParameterInfo.Name, ParameterName);
 			Parameter.ParameterInfo.Association = CustomParameter.ParameterInfo.Association;
 			Parameter.ParameterInfo.Index = CustomParameter.ParameterInfo.Index;
 			VectorParameters.Add(Parameter);
@@ -161,6 +161,15 @@ void UTextureSet::PreSave(FObjectPreSaveContext SaveContext)
 	// have changed.
 	// Don't allow async update if we're cooking
 	UpdateDerivedData(!SaveContext.IsCooking());
+
+	for (UTexture* DerivedTexture : DerivedData.Textures)
+	{
+		// Create a source provider and assign it if it doesn't already exist
+		if (!IsValid(Cast<UTextureSetTextureSourceProvider>(DerivedTexture->ProceduralTextureProvider)))
+		{
+			DerivedTexture->ProceduralTextureProvider = NewObject<UTextureSetTextureSourceProvider>(DerivedTexture);
+		}
+	}
 #endif
 
 	Super::PreSave(SaveContext);
@@ -331,8 +340,8 @@ void UTextureSet::UpdateDerivedData(bool bAsync, bool bStartImmediately)
 
 	if (bAsync)
 	{
-	if (bStartImmediately)
-	{
+		if (bStartImmediately)
+		{
 			// Finish previous compilation
 			CompilingManager.FinishCompilation({this});
 

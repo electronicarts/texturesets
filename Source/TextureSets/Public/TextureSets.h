@@ -5,10 +5,7 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
-class IAssetTools;
-class IAssetTypeActions;
-
-class FTextureSetsModule : public IModuleInterface
+class TEXTURESETS_API FTextureSetsModule : public IModuleInterface
 {
 public:
 	virtual void StartupModule() override;

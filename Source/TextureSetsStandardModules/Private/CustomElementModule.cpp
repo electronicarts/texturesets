@@ -2,8 +2,8 @@
 
 #include "CustomElementModule.h"
 
-#include "Materials/MaterialExpression.h"
-#include "Materials/MaterialExpressionFunctionOutput.h"
+#include "TextureSetProcessingGraph.h"
+#include "TextureSetMaterialGraphBuilder.h"
 #include "ProcessingNodes/TextureInput.h"
 
 #if WITH_EDITOR
@@ -14,9 +14,9 @@ void UCustomElementModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& 
 #endif
 
 #if WITH_EDITOR
-int32 UCustomElementModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+int32 UCustomElementModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
 {
-	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
+	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
 
 	Hash = HashCombine(Hash, GetTypeHash(ElementName.ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(ElementDef));
@@ -26,7 +26,7 @@ int32 UCustomElementModule::ComputeSamplingHash(const UMaterialExpressionTexture
 #endif
 
 #if WITH_EDITOR
-void UCustomElementModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+void UCustomElementModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {
 	Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder](FTextureSetSubsampleContext& SampleContext)

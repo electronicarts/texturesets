@@ -2,18 +2,15 @@
 
 #include "FlipbookModule.h"
 
-#include "MaterialExpressionTextureSetSampleParameter.h"
-#include "MaterialGraphBuilder/HLSLFunctionCallNodeBuilder.h"
-#include "Materials/MaterialExpressionAppendVector.h"
-#include "Materials/MaterialExpressionConstant.h"
-#include "Materials/MaterialExpressionNamedReroute.h"
-#include "Materials/MaterialExpressionOneMinus.h"
-#include "Materials/MaterialExpressionTextureObjectParameter.h"
-#include "Misc/DataValidation.h"
-#include "ProcessingNodes/ParameterPassthrough.h"
-#include "ProcessingNodes/TextureInput.h"
-#include "ProcessingNodes/TextureOperator.h"
+#include "TextureSetProcessingGraph.h"
+#include "TextureSetMaterialGraphBuilder.h"
 #include "TextureSetDefinition.h"
+#include "HLSLFunctionCallNodeBuilder.h"
+#include "Materials/MaterialExpressionAppendVector.h"
+#include "Materials/MaterialExpressionOneMinus.h"
+#include "Misc/DataValidation.h"
+#include "ProcessingNodes/TextureOperator.h"
+#include "ProcessingNodes/TextureInput.h"
 
 #if WITH_EDITOR
 
@@ -46,7 +43,7 @@ public:
 	{
 		FTextureOperator::LoadResources(Context);
 
-		const UFlipbookAssetParams* FlipbookAssetParams = Context.GetAssetParam<UFlipbookAssetParams>();
+		const UFlipbookAssetParams* FlipbookAssetParams = Context.AssetParams.Get<UFlipbookAssetParams>();
 		if (FlipbookAssetParams->FlipbookSourceType == EFlipbookSourceType::TextureSheet)
 		{
 			FramesX = FMath::Max(1u, FlipbookAssetParams->FlipbookSourceSheetWidth);
@@ -157,7 +154,7 @@ public:
 		for (const TSharedRef<ITextureProcessingNode>& ProcessingNode : ProcessedTextures)
 			ProcessingNode->LoadResources(Context);
 
-		const UFlipbookAssetParams* Parameter = Context.GetAssetParam<UFlipbookAssetParams>();
+		const UFlipbookAssetParams* Parameter = Context.AssetParams.Get<UFlipbookAssetParams>();
 
 		Value.X = Parameter->MotionVectorScale.X;
 		Value.Y = Parameter->MotionVectorScale.Y;
@@ -196,7 +193,7 @@ public:
 
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override
 	{
-		const UFlipbookAssetParams* Parameter = Context.GetAssetParam<UFlipbookAssetParams>();
+		const UFlipbookAssetParams* Parameter = Context.AssetParams.Get<UFlipbookAssetParams>();
 		uint32 Hash = 0;
 
 		Hash = HashCombine(Hash, GetTypeHash(Parameter->FlipbookFramerate));
@@ -241,11 +238,11 @@ void UFlipbookModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph
 	Graph.AddOutputParameter("FlipbookParams", TSharedRef<IParameterProcessingNode>(new FFlipbookParamsNode()));
 }
 
-int32 UFlipbookModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+int32 UFlipbookModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
 {
-	const UFlipbookSampleParams* FlipbookSampleParams = SampleExpression->SampleParams.Get<UFlipbookSampleParams>();
+	const UFlipbookSampleParams* FlipbookSampleParams = SampleParams->Get<UFlipbookSampleParams>();
 
-	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
+	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
 
 	Hash = HashCombine(Hash, GetTypeHash(FlipbookSampleParams->bBlendFrames));
 	Hash = HashCombine(Hash, GetTypeHash((uint32)FlipbookSampleParams->FlipbookTimeType));
@@ -255,9 +252,9 @@ int32 UFlipbookModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSa
 	return Hash;
 }
 
-void UFlipbookModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression, FTextureSetMaterialGraphBuilder* Builder) const
+void UFlipbookModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams, FTextureSetMaterialGraphBuilder* Builder) const
 {
-	const UFlipbookSampleParams* SampleParams = SampleExpression->SampleParams.Get<UFlipbookSampleParams>();
+	const UFlipbookSampleParams* FlipbookSampleParams = SampleParams->Get<UFlipbookSampleParams>();
 
 	UMaterialExpressionFunctionInput* TimeInputExpression = Builder->CreateInput("FlipbookTime", EFunctionInputType::FunctionInput_Scalar);
 	TimeInputExpression->PreviewValue = FVector4f(0.0f);
@@ -268,7 +265,7 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTex
 	FGraphBuilderOutputAddress FlipbookParams = FGraphBuilderOutputAddress(Builder->MakeConstantParameter("FlipbookParams", FVector4f(1.0f, 15.0f, 0.0f, 1.0f)), 0);
 
 	FlipbookFunctionCall.InArgument("FlipbookTime", FGraphBuilderOutputAddress(TimeInputExpression, 0));
-	FlipbookFunctionCall.InArgument("FlipbookTimeType", FString::FromInt((uint32)SampleParams->FlipbookTimeType));
+	FlipbookFunctionCall.InArgument("FlipbookTimeType", FString::FromInt((uint32)FlipbookSampleParams->FlipbookTimeType));
 	FlipbookFunctionCall.InArgument("FlipbookParams", FlipbookParams);
 
 	FlipbookFunctionCall.OutArgument("Frame0", ECustomMaterialOutputType::CMOT_Float1);
@@ -283,7 +280,7 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTex
 
 	// Create the subsample definitions
 	TArray<SubSampleHandle> SubsampleHandles;
-	if (SampleParams->bBlendFrames)
+	if (FlipbookSampleParams->bBlendFrames)
 	{
 		UMaterialExpressionOneMinus* OneMinusNode = Builder->CreateExpression<UMaterialExpressionOneMinus>();
 		Builder->Connect(FrameBlend, OneMinusNode, 0);

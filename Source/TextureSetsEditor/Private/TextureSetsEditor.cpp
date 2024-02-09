@@ -42,7 +42,7 @@ class FTextureSetParameterEditor : public ICustomMaterialParameterEditor, public
 		if (CVarShowTextureSetParameters.GetValueOnAnyThread())
 			return false;
 
-		return UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(Param->ParameterInfo.Name);
+		return TextureSetsHelpers::IsTextureSetParameterName(Param->ParameterInfo.Name);
 	}
 
 	virtual bool CanHandleParam(TObjectPtr<UDEditorCustomParameterValue> Param) override

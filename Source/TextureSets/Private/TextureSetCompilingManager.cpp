@@ -318,9 +318,21 @@ TSharedRef<FTextureSetCompiler> FTextureSetCompilingManager::GetOrCreateCompiler
 
 	if (!Compilers.Contains(TextureSet))
 	{
-		TSharedRef<FTextureSetCompiler> Compiler = MakeShared<FTextureSetCompiler>(TextureSet, TextureSet->DerivedData);
+		FTextureSetCompilerArgs CompilerArgs;
+		CompilerArgs.ModuleInfo = TextureSet->Definition->GetModuleInfo();
+		CompilerArgs.PackingInfo = TextureSet->Definition->GetPackingInfo();
+		CompilerArgs.bIsDefaultTextureSet = TextureSet == TextureSet->Definition->GetDefaultTextureSet();
+		CompilerArgs.DerivedData = &TextureSet->DerivedData; // TODO: Don't edit derived data in-place, since that seems risky!
+		CompilerArgs.SourceTextures = TextureSet->SourceTextures;
+		CompilerArgs.AssetParams = TextureSet->AssetParams;
+		CompilerArgs.OuterObject = TextureSet;
+		CompilerArgs.NamePrefix = TextureSet->GetName();
+		CompilerArgs.DebugContext = TextureSet->GetFullName();
+		CompilerArgs.UserKey = TextureSet->GetUserKey() + TextureSet->Definition->GetUserKey();
+
+		TSharedRef<FTextureSetCompiler> Compiler = MakeShared<FTextureSetCompiler>(CompilerArgs);
 		Compilers.Add(TextureSet, Compiler);
-		// TODO: Prepare compiler ony if needed
+		// TODO: Prepare compiler only if needed
 		Compiler->Prepare();
 		return Compiler;
 	}

@@ -2,18 +2,16 @@
 
 #include "PBRSurfaceModule.h"
 
-#include "MaterialExpressionTextureSetSampleParameter.h"
-#include "MaterialEditingLibrary.h"
+#include "TextureSetProcessingGraph.h"
+#include "TextureSetMaterialGraphBuilder.h"
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionAdd.h"
-#include "Materials/MaterialExpressionAppendVector.h"
 #include "Materials/MaterialExpressionDeriveNormalZ.h"
-#include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionMultiply.h"
 #include "Materials/MaterialExpressionOneMinus.h"
 #include "Materials/MaterialExpressionSubtract.h"
 #include "ProcessingNodes/TextureInput.h"
-#include "ProcessingNodes/TextureOperatorInvert.h"
+#include "ProcessingNodes/TextureOperator.h"
 
 class FTextureOperatorFlipNormalGreen : public FTextureOperator
 {
@@ -26,7 +24,7 @@ public:
 	{
 		FTextureOperator::LoadResources(Context);
 
-		const UPBRAssetParams* FlipbookAssetParams = Context.GetAssetParam<UPBRAssetParams>();
+		const UPBRAssetParams* FlipbookAssetParams = Context.AssetParams.Get<UPBRAssetParams>();
 
 		bFlipGreen = FlipbookAssetParams->bFlipNormalGreen;
 	}
@@ -35,7 +33,7 @@ public:
 	{ 
 		uint32 Hash = FTextureOperator::ComputeDataHash(Context);
 
-		const UPBRAssetParams* FlipbookAssetParams = Context.GetAssetParam<UPBRAssetParams>();
+		const UPBRAssetParams* FlipbookAssetParams = Context.AssetParams.Get<UPBRAssetParams>();
 		Hash = HashCombine(Hash, GetTypeHash(FlipbookAssetParams->bFlipNormalGreen));
 
 		return Hash;
@@ -125,14 +123,14 @@ void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Gra
 	}
 }
 
-int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const
+int32 UPBRSurfaceModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
 {
-	const UPBRSampleParams* SampleParams = SampleExpression->SampleParams.Get<UPBRSampleParams>();
+	const UPBRSampleParams* PBRSampleParams = SampleParams->Get<UPBRSampleParams>();
 
-	uint32 Hash = Super::ComputeSamplingHash(SampleExpression);
+	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
 
-	Hash = HashCombine(Hash, GetTypeHash(SampleParams->MicrosurfaceOutput));
-	Hash = HashCombine(Hash, GetTypeHash(SampleParams->NormalOutput));
+	Hash = HashCombine(Hash, GetTypeHash(PBRSampleParams->MicrosurfaceOutput));
+	Hash = HashCombine(Hash, GetTypeHash(PBRSampleParams->NormalOutput));
 	Hash = HashCombine(Hash, GetTypeHash(Paramaterization));
 	Hash = HashCombine(Hash, GetTypeHash(Microsurface));
 	Hash = HashCombine(Hash, GetTypeHash(Normal));
@@ -140,10 +138,10 @@ int32 UPBRSurfaceModule::ComputeSamplingHash(const UMaterialExpressionTextureSet
 	return Hash;
 }
 
-void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {
-	const UPBRSampleParams* PBRSampleParams = SampleExpression->SampleParams.Get<UPBRSampleParams>();
+	const UPBRSampleParams* PBRSampleParams = SampleParams->Get<UPBRSampleParams>();
 
 	Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder, PBRSampleParams](FTextureSetSubsampleContext& SampleContext)
 	{

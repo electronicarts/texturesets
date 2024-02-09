@@ -17,6 +17,21 @@
 	"Installed": false,
 	"Modules": [
 		{
+			"Name": "TextureSetsCommon",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "TextureSetsCompiler",
+			"Type": "UncookedOnly",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "TextureSetsMaterialBuilder",
+			"Type": "UncookedOnly",
+			"LoadingPhase": "Default"
+		},
+		{
 			"Name": "TextureSets",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
@@ -28,7 +43,7 @@
 		},
 		{
 			"Name": "TextureSetsStandardModules",
-			"Type": "Editor",
+			"Type": "UncookedOnly",
 			"LoadingPhase": "Default"
 		}
 	],

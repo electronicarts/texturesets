@@ -11,6 +11,7 @@ public class TextureSetsEditor : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
+				"TextureSetsCommon",
 				"TextureSets",
 				"UnrealEd",
 			}

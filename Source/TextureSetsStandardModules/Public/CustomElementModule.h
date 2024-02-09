@@ -16,10 +16,10 @@ public:
 
 	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 
-	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
+	virtual int32 ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const override;
 
 	virtual void ConfigureSamplingGraphBuilder(
-		const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+		const FTextureSetAssetParamsCollection* SampleParams,
 		FTextureSetMaterialGraphBuilder* Builder) const override;
 
 private:

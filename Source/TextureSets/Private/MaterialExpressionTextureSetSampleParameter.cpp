@@ -2,16 +2,12 @@
 
 #include "MaterialExpressionTextureSetSampleParameter.h"
 
-#include "HLSLTree/HLSLTreeCommon.h"
-#include "Materials/MaterialExpressionFunctionInput.h"
-#include "Materials/MaterialExpressionFunctionOutput.h"
-#include "Materials/MaterialExpressionTextureSampleParameter2D.h"
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
-#include "TextureSetMaterialGraphBuilder.h"
 #include "TextureSetModule.h"
+#include "TextureSetsHelpers.h"
 #if WITH_EDITOR
-#include "MaterialEditingLibrary.h"
+#include "TextureSetMaterialGraphBuilder.h"
 #include "Misc/DataValidation.h"
 #endif
 
@@ -37,27 +33,12 @@ UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampl
 
 FName UMaterialExpressionTextureSetSampleParameter::GetTextureParameterName(int TextureIndex) const
 {
-	return MakeTextureParameterName(ParameterName, TextureIndex);
+	return TextureSetsHelpers::MakeTextureParameterName(ParameterName, TextureIndex);
 }
 
 FName UMaterialExpressionTextureSetSampleParameter::GetConstantParameterName(FName ConstantName) const
 {
-	return MakeConstantParameterName(ParameterName, ConstantName);
-}
-
-FName UMaterialExpressionTextureSetSampleParameter::MakeTextureParameterName(FName ParameterName, int TextureIndex)
-{
-	return FName(FString::Format(TEXT("TEXSET_{0}_PACKED_{1}"), {ParameterName.ToString(), FString::FromInt(TextureIndex)}));
-}
-
-FName UMaterialExpressionTextureSetSampleParameter::MakeConstantParameterName(FName ParameterName, FName ConstantName)
-{
-	return FName(FString::Format(TEXT("TEXSET_{0}_{1}"), {ParameterName.ToString(), ConstantName.ToString()}));
-}
-
-bool UMaterialExpressionTextureSetSampleParameter::IsTextureSetParameterName(FName Name)
-{
-	return Name.ToString().StartsWith("TEXSET_", ESearchCase::IgnoreCase);
+	return TextureSetsHelpers::MakeConstantParameterName(ParameterName, ConstantName);
 }
 
 #if WITH_EDITOR
@@ -66,7 +47,7 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 	if (!IsValid(Definition))
 		return 0;
 
-	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0.2"));
+	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0.3"));
 	Hash = HashCombine(Hash, GetTypeHash(Definition->GetUserKey()));
 
 	Hash = HashCombine(Hash, GetTypeHash(FTextureSetMaterialGraphBuilder::GetGraphBuilderVersion()));
@@ -83,7 +64,7 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 
 	for (const UTextureSetModule* Module : Definition->GetModuleInfo().GetModules())
 	{
-		Hash = HashCombine(Hash, Module->ComputeSamplingHash(this));
+		Hash = HashCombine(Hash, Module->ComputeSamplingHash(&SampleParams));
 	}
 
 	Hash = HashCombine(Hash, GetTypeHash(BaseNormalSource));
@@ -108,7 +89,17 @@ bool UMaterialExpressionTextureSetSampleParameter::ConfigureMaterialFunction(cla
 	// Make sure our samping parameters are up to date before generating the sampling graph
 	UpdateSampleParamArray();
 
-	const FTextureSetMaterialGraphBuilder Builder(NewMaterialFunction, this);
+	FTextureSetMaterialGraphBuilderArgs Args;
+	Args.ParameterName = ParameterName;
+	Args.ParameterGroup = Group;
+	Args.MaterialFunction = NewMaterialFunction;
+	Args.ModuleInfo = Definition->GetModuleInfo();
+	Args.PackingInfo = Definition->GetPackingInfo();
+	Args.DefaultDerivedData = &Definition->GetDefaultTextureSet()->GetDerivedData();
+	Args.SampleParams = SampleParams;
+	Args.SampleContext = { BaseNormalSource, TangentSource, PositionSource, CameraVectorSource };
+
+	const FTextureSetMaterialGraphBuilder Builder(Args);
 
 	BuilderErrors = Builder.GetErrors();
 

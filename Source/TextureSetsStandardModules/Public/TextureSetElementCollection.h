@@ -35,9 +35,9 @@ public:
 
 	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 
-	virtual int32 ComputeSamplingHash(const UMaterialExpressionTextureSetSampleParameter* SampleExpression) const override;
+	virtual int32 ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const override;
 
-	virtual void ConfigureSamplingGraphBuilder(const UMaterialExpressionTextureSetSampleParameter* SampleExpression,
+	virtual void ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 		FTextureSetMaterialGraphBuilder* Builder) const override;
 
 protected:
