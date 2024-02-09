@@ -6,7 +6,8 @@
 
 void FTextureSetsCommonModule::StartupModule()
 {
-
+	FString PluginShaderDir = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("TextureSets"))->GetBaseDir(), TEXT("Shaders"));
+	AddShaderSourceDirectoryMapping(TEXT("/Plugin/TextureSets"), PluginShaderDir);
 }
 
 void FTextureSetsCommonModule::ShutdownModule()
