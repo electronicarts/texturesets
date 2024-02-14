@@ -9,6 +9,7 @@
 
 class FTextureSetProcessingGraph;
 
+// Base class for processing nodes
 class IProcessingNode
 {
 public:
@@ -17,7 +18,8 @@ public:
 	// Return a uniqe name for this node type
 	virtual FName GetNodeTypeName() const = 0;
 
-	// Loads resources required for execuring the graph. Called before Initialize, and guaranteed to be on the game thread.
+	// Loads resources required for executing the graph. Called before Initialize, and guaranteed to be on the game thread.
+	// All required data from the context should be copied into member variables here to avoid race conditions.
 	virtual void LoadResources(const FTextureSetProcessingContext& Context) = 0;
 
 	// Initializes the graph, doing any pre-processing of data required.
@@ -25,9 +27,11 @@ public:
 	virtual void Initialize(const FTextureSetProcessingGraph& Graph) = 0;
 
 	// Computes the hash of the graph logic. Doesn't take into account any data, and can be called without initializing the node.
+	// Result should include hashes from dependent nodes' ComputeGraphHash() functions
 	virtual const uint32 ComputeGraphHash() const = 0;
 
 	// Computes the hash of the graph's input data. Can be called without initializing the node.
+	// Result should include hashes from dependent nodes' ComputeDataHash() functions
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const = 0;
 };
 
@@ -90,6 +94,7 @@ public:
 	}
 };
 
+// Processing node that computes texture data
 class ITextureProcessingNode : public IProcessingNode
 {
 public:
@@ -98,12 +103,15 @@ public:
 	virtual int GetSlices() const = 0;
 	virtual const struct FTextureSetProcessedTextureDef GetTextureDef() = 0;
 
+	// Compute the texture chunk and write into the texture data.
 	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const = 0;
 };
 
+// Processing node that computes a Vec4 parameter
 class IParameterProcessingNode : public IProcessingNode
 {
 public:
+	// Compute the parameter value
 	virtual FVector4f GetValue() const = 0;
 };
 #endif
