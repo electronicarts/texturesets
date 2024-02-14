@@ -2,7 +2,6 @@
 
 #include "TextureSetMaterialGraphBuilder.h"
 
-#if WITH_EDITOR
 #include "MaterialExpressionTextureStreamingDef.h"
 #include "MaterialGraph/MaterialGraphNode.h"
 #include "HLSLFunctionCallNodeBuilder.h"
@@ -863,4 +862,3 @@ FString FTextureSetMaterialGraphBuilder::SubsampleAddressToString(const FSubSamp
 		return Result;
 	}
 }
-#endif // WITH_EDITOR

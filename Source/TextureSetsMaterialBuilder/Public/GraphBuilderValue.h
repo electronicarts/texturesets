@@ -31,7 +31,6 @@ enum class EGraphBuilderSharedValueType : uint8
 	CameraVector
 };
 
-#if WITH_EDITOR
 struct FGraphBuilderValue
 {
 public:
@@ -41,5 +40,3 @@ public:
 	// The module that set the value. Can be null, and is used for debugging.
 	const class UTextureSetModule* Owner;
 };
-
-#endif // WITH_EDITOR

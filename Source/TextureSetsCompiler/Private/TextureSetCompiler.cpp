@@ -2,8 +2,6 @@
 
 #include "TextureSetCompiler.h"
 
-#if WITH_EDITOR
-
 #include "Async/ParallelFor.h"
 #include "DerivedDataBuildVersion.h"
 #include "DerivedDataCacheInterface.h"
@@ -648,4 +646,3 @@ void FTextureSetCompiler::BuildTextureData(int Index) const
 	UE_LOG(LogTextureSetCompile, Log, TEXT("%s: Texture data build took %fs"), *DerivedData.Textures[Index].GetName(), BuildEndTime - BuildStartTime);
 #endif
 }
-#endif

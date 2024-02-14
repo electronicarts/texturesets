@@ -2,7 +2,6 @@
 
 #pragma once
 
-#if WITH_EDITOR
 #include "CoreMinimal.h"
 #include "DerivedDataPluginInterface.h"
 #include "TextureSetDerivedData.h"
@@ -136,4 +135,3 @@ private:
 	}
 
 };
-#endif

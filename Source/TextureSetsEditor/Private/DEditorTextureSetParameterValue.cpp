@@ -4,12 +4,10 @@
 
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
-#if WITH_EDITOR
 #include "Misc/DataValidation.h"
 #include "IDetailPropertyRow.h"
 #include "MaterialPropertyHelpers.h"
 #include "Widgets/SBoxPanel.h"
-#endif
 
 #define LOCTEXT_NAMESPACE "TextureSets"
 

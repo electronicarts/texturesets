@@ -2,8 +2,6 @@
 
 #pragma once
 
-#if WITH_EDITOR
-
 #include "CoreMinimal.h"
 #include "TextureSetProcessingContext.h"
 
@@ -114,4 +112,3 @@ public:
 	// Compute the parameter value
 	virtual FVector4f GetValue() const = 0;
 };
-#endif

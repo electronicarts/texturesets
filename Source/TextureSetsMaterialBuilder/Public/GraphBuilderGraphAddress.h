@@ -2,7 +2,6 @@
 
 #pragma once
 
-#if WITH_EDITOR
 #include "CoreMinimal.h"
 
 class MaterialExpression;
@@ -73,4 +72,3 @@ public:
 
 	bool IsValid() const;
 };
-#endif // WITH_EDITOR

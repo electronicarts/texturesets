@@ -2,8 +2,6 @@
 
 #pragma once
 
-#if WITH_EDITOR
-
 #include "CoreMinimal.h"
 #include "TextureOperator.h"
 
@@ -124,4 +122,3 @@ private:
 	const int TargetHeight;
 	const int TargetSlices;
 };
-#endif

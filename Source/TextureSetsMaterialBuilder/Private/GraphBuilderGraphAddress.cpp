@@ -2,7 +2,6 @@
 
 #include "GraphBuilderGraphAddress.h"
 
-#if WITH_EDITOR
 #include "Materials/MaterialExpression.h"
 
 bool FGraphBuilderInputAddress::IsValid() const
@@ -14,4 +13,3 @@ bool FGraphBuilderOutputAddress::IsValid() const
 {
 	return GetExpression() && GetIndex() < GetExpression()->GetOutputs().Num();
 }
-#endif // WITH_EDITOR

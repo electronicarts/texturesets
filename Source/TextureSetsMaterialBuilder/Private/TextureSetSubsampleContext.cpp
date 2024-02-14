@@ -5,9 +5,6 @@
 #include "TextureSetMaterialGraphBuilder.h"
 #include "TextureSetModule.h"
 
-
-#if WITH_EDITOR
-
 FSubSampleAddress::FSubSampleAddress()
 {
 	UpdateHash();
@@ -109,5 +106,3 @@ const FGraphBuilderOutputAddress FTextureSetSubsampleContext::GetProcessedTextur
 	}
 	return Value.Reroute;
 }
-
-#endif // WITH_EDITOR

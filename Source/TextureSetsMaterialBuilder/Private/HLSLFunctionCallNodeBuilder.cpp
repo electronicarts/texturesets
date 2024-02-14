@@ -2,7 +2,6 @@
 
 #include "HLSLFunctionCallNodeBuilder.h"
 
-#if WITH_EDITOR
 #include "TextureSetMaterialGraphBuilder.h"
 
 HLSLFunctionCallNodeBuilder::HLSLFunctionCallNodeBuilder(FString FunctionName, FString IncludePath)
@@ -83,5 +82,3 @@ UMaterialExpression* HLSLFunctionCallNodeBuilder::Build(FTextureSetMaterialGraph
 
 	return CustomExp;
 }
-
-#endif // WITH_EDITOR

@@ -1,7 +1,5 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#if WITH_EDITOR
-
 #include "ProcessingNodes/TextureRead.h"
 
 #include "AssetRegistry/AssetRegistryModule.h"
@@ -192,4 +190,3 @@ void FTextureRead::ComputeChunk(const FTextureProcessingChunk& Chunk, float* Tex
 		}
 	}
 }
-#endif

@@ -2,8 +2,6 @@
 
 #pragma once
 
-#if WITH_EDITOR
-
 #include "IProcessingNode.h"
 #include "TextureSetInfo.h"
 #include "TextureSetProcessingGraph.h"
@@ -43,4 +41,3 @@ private:
 	TSharedPtr<ITextureProcessingNode> LastNode;
 	TSharedRef<FTextureRead> TextureRead;
 };
-#endif

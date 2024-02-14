@@ -2,7 +2,6 @@
 
 #pragma once
 
-#if WITH_EDITOR
 #include "GraphBuilderGraphAddress.h"
 #include "GraphBuilderValue.h"
 #include "MaterialEditingLibrary.h"
@@ -12,7 +11,6 @@
 #include "TextureSetInfo.h"
 #include "TextureSetSubsampleContext.h"
 #include "TextureSetSampleContext.h"
-#endif
 
 class UTextureSetDefinition;
 class UMaterialExpressionTextureSetSampleParameter;
@@ -21,8 +19,6 @@ class UMaterialExpressionTextureObjectParameter;
 class UMaterialExpressionNamedRerouteDeclaration;
 class UMaterialExpressionMaterialFunctionCall;
 
-
-#if WITH_EDITOR
 struct FTextureSetMaterialGraphBuilderArgs
 {
 	FName ParameterName;
@@ -138,4 +134,3 @@ private:
 	static int32 FindInputIndexChecked(UMaterialExpression* InputNode, FName InputName);
 	static int32 FindOutputIndexChecked(UMaterialExpression* OutputNode, FName OutputName);
 };
-#endif // WITH_EDITOR

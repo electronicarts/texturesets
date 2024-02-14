@@ -2,8 +2,6 @@
 
 #pragma once
 
-#if WITH_EDITOR
-
 #include "IProcessingNode.h"
 
 template <class ParameterClass>
@@ -44,5 +42,3 @@ private:
 	TFunction<FVector4f(const ParameterClass*)> Callback;
 	FVector4f Value;
 };
-
-#endif

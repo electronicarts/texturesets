@@ -2,7 +2,6 @@
 
 #pragma once
 
-#if WITH_EDITOR
 #include "GraphBuilderGraphAddress.h"
 #include "GraphBuilderValue.h"
 
@@ -103,5 +102,3 @@ private:
 	TMap<FName, FGraphBuilderOutputAddress> Results;
 	TMap<FName, const class UTextureSetModule*> ResultOwners;
 };
-
-#endif // WITH_EDITOR

@@ -7,7 +7,6 @@
 
 class FTextureSetMaterialGraphBuilder;
 
-#if WITH_EDITOR
 struct TEXTURESETSMATERIALBUILDER_API HLSLFunctionCallNodeBuilder
 {
 public:
@@ -55,4 +54,3 @@ private:
 		int32 InIndex;
 	};
 };
-#endif // WITH_EDITOR

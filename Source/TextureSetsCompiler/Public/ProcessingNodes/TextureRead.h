@@ -2,8 +2,6 @@
 
 #pragma once
 
-#if WITH_EDITOR
-
 #include "CoreMinimal.h"
 #include "ImageCore.h"
 #include "IProcessingNode.h"
@@ -59,4 +57,3 @@ private:
 	FImage Image;
 	bool bValidImage;
 };
-#endif

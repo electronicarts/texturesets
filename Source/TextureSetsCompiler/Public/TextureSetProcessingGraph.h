@@ -2,8 +2,6 @@
 
 #pragma once
 
-#if WITH_EDITOR
-
 #include "CoreMinimal.h"
 
 class UTextureSetModule;
@@ -58,4 +56,3 @@ private:
 	// Should mainly be used for error reporting and validation
 	const UTextureSetModule* WorkingModule;
 };
-#endif

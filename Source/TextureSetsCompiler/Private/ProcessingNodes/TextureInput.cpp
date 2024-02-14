@@ -1,7 +1,5 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#if WITH_EDITOR
-
 #include "ProcessingNodes/TextureInput.h"
 
 #include "ProcessingNodes/TextureRead.h"
@@ -37,4 +35,3 @@ void FTextureInput::InstantiateOperators(const FTextureSetProcessingGraph& Graph
 	for (const CreateOperatorFunc& Func : CreateOperatorFuncs)
 		LastNode = Operators.Add_GetRef(Func(LastNode.ToSharedRef()));
 }
-#endif

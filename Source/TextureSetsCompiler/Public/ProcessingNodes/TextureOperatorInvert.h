@@ -2,8 +2,6 @@
 
 #pragma once
 
-#if WITH_EDITOR
-
 #include "CoreMinimal.h"
 #include "TextureOperator.h"
 
@@ -25,4 +23,3 @@ public:
 		}
 	}
 };
-#endif

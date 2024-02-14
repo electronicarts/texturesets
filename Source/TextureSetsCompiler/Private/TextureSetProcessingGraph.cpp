@@ -1,7 +1,5 @@
 // (c) Electronic Arts. All Rights Reserved.
 
-#if WITH_EDITOR
-
 #include "TextureSetProcessingGraph.h"
 
 #include "ProcessingNodes/TextureInput.h"
@@ -117,4 +115,3 @@ void FTextureSetProcessingGraph::LogError(FText ErrorText)
 {
 	Errors.Add(WorkingModule ? FText::Format(INVTEXT("{0}: {1}"), FText::FromString(WorkingModule->GetInstanceName()), ErrorText) : ErrorText);
 }
-#endif
