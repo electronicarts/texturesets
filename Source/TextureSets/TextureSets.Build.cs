@@ -36,6 +36,7 @@ public class TextureSets : ModuleRules
 				{
 					"TextureSetsCompiler",
 					"TextureSetsMaterialBuilder",
+					"MaterialEditor",
 				}
 				);
 		}
