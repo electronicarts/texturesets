@@ -6,7 +6,6 @@
 #include "TextureSetMaterialGraphBuilder.h"
 #include "ProcessingNodes/TextureInput.h"
 
-#if WITH_EDITOR
 void UTextureSetElementCollection::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	// Just pass through source texture as processed texture
@@ -15,9 +14,7 @@ void UTextureSetElementCollection::ConfigureProcessingGraph(FTextureSetProcessin
 		Graph.AddOutputTexture(Element.ElementName, Graph.AddInputTexture(Element.ElementName, Element.ElementDef));
 	}
 }
-#endif
 
-#if WITH_EDITOR
 void UTextureSetElementCollection::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {
@@ -30,4 +27,3 @@ void UTextureSetElementCollection::ConfigureSamplingGraphBuilder(const FTextureS
 		}
 	}));
 }
-#endif

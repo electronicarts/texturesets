@@ -15,7 +15,6 @@ TSubclassOf<UTextureSetSampleParams> UProceduralMappingModule::GetSampleParamCla
 	return UProceduralMappingSampleParams::StaticClass();
 }
 
-#if WITH_EDITOR
 void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams, FTextureSetMaterialGraphBuilder* Builder) const
 {
 	const UProceduralMappingSampleParams* ProceduralMappingSampleParams = SampleParams->Get<UProceduralMappingSampleParams>();
@@ -169,4 +168,3 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAs
 		}
 	}
 }
-#endif

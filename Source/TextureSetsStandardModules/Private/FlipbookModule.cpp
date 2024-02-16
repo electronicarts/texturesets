@@ -12,8 +12,6 @@
 #include "ProcessingNodes/TextureOperator.h"
 #include "ProcessingNodes/TextureInput.h"
 
-#if WITH_EDITOR
-
 #define LOCTEXT_NAMESPACE "TextureSets"
 
 class FTextureOperatorSubframe : public FTextureOperator
@@ -352,6 +350,4 @@ EDataValidationResult UFlipbookModule::IsDefinitionValid(const UTextureSetDefini
 
 	return CombineDataValidationResults(Result, Super::IsDefinitionValid(Definition, Context));
 }
-#endif
-
 #undef LOCTEXT_NAMESPACE

@@ -6,14 +6,11 @@
 #include "TextureSetMaterialGraphBuilder.h"
 #include "ProcessingNodes/TextureInput.h"
 
-#if WITH_EDITOR
 void UCustomElementModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	Graph.AddOutputTexture(ElementName, Graph.AddInputTexture(ElementName, ElementDef));
 }
-#endif
 
-#if WITH_EDITOR
 void UCustomElementModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {
@@ -23,4 +20,3 @@ void UCustomElementModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetP
 		SampleContext.AddResult(ElementName, SampleContext.GetProcessedTextureSample(ElementName));
 	}));
 }
-#endif

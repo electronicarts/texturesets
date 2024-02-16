@@ -18,7 +18,6 @@
 
 #define LOCTEXT_NAMESPACE "TextureSets"
 
-#if WITH_EDITOR
 void UHeightModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	const FTextureSetSourceTextureDef HeightDef(1, ETextureSetChannelEncoding::RangeCompression, FVector4(1, 0, 0, 0));
@@ -37,9 +36,7 @@ void UHeightModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) 
 
 	Graph.AddOutputTexture("Height", Graph.AddInputTexture("Height", HeightDef));
 }
-#endif
 
-#if WITH_EDITOR
 void UHeightModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {
@@ -183,6 +180,5 @@ EDataValidationResult UHeightModule::IsDefinitionValid(const UTextureSetDefiniti
 
 	return CombineDataValidationResults(Result, Super::IsDefinitionValid(Definition, Context));
 }
-#endif
 
 #undef LOCTEXT_NAMESPACE
