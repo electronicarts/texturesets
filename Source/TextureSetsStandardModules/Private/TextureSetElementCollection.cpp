@@ -18,19 +18,6 @@ void UTextureSetElementCollection::ConfigureProcessingGraph(FTextureSetProcessin
 #endif
 
 #if WITH_EDITOR
-int32 UTextureSetElementCollection::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
-{
-	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
-	for (const FElementDefinition& Element: Elements)
-	{
-		Hash = HashCombine(Hash, GetTypeHash(Element));
-	}
-	
-	return Hash;
-}
-#endif
-
-#if WITH_EDITOR
 void UTextureSetElementCollection::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {

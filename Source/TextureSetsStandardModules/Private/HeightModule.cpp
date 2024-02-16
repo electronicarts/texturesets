@@ -40,21 +40,6 @@ void UHeightModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) 
 #endif
 
 #if WITH_EDITOR
-int32 UHeightModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
-{
-	const UHeightSampleParams* HeightSampleParams = SampleParams->Get<UHeightSampleParams>();
-
-	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
-
-	static const char* name = "HeightModuleV2";
-	Hash = HashCombine(Hash, GetArrayHash(name, sizeof(name)));
-	Hash = HashCombine(Hash, GetTypeHash(HeightSampleParams->bEnableParallaxOcclusionMapping));
-
-	return Hash;
-}
-#endif
-
-#if WITH_EDITOR
 void UHeightModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {

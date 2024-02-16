@@ -14,18 +14,6 @@ void UCustomElementModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& 
 #endif
 
 #if WITH_EDITOR
-int32 UCustomElementModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
-{
-	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
-
-	Hash = HashCombine(Hash, GetTypeHash(ElementName.ToString()));
-	Hash = HashCombine(Hash, GetTypeHash(ElementDef));
-
-	return Hash;
-}
-#endif
-
-#if WITH_EDITOR
 void UCustomElementModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {

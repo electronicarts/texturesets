@@ -56,12 +56,8 @@ public:
 	UPROPERTY(EditAnywhere, Category=Context)
 	ECameraVectorSource CameraVectorSource = ECameraVectorSource::World;
 
-	FName GetTextureParameterName(int TextureIndex) const;
-	FName GetConstantParameterName(FName ConstantName) const;
-
 	// UProceduralMaterialFunction Interface
 #if WITH_EDITOR
-	virtual uint32 ComputeMaterialFunctionHash() override;
 	virtual bool ConfigureMaterialFunction(class UMaterialFunction* NewMaterialFunction) override;
 #endif
 
