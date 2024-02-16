@@ -14,7 +14,6 @@ public class TextureSets : ModuleRules
 				"Core",
 				"Engine",
 				"ImageCore",
-				"MotiveMaterialLibrary",
 				"TextureSetsCommon",
 			}
 			);

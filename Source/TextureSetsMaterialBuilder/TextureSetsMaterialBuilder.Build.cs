@@ -14,7 +14,6 @@ public class TextureSetsMaterialBuilder : ModuleRules
 				"Core",
 				"Engine",
 				"ImageCore",
-				"MotiveMaterialLibrary",
 				"TextureSetsCommon",
 				"MaterialEditor",
 			}

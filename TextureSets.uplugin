@@ -54,10 +54,6 @@
 	],
 	"Plugins": [
 		{
-			"Name": "MotiveMaterialLibrary",
-			"Enabled": true
-		},
-		{
 			"Name": "EditorScriptingUtilities",
 			"Enabled": true
 		}
