@@ -170,6 +170,15 @@ void UBakerModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) c
 	Graph.AddOutputTexture(ElementName, MakeShared<FTextureBaker>(ElementName));
 }
 
+int32 UBakerModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
+{
+	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
+
+	Hash = HashCombine(Hash, GetTypeHash(ElementName.ToString()));
+
+	return Hash;
+}
+
 void UBakerModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {

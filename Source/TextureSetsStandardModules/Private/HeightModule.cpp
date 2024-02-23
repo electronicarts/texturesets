@@ -37,6 +37,19 @@ void UHeightModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) 
 	Graph.AddOutputTexture("Height", Graph.AddInputTexture("Height", HeightDef));
 }
 
+int32 UHeightModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
+{
+	const UHeightSampleParams* HeightSampleParams = SampleParams->Get<UHeightSampleParams>();
+
+	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
+
+	static const char* name = "HeightModuleV2";
+	Hash = HashCombine(Hash, GetArrayHash(name, sizeof(name)));
+	Hash = HashCombine(Hash, GetTypeHash(HeightSampleParams->bEnableParallaxOcclusionMapping));
+
+	return Hash;
+}
+
 void UHeightModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {

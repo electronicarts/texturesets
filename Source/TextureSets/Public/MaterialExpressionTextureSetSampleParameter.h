@@ -13,7 +13,6 @@ class UTextureSet;
 class FObjectInitializer;
 class FArguments;
 
-
 UCLASS(HideCategories = (MaterialExpressionMaterialFunctionCall))
 class TEXTURESETS_API UMaterialExpressionTextureSetSampleParameter : public UProceduralMaterialFunction
 {
@@ -58,6 +57,7 @@ public:
 
 	// UProceduralMaterialFunction Interface
 #if WITH_EDITOR
+	virtual uint32 ComputeMaterialFunctionHash() override;
 	virtual bool ConfigureMaterialFunction(class UMaterialFunction* NewMaterialFunction) override;
 #endif
 

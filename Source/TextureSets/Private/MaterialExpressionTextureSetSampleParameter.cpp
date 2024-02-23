@@ -8,7 +8,6 @@
 #include "TextureSetsHelpers.h"
 #if WITH_EDITOR
 #include "TextureSetMaterialGraphBuilder.h"
-#include "MaterialEditorModule.h"
 #include "Misc/DataValidation.h"
 #endif
 
@@ -31,6 +30,41 @@ UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampl
 	OnTextureSetDefinitionChangedHandle = UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent.AddUObject(this, &UMaterialExpressionTextureSetSampleParameter::OnDefinitionChanged);
 #endif
 }
+
+#if WITH_EDITOR
+uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash()
+{
+	if (!IsValid(Definition))
+		return 0;
+
+	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0.3"));
+	Hash = HashCombine(Hash, GetTypeHash(Definition->GetUserKey()));
+
+	Hash = HashCombine(Hash, GetTypeHash(FTextureSetMaterialGraphBuilder::GetGraphBuilderVersion()));
+
+	Hash = HashCombine(Hash, GetTypeHash(ParameterName.ToString()));
+	Hash = HashCombine(Hash, GetTypeHash(Group.ToString()));
+	Hash = HashCombine(Hash, GetTypeHash(SortPriority));
+
+	FTextureSetPackingInfo PackingInfo = Definition->GetPackingInfo();
+	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
+	{
+		Hash = HashCombine(Hash, GetTypeHash(PackingInfo.GetPackedTextureDef(i)));
+	}
+
+	for (const UTextureSetModule* Module : Definition->GetModuleInfo().GetModules())
+	{
+		Hash = HashCombine(Hash, Module->ComputeSamplingHash(&SampleParams));
+	}
+
+	Hash = HashCombine(Hash, GetTypeHash(BaseNormalSource));
+	Hash = HashCombine(Hash, GetTypeHash(TangentSource));
+	Hash = HashCombine(Hash, GetTypeHash(PositionSource));
+	Hash = HashCombine(Hash, GetTypeHash(CameraVectorSource));
+
+	return Hash;
+}
+#endif
 
 #if WITH_EDITOR
 bool UMaterialExpressionTextureSetSampleParameter::ConfigureMaterialFunction(class UMaterialFunction* NewMaterialFunction)

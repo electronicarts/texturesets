@@ -15,6 +15,19 @@ TSubclassOf<UTextureSetSampleParams> UProceduralMappingModule::GetSampleParamCla
 	return UProceduralMappingSampleParams::StaticClass();
 }
 
+int32 UProceduralMappingModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
+{
+	const UProceduralMappingSampleParams* ProceduralMappingSampleParams = SampleParams->Get<UProceduralMappingSampleParams>();
+
+	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
+
+	static const char* name = "ProceduralMappingModuleV1";
+	Hash = HashCombine(Hash, GetArrayHash(name, sizeof(name)));
+	Hash = HashCombine(Hash, GetTypeHash(ProceduralMappingSampleParams->TriplanarMapping));
+
+	return Hash;
+}
+
 void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams, FTextureSetMaterialGraphBuilder* Builder) const
 {
 	const UProceduralMappingSampleParams* ProceduralMappingSampleParams = SampleParams->Get<UProceduralMappingSampleParams>();
