@@ -10,6 +10,8 @@ struct FAssetData;
 struct FTextureSetPackedTextureDef;
 struct FTextureSetProcessedTextureDef;
 
+TEXTURESETSCOMMON_API DECLARE_LOG_CATEGORY_EXTERN(LogTextureSet, Log, All);
+
 class TEXTURESETSCOMMON_API TextureSetsHelpers
 {
 public:

@@ -41,7 +41,7 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(const FTextureS
 		const FName PackedTextureName = TextureSetsHelpers::MakeTextureParameterName(Args.ParameterName, i);
 
 		TObjectPtr<UMaterialExpressionTextureObjectParameter> TextureObject = CreateExpression<UMaterialExpressionTextureObjectParameter>();
-		UTexture* DefaultTexture = Args.DefaultDerivedData->Textures[i];
+		UTexture* DefaultTexture = Args.DefaultDerivedData->Textures[i].Texture;
 		TextureObject->SamplerType = UMaterialExpressionTextureBase::GetSamplerTypeForTexture(DefaultTexture);
 		TextureObject->SamplerSource = ESamplerSourceMode::SSM_Wrap_WorldGroupSettings; // So we don't allocate a sampler
 

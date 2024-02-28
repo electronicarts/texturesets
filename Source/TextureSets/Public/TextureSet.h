@@ -23,6 +23,7 @@ class TEXTURESETS_API UTextureSet : public UObject, public ICustomMaterialParame
 	GENERATED_UCLASS_BODY()
 
 	friend class FTextureSetCompilingManager;
+	friend class UTextureSetTextureSourceProvider;
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TObjectPtr<UTextureSetDefinition> Definition;
@@ -56,6 +57,7 @@ public:
 	virtual void AugmentMaterialVectorParameters(const FCustomParameterValue& CustomParameter, TArray<FVectorParameterValue>& VectorParameters) const override;
 
 	// UObject Interface
+	virtual void Serialize(FArchive& Ar) override;
 	virtual void PreSave(FObjectPreSaveContext SaveContext) override;
 	virtual void PostLoad() override;
 	virtual void BeginDestroy() override;
@@ -74,10 +76,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void FixupData();
 	// Fetch from cache, or re-compute the derived data
-	void UpdateDerivedData(bool bAsync, bool bStartImmediately = false);
+	void UpdateDerivedData(bool bAllowAsync, bool bStartImmediately = false);
 #endif
-	const FTextureSetDerivedData& GetDerivedData() const { return DerivedData; }
+	const UTextureSetDerivedData* GetDerivedData() const;
 	const FString& GetUserKey() const { return UserKey; }
+
+	bool IsDefaultTextureSet() const;
 
 private:
 
@@ -86,12 +90,16 @@ private:
 	UPROPERTY(EditAnywhere, AdvancedDisplay)
 	FString UserKey;
 
-	UPROPERTY(VisibleAnywhere, AdvancedDisplay)
-	FTextureSetDerivedData DerivedData;
-
 	// Keep references to source textures that became unused, so if we switch to a definition that can make use of them again, they can be rehooked automatically.
 	UPROPERTY(EditAnywhere, AdvancedDisplay)
 	TMap<FName, FTextureSetSourceTextureReference> UnusedSourceTextures;
+
+	UPROPERTY()
+	bool bSerializeDerivedData = false;
+
+	// Derived data for the current platform
+	UPROPERTY(Transient, DuplicateTransient, VisibleAnywhere, AdvancedDisplay)
+	TObjectPtr<UTextureSetDerivedData> DerivedData;
 
 	FDelegateHandle OnTextureSetDefinitionChangedHandle;
 

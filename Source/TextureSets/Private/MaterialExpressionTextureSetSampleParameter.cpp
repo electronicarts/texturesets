@@ -85,7 +85,7 @@ bool UMaterialExpressionTextureSetSampleParameter::ConfigureMaterialFunction(cla
 	Args.MaterialFunction = NewMaterialFunction;
 	Args.ModuleInfo = Definition->GetModuleInfo();
 	Args.PackingInfo = Definition->GetPackingInfo();
-	Args.DefaultDerivedData = &Definition->GetDefaultTextureSet()->GetDerivedData();
+	Args.DefaultDerivedData = Definition->GetDefaultTextureSet()->GetDerivedData();
 	Args.SampleParams = SampleParams;
 	Args.SampleContext = { BaseNormalSource, TangentSource, PositionSource, CameraVectorSource };
 

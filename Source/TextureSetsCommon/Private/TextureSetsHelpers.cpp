@@ -8,6 +8,8 @@
 #include "TextureSetInfo.h"
 #include "AssetRegistry/AssetData.h"
 
+DEFINE_LOG_CATEGORY(LogTextureSet);
+
 const TArray<FString> TextureSetsHelpers::ChannelSuffixes = {".r", ".g", ".b", ".a"};
 
 FName TextureSetsHelpers::TextureBulkDataIdAssetTagName("TextureSet::TextureBulkDataId");

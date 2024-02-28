@@ -5,196 +5,117 @@
 #include "Async/ParallelFor.h"
 #include "DerivedDataBuildVersion.h"
 #include "DerivedDataCacheInterface.h"
-#include "Engine/Texture2D.h"
-#include "Engine/Texture2DArray.h"
-#include "ProcessingNodes/TextureInput.h"
 #include "ProcessingNodes/TextureOperatorEnlarge.h"
 #include "TextureSetDerivedData.h"
-#include "TextureSetProcessingContext.h"
-#include "TextureCompiler.h"
+#include "TextureSetsHelpers.h"
 
 #define BENCHMARK_TEXTURESET_COMPILATION 1
 
-DEFINE_LOG_CATEGORY(LogTextureSetCompile);
-
-void FTextureSetCompilerTaskWorker::DoWork()
-{
-	Compiler->ExecuteInternal();
-}
-
-class TextureSetDerivedTextureDataPlugin : public FDerivedDataPluginInterface
-{
-public:
-	TextureSetDerivedTextureDataPlugin(FTextureSetCompiler& Compiler, int32 DerivedTextureIndex)
-		: Compiler(Compiler)
-		, DerivedTextureIndex(DerivedTextureIndex)
-	{}
-
-	// FDerivedDataPluginInterface
-	virtual const TCHAR* GetPluginName() const override { return TEXT("TextureSet_FDerivedTextureData"); }
-	virtual const TCHAR* GetVersionString() const override { return TEXT("F956B1B9-3AD3-47B3-BD82-8826C71A3DCB"); }
-	virtual FString GetPluginSpecificCacheKeySuffix() const override { return Compiler.DerivedTextureIds[DerivedTextureIndex].ToString(); }
-	virtual bool IsBuildThreadsafe() const override { return true; }
-	virtual bool IsDeterministic() const override { return true; }
-	virtual FString GetDebugContextString() const override { return Compiler.TextureSetFullName; }
-	
-	virtual bool Build(TArray<uint8>& OutData) override
-	{
-		Compiler.InitializeTextureData(DerivedTextureIndex);
-		Compiler.BuildTextureData(DerivedTextureIndex);
-
-		OutData.Empty(2048);
-		FMemoryWriter DataWriter(OutData);
-		DataWriter << Compiler.DerivedData.TextureData[DerivedTextureIndex];
-		return true;
-	}
-
-private:
-	FTextureSetCompiler& Compiler;
-	const int32 DerivedTextureIndex;
-};
-
-class TextureSetDerivedParameterDataPlugin : public FDerivedDataPluginInterface
-{
-public:
-	TextureSetDerivedParameterDataPlugin(FTextureSetCompiler& Compiler, FName ParameterName)
-		: Compiler(Compiler)
-		, ParameterName(ParameterName)
-	{}
-
-	// FDerivedDataPluginInterface
-	virtual const TCHAR* GetPluginName() const override { return TEXT("TextureSet_FDerivedTextureData"); }
-	virtual const TCHAR* GetVersionString() const override { return TEXT("8D5EAAD9-8514-4957-B931-C7AF2698794F"); }
-	virtual FString GetPluginSpecificCacheKeySuffix() const override { return Compiler.ParameterIds.FindChecked(ParameterName).ToString(); }
-	virtual bool IsBuildThreadsafe() const override { return false; } // TODO: Enable this if possible
-	virtual bool IsDeterministic() const override { return false; } // TODO: Enable this if possible
-	virtual FString GetDebugContextString() const override { return Compiler.TextureSetFullName; }
-	virtual bool Build(TArray<uint8>& OutData) override
-	{
-		TSharedRef<IParameterProcessingNode> Parameter = Compiler.GraphInstance->GetOutputParameters().FindChecked(ParameterName);
-
-		Parameter->Initialize(*Compiler.GraphInstance);
-
-		FDerivedParameterData ParameterData;
-		ParameterData.Value = Parameter->GetValue();
-		ParameterData.Id = Compiler.ParameterIds.FindChecked(ParameterName);
-
-		OutData.Empty(sizeof(FDerivedParameterData));
-		FMemoryWriter DataReader(OutData);
-		DataReader << ParameterData;
-		return true;
-	}
-
-private:
-	FTextureSetCompiler& Compiler;
-	const FName ParameterName;
-};
-
-FTextureSetCompiler::FTextureSetCompiler(const FTextureSetCompilerArgs& Args)
-	: DerivedData(*Args.DerivedData)
-	, GraphInstance(MakeShared<FTextureSetProcessingGraph>(Args.ModuleInfo.GetModules()))
-	, PackingInfo(Args.PackingInfo)
-	, ModuleInfo(Args.ModuleInfo)
-	, bIsDefaultTextureSet(Args.bIsDefaultTextureSet)
-	, AsyncTask(nullptr)
+FTextureSetCompiler::FTextureSetCompiler(TSharedRef<const FTextureSetCompilerArgs> Args)
+	: Args(Args)
+	, bResourcesLoaded(false)
 {
 	check(IsInGameThread());
-	check(DerivedData.bIsCompiling == false);
 	
-	Context.SourceTextures = Args.SourceTextures;
-	Context.AssetParams = Args.AssetParams;
+	Context.SourceTextures = Args->SourceTextures;
+	Context.AssetParams = Args->AssetParams;
 
-	OuterObject = Args.OuterObject;
-	TextureSetName = Args.NamePrefix;
-	TextureSetFullName = Args.DebugContext;
-	UserKey = Args.UserKey;
+	// TODO: Get module list out of module info
+	GraphInstance = MakeShared<FTextureSetProcessingGraph>(Args->ModuleInfo.GetModules());
 
-	// TODO
-	// Compute all IDs using the instance of the processing graph already created in the module info.
-	// This saves us having to create a new processing graph just to do our hashing.
-	//const FTextureSetProcessingGraph* Graph = ModuleInfo.GetProcessingGraph();
-	const TSharedPtr<FTextureSetProcessingGraph> Graph = MakeShared<FTextureSetProcessingGraph>(ModuleInfo.GetModules());
-
-	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
-		DerivedTextureIds.Add(ComputeTextureDataId(i, Graph->GetOutputTextures()));
-
-	for (const auto& [Name, Parameter] : Graph->GetOutputParameters())
-		ParameterIds.Add(Name, ComputeParameterDataId(Parameter));
+	CachedDerivedTextureIds.SetNum(Args->PackingInfo.NumPackedTextures());
 }
 
-bool FTextureSetCompiler::CompilationRequired() const
+bool FTextureSetCompiler::CompilationRequired(UTextureSetDerivedData* ExistingDerivedData) const
 {
-	check(IsInGameThread());
+	if (ExistingDerivedData == nullptr)
+		return true;
 
-	if (DerivedData.Textures.Num() != PackingInfo.NumPackedTextures())
+	if (ExistingDerivedData->Textures.Num() != Args->PackingInfo.NumPackedTextures())
 		return true; // Needs to add or remove a derived texture
 
-	if (DerivedData.TextureData.Num() != PackingInfo.NumPackedTextures())
-		return true; // Needs to add or remove derived texture data
-
-	for (const auto& [Name, Id] : ParameterIds)
+	for (int t = 0; t < Args->PackingInfo.NumPackedTextures(); t++)
 	{
-		FDerivedParameterData* ParameterData = DerivedData.MaterialParameters.Find(Name);
-
-		if (!ParameterData || (Id != ParameterData->Id))
-			return true; // Some parameter data needs to be updated
+		if (GetTextureDataId(t) != ExistingDerivedData->Textures[t].Data.Id)
+			return true; // Some texture data needs to be updated
 	}
 
-	for (int t = 0; t < DerivedData.Textures.Num(); t++)
+	for (FName Name : GetAllParameterNames())
 	{
-		FDerivedTextureData& TextureData = DerivedData.TextureData[t];
+		const FDerivedParameterData* ParameterData = ExistingDerivedData->MaterialParameters.Find(Name);
 
-		if (DerivedTextureIds[t] != TextureData.Id)
-			return true; // Some texture data needs to be updated
+		if (!ParameterData || (GetParameterDataId(Name) != ParameterData->Id))
+			return true; // Some parameter data needs to be updated
 	}
 
 	return false;
 }
 
-void FTextureSetCompiler::Execute()
+bool FTextureSetCompiler::Equivalent(FTextureSetCompiler& OtherCompiler) const
 {
-	check(!IsAsyncJobInProgress());
-	check(IsInGameThread());
-	DerivedData.bIsCompiling = true;
-	ExecuteInternal();
+	if (OtherCompiler.Args->PackingInfo.NumPackedTextures() != Args->PackingInfo.NumPackedTextures())
+		return false; // Needs to add or remove a derived texture
+
+	for (int t = 0; t < Args->PackingInfo.NumPackedTextures(); t++)
+	{
+		if (GetTextureDataId(t) != OtherCompiler.GetTextureDataId(t))
+			return false; // Some texture data needs to be updated
+	}
+
+	for (FName Name : OtherCompiler.GetAllParameterNames())
+	{
+		if (!GraphInstance->GetOutputParameters().Contains(Name))
+			return false; // Have different parameters
+
+		if (GetParameterDataId(Name) != OtherCompiler.GetParameterDataId(Name))
+			return false; // Some parameter data needs to be updated
+	}
+
+	return true;
 }
 
-void FTextureSetCompiler::ExecuteAsync(FQueuedThreadPool* InQueuedPool, EQueuedWorkPriority InQueuedWorkPriority)
+FGuid FTextureSetCompiler::GetTextureDataId(int Index) const
 {
-	check(!IsAsyncJobInProgress());
-	check(IsInGameThread());
-	DerivedData.bIsCompiling = true;
-	AsyncTask = MakeUnique<FAsyncTask<FTextureSetCompilerTaskWorker>>(this);
-	AsyncTask->StartBackgroundTask(InQueuedPool, InQueuedWorkPriority);
+	if (!CachedDerivedTextureIds[Index].IsValid())
+		CachedDerivedTextureIds[Index] = ComputeTextureDataId(Index);
+
+	return CachedDerivedTextureIds[Index];
 }
 
-bool FTextureSetCompiler::IsAsyncJobInProgress() const
+FGuid FTextureSetCompiler::GetParameterDataId(FName Name) const
 {
-	check(IsInGameThread());
-	return AsyncTask.IsValid() && !AsyncTask->IsDone();
+	if (!CachedParameterIds.Contains(Name))
+	{
+		const TSharedRef<IParameterProcessingNode>& Parameter = GraphInstance->GetOutputParameters().FindChecked(Name);
+		CachedParameterIds.Add(Name, ComputeParameterDataId(Parameter));
+	}
+
+	return CachedParameterIds.FindChecked(Name);
 }
 
-bool FTextureSetCompiler::TryCancel()
+TArray<FName> FTextureSetCompiler::GetAllParameterNames() const
 {
-	check(IsInGameThread());
-	if (IsAsyncJobInProgress())
-		return AsyncTask->Cancel();
-	else
-		return true;
+	TArray<FName> AllNames;
+	AllNames.Reserve(GraphInstance->GetOutputParameters().Num());
+
+	for (const auto& [Name, Node] : GraphInstance->GetOutputParameters())
+		AllNames.Add(Name);
+
+	return AllNames;
 }
 
-FGuid FTextureSetCompiler::ComputeTextureDataId(int PackedTextureIndex, const TMap<FName, TSharedRef<ITextureProcessingNode>>& ProcessedTextures) const
+FGuid FTextureSetCompiler::ComputeTextureDataId(int PackedTextureIndex) const
 {
-	check(PackedTextureIndex < PackingInfo.NumPackedTextures());
+	check(PackedTextureIndex < Args->PackingInfo.NumPackedTextures());
 
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
 
-	IdBuilder << FString("TextureSetDerivedTexture_V0.6"); // Version string, bump this to invalidate everything
-	IdBuilder << UserKey; // Key for debugging, easily force rebuild
-	IdBuilder << GetTypeHash(PackingInfo.GetPackedTextureDef(PackedTextureIndex));
+	IdBuilder << FString("TextureSetDerivedTexture_V0.9"); // Version string, bump this to invalidate everything
+	IdBuilder << Args->UserKey; // Key for debugging, easily force rebuild
+	IdBuilder << GetTypeHash(Args->PackingInfo.GetPackedTextureDef(PackedTextureIndex));
 
 	TSet<FName> TextureDependencies;
-	for (const FTextureSetPackedChannelInfo& ChannelInfo : PackingInfo.GetPackedTextureInfo(PackedTextureIndex).ChannelInfo)
+	for (const FTextureSetPackedChannelInfo& ChannelInfo : Args->PackingInfo.GetPackedTextureInfo(PackedTextureIndex).ChannelInfo)
 	{
 		if (!ChannelInfo.ProcessedTexture.IsNone())
 			TextureDependencies.Add(ChannelInfo.ProcessedTexture);
@@ -203,9 +124,12 @@ FGuid FTextureSetCompiler::ComputeTextureDataId(int PackedTextureIndex, const TM
 	// Only hash on source textures that contribute to this packed texture
 	for (const FName& TextureName : TextureDependencies)
 	{
-		const TSharedRef<ITextureProcessingNode>& TextureNode = ProcessedTextures.FindChecked(TextureName);
-		IdBuilder << TextureNode->ComputeGraphHash();
-		IdBuilder << TextureNode->ComputeDataHash(Context);
+		const TSharedRef<ITextureProcessingNode>* TextureNode = GraphInstance->GetOutputTextures().Find(TextureName);
+		if (TextureNode)
+		{
+			IdBuilder << TextureNode->Get().ComputeGraphHash();
+			IdBuilder << TextureNode->Get().ComputeDataHash(Context);
+		}
 	}
 
 	return IdBuilder.Build();
@@ -214,22 +138,20 @@ FGuid FTextureSetCompiler::ComputeTextureDataId(int PackedTextureIndex, const TM
 FGuid FTextureSetCompiler::ComputeParameterDataId(const TSharedRef<IParameterProcessingNode> Parameter) const
 {
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
-	IdBuilder << FString("TextureSetParameter_V0.3"); // Version string, bump this to invalidate everything
-	IdBuilder << UserKey; // Key for debugging, easily force rebuild
+	IdBuilder << FString("TextureSetParameter_V0.6"); // Version string, bump this to invalidate everything
+	IdBuilder << Args->UserKey; // Key for debugging, easily force rebuild
 	IdBuilder << Parameter->ComputeGraphHash();
 	IdBuilder << Parameter->ComputeDataHash(Context);
 	return IdBuilder.Build();
 }
 
-void FTextureSetCompiler::Prepare()
+void FTextureSetCompiler::LoadResources()
 {
+	// May need to create UObjects, so has to execute in game thread
 	check(IsInGameThread());
 
-	// May need to create UObjects, so has to execute in game thread
-	check(!IsAsyncJobInProgress());
-
-	// Create a new instance of the processing graph that we'll then initialize on the most recent data.
-	GraphInstance = MakeShared<FTextureSetProcessingGraph>(ModuleInfo.GetModules());
+	if (bResourcesLoaded)
+		return;
 
 	// Load all resources required by the graph
 	for (const auto& [Name, TextureNode] : GraphInstance->GetOutputTextures())
@@ -238,86 +160,21 @@ void FTextureSetCompiler::Prepare()
 	for (const auto& [Name, ParameterNode] : GraphInstance->GetOutputParameters())
 		ParameterNode->LoadResources(Context);
 
-	const int NumDerivedTextures = PackingInfo.NumPackedTextures();
-
-	// Garbage collection will destroy the unused derived textures when all references from material instance are removed
-	DerivedData.Textures.SetNum(NumDerivedTextures);
-	DerivedData.TextureData.SetNum(NumDerivedTextures);
-	TextureDataCS.SetNum(NumDerivedTextures);
-	TextureStates.SetNumZeroed(NumDerivedTextures);
-
-	for (int t = 0; t < NumDerivedTextures; t++)
-	{
-		uint8 Flags = PackingInfo.GetPackedTextureInfo(t).Flags;
-
-		TSubclassOf<UTexture> DerivedTextureClass;
-		FString DerivedTextureSuffix;
-
-		if (Flags & (uint8)ETextureSetTextureFlags::Array)
-		{
-			DerivedTextureSuffix = "2DA";
-			DerivedTextureClass = UTexture2DArray::StaticClass();
-		}
-		else
-		{
-			DerivedTextureSuffix = "2D";
-			DerivedTextureClass = UTexture2D::StaticClass();
-		}
-
-		FName TextureName = FName(FString::Format(TEXT("{0}_Texture{1}_{2}"), {TextureSetName, DerivedTextureSuffix, t}));
-
-		TObjectPtr<UTexture>& Texture = DerivedData.Textures[t];
-
-		if (!IsValid(Texture) || Texture.GetClass() != DerivedTextureClass)
-		{
-			// Try to find an existing texture stored in our package that may have become unreferenced, but still exists.
-			// This could happen if the number of derived textures was higher, became lower, and then was set higher again,
-			// before the previous texture was garbage-collected.
-			Texture = static_cast<UTexture*>(FindObjectWithOuter(OuterObject, nullptr, TextureName));
-
-			// No existing texture or texture was of the wrong type, create a new one
-			if (!IsValid(Texture) || Texture.GetClass() != DerivedTextureClass)
-			{
-				Texture = NewObject<UTexture>(OuterObject, DerivedTextureClass, TextureName, RF_NoFlags);
-			}
-		}
-
-		// Default texture set derived textures need to be public so they can be referenced as default textures
-		// in the generated graphs. Otherwise, derived textures shouldn't be directly referenced
-		Texture->SetFlags(bIsDefaultTextureSet ? RF_Public : RF_NoFlags);
-
-		// Before applying any modification to the texture
-		// make sure no compilation is still ongoing.
-		if (!Texture->IsAsyncCacheComplete())
-			Texture->FinishCachePlatformData();
-
-		if (Texture->IsDefaultTexture())
-			FTextureCompilingManager::Get().FinishCompilation({Texture});
-
-		// Usually happens if the outer texture set is renamed
-		if (Texture->GetFName() != TextureName)
-			Texture->Rename(*TextureName.ToString());
-
-		check(Texture->IsInOuter(OuterObject));
-
-		ConfigureTexture(t);
-
-		// In editor, kick off texture builds so we see our results right away
-		if (FApp::CanEverRender())
-			Texture->BeginCachePlatformData();
-	}
+	bResourcesLoaded = true;
 }
 
-void FTextureSetCompiler::ConfigureTexture(int Index) const
+void FTextureSetCompiler::ConfigureTexture(FDerivedTexture& DerivedTexture, int Index) const
 {
+	FScopeLock Lock(DerivedTexture.TextureCS.Get());
+
 	// Configure texture MUST be called only in the game thread.
 	// Changing texture properties in a thread can cause a crash in the texture compiler.
 	check(IsInGameThread());
 
-	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
-	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
+	UTexture* Texture = DerivedTexture.Texture;
 
-	UTexture* Texture = DerivedData.Textures[Index];
+	const FTextureSetPackedTextureDef TextureDef = Args->PackingInfo.GetPackedTextureDef(Index);
+	const FTextureSetPackedTextureInfo TextureInfo = Args->PackingInfo.GetPackedTextureInfo(Index);
 
 	// sRGB if possible
 	Texture->SRGB = TextureInfo.HardwareSRGB;
@@ -331,104 +188,32 @@ void FTextureSetCompiler::ConfigureTexture(int Index) const
 	Texture->VirtualTextureStreaming = TextureDef.bVirtualTextureStreaming;
 	// Set the ID of the generated source to match the hash ID of this texture.
 	// This will be used to recover the derived texture data from the DDC if possible.
-	Texture->Source.SetId(DerivedTextureIds[Index], true);
-
-	// Transient source data since it's faster to recompute it than caching uncompressed floating point data.
-	Texture->bSourceBulkDataTransient = true;
+	Texture->Source.SetId(GetTextureDataId(Index), true);
 
 	// Important that this is set properly for streaming
 	Texture->SetDeterministicLightingGuid();
 
-	if (TextureStates[Index] == ETextureState::Unmodified)
-		TextureStates[Index] = ETextureState::Configured;
+	if (DerivedTexture.TextureState < EDerivedTextureState::Configured)
+		DerivedTexture.TextureState = EDerivedTextureState::Configured;
+
 }
 
-void FTextureSetCompiler::ExecuteInternal()
+void FTextureSetCompiler::InitializeTextureSource(FDerivedTexture& DerivedTexture, int Index) const
 {
-	check(DerivedData.bIsCompiling == true);
+	check(bResourcesLoaded);
+	check(IsInGameThread());
 
-	#if BENCHMARK_TEXTURESET_COMPILATION
-		UE_LOG(LogTextureSetCompile, Log, TEXT("%s: Beginning texture set compilation"), *OuterObject->GetName());
-		const double BuildStartTime = FPlatformTime::Seconds();
-		double SectionStartTime = BuildStartTime;
-	#endif
+	FScopeLock Lock(DerivedTexture.TextureCS.Get());
 
-	// TODO: Log stats with "COOK_STAT" macro
-	// TODO: Run DDC async
-	FDerivedDataCacheInterface& DDC = GetDerivedDataCacheRef();
+	FTextureSource& Source = DerivedTexture.Texture->Source;
 
-	ParallelForWithPreWork(
-		DerivedTextureIds.Num(),
-		[&](int32 t) // Parallel For
-		{	
-			if (DerivedTextureIds[t] != DerivedData.TextureData[t].Id) // Only invoke DDC if keys don't match
-			{
-				// Retreive derived data from the DDC, or compute new data
-				TArray<uint8> Data;
-				bool bDataWasBuilt = false;
-				if (DDC.GetSynchronous(new TextureSetDerivedTextureDataPlugin(*this, t), Data, &bDataWasBuilt))
-				{
-					// Don't need to deserialize if data was built, as it will have already been filled into the derived data.
-					if (!bDataWasBuilt)
-					{
-						// De-serialized the data from the cache into the derived data
-						FMemoryReader DataReader(Data);
-						DataReader << DerivedData.TextureData[t];
-					}
-				}
-			}
-		},
-		[&]() // Pre-Work
-		{
-			for (const auto& [Name, Id] : ParameterIds)
-			{
-				FDerivedParameterData* OldParameterData = DerivedData.MaterialParameters.Find(Name);
+	check(DerivedTexture.TextureState >= EDerivedTextureState::Configured);
 
-				if (!OldParameterData || (Id != OldParameterData->Id)) // Only invoke DDC param is missing or keys don't match
-				{
-					// Retreive derived data from the DDC, or compile new data
-					TArray<uint8> Data;
-					if (DDC.GetSynchronous(new TextureSetDerivedParameterDataPlugin(*this, Name), Data))
-					{
-						// De-serialized the data from the cache into the derived data
-						FDerivedParameterData NewParameterData;
-						FMemoryReader DataReader(Data);
-						DataReader << NewParameterData;
-						DerivedData.MaterialParameters.Emplace(Name, NewParameterData);
-					}
-				}
-			}
-		});
-
-#if BENCHMARK_TEXTURESET_COMPILATION
-	UE_LOG(LogTextureSetCompile, Log, TEXT("%s: Compilation finished in %fs"), *OuterObject->GetName(), FPlatformTime::Seconds() - SectionStartTime);
-	SectionStartTime = FPlatformTime::Seconds();
-#endif
-
-	check(DerivedData.bIsCompiling == true);
-	DerivedData.bIsCompiling = false;
-}
-
-void FTextureSetCompiler::InitializeTextureData(int Index) const
-{
-	FScopeLock Lock(&TextureDataCS[Index]);
-
-	FTextureSource& Source = DerivedData.Textures[Index]->Source;
-
-	// Must be configured before initializing
-	check(TextureStates[Index] >= ETextureState::Configured);
-
-	if (TextureStates[Index] >= ETextureState::Initialized)
-	{
-		// We are already initialized, just sanity check
-		// Was already built and should be up to date, just sanity check
-		check(Source.IsValid());
-		check(Source.GetFormat() == TSF_RGBA32F);
+	if (DerivedTexture.TextureState >= EDerivedTextureState::SourceInitialized)
 		return;
-	}
 
-	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
-	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
+	const FTextureSetPackedTextureDef TextureDef = Args->PackingInfo.GetPackedTextureDef(Index);
+	const FTextureSetPackedTextureInfo TextureInfo = Args->PackingInfo.GetPackedTextureInfo(Index);
 	int Width = 4;
 	int Height = 4;
 	int Slices = 1;
@@ -462,42 +247,40 @@ void FTextureSetCompiler::InitializeTextureData(int Index) const
 
 	if (!Source.IsValid() || Source.GetSizeX() != Width || Source.GetSizeY() != Height || Source.GetNumSlices() != Slices || Source.GetNumMips() != Mips || Source.GetFormat() != TSF_RGBA32F)
 	{
-		Source.Init(Width, Height, Slices, Mips, TSF_RGBA32F);
+		FSharedBuffer ZeroLengthBuffer = FUniqueBuffer::Alloc(0).MoveToShared();
+		Source.Init(Width, Height, Slices, Mips, TSF_RGBA32F, ZeroLengthBuffer);
 		
 		// Initializing source resets the ID, so put it back
-		Source.SetId(DerivedTextureIds[Index], true);
+		Source.SetId(GetTextureDataId(Index), true);
 	}
 
-	TextureStates[Index] = ETextureState::Initialized;
+	DerivedTexture.TextureState = EDerivedTextureState::SourceInitialized;
 }
 
-void FTextureSetCompiler::BuildTextureData(int Index) const
+void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture, int Index) const
 {
-	FScopeLock Lock(&TextureDataCS[Index]);
+	check(bResourcesLoaded);
+	FScopeLock Lock(DerivedTexture.TextureCS.Get());
 
-	// Must be initialized before building
-	check(TextureStates[Index] >= ETextureState::Initialized);
+	check(DerivedTexture.TextureState >= EDerivedTextureState::SourceInitialized);
 
-	if (TextureStates[Index] >= ETextureState::Built)
-	{
-		// Was already built and should be up to date
-		return;
-	}
+	if (DerivedTexture.TextureState == EDerivedTextureState::SourceGenerated)
+		return; // Early out since we already have the source generated
 
 #if BENCHMARK_TEXTURESET_COMPILATION
-	UE_LOG(LogTextureSetCompile, Log, TEXT("%s: Beginning texture data build"), *DerivedData.Textures[Index].GetName());
 	const double BuildStartTime = FPlatformTime::Seconds();
 	double SectionStartTime = BuildStartTime;
+	FString DebugContext = DerivedTexture.Texture->GetName();
 #endif
 
-	UTexture* Texture = DerivedData.Textures[Index];
+	const FTextureSetPackedTextureDef TextureDef = Args->PackingInfo.GetPackedTextureDef(Index);
+	const FTextureSetPackedTextureInfo TextureInfo = Args->PackingInfo.GetPackedTextureInfo(Index);
 
-	const FTextureSetPackedTextureDef TextureDef = PackingInfo.GetPackedTextureDef(Index);
-	const FTextureSetPackedTextureInfo TextureInfo = PackingInfo.GetPackedTextureInfo(Index);
-	int Width = Texture->Source.GetSizeX();
-	int Height = Texture->Source.GetSizeY();
-	int Slices = Texture->Source.GetNumSlices();
-	check(Texture->Source.GetFormat() == ETextureSourceFormat::TSF_RGBA32F);
+	FTextureSource& Source = DerivedTexture.Texture->Source;
+	int Width = Source.GetSizeX();
+	int Height = Source.GetSizeY();
+	int Slices = Source.GetNumSlices();
+	check(Source.GetFormat() == ETextureSourceFormat::TSF_RGBA32F);
 	const int PixelValueStride = 4;
 	const int NumPixelValues = Width * Height * Slices * PixelValueStride;
 
@@ -518,12 +301,14 @@ void FTextureSetCompiler::BuildTextureData(int Index) const
 	FVector4f RestoreMul = FVector4f::One();
 	FVector4f RestoreAdd = FVector4f::Zero();
 
-#if BENCHMARK_TEXTURESET_COMPILATION
-	UE_LOG(LogTextureSetCompile, Log, TEXT("%s Build: Initializing data took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
-	SectionStartTime = FPlatformTime::Seconds();
-#endif
-
-	float* PixelValues = (float*)Texture->Source.LockMip(0);
+//#if BENCHMARK_TEXTURESET_COMPILATION
+//	UE_LOG(LogTextureSet, Log, TEXT("%s Build: Initializing data took %fs"), *DebugContext, FPlatformTime::Seconds() - SectionStartTime);
+//	SectionStartTime = FPlatformTime::Seconds();
+//#endif
+// 
+	// Init with NewData == null is used to allocate space, which is then filled with LockMip
+	Source.Init(Width, Height, Slices, 1, TSF_RGBA32F, nullptr);
+	float* PixelValues = (float*)Source.LockMip(0);
 	check(PixelValues != nullptr);
 
 	for (int c = 0; c < 4; c++)
@@ -619,30 +404,59 @@ void FTextureSetCompiler::BuildTextureData(int Index) const
 		}
 	};
 
-	Texture->Source.UnlockMip(0);
+	Source.UnlockMip(0);
 
 	// UnlockMip causes GUID to be set from a hash, so force it back to the one we want to use
-	Texture->Source.SetId(DerivedTextureIds[Index], true);
+	Source.SetId(GetTextureDataId(Index), true);
 
-#if BENCHMARK_TEXTURESET_COMPILATION
-	UE_LOG(LogTextureSetCompile, Log, TEXT("%s Build: Filling channels data took %fs"), *DerivedData.Textures[Index].GetName(), FPlatformTime::Seconds() - SectionStartTime);
-	SectionStartTime = FPlatformTime::Seconds();
-#endif
+//#if BENCHMARK_TEXTURESET_COMPILATION
+//	UE_LOG(LogTextureSet, Log, TEXT("%s Build: Filling channels data took %fs"), *DebugContext, FPlatformTime::Seconds() - SectionStartTime);
+//	SectionStartTime = FPlatformTime::Seconds();
+//#endif
 
-	FDerivedTextureData& Data = DerivedData.TextureData[Index];
-	Data.Id = DerivedTextureIds[Index];
-
-	Data.TextureParameters.Empty();
+	FDerivedTextureData& Data = DerivedTexture.Data;
+	Data.Id = GetTextureDataId(Index);
 
 	if (RestoreMul != FVector4f::One() || RestoreAdd != FVector4f::Zero())
 	{
 		Data.TextureParameters.Add(TextureInfo.RangeCompressMulName, RestoreMul);
 		Data.TextureParameters.Add(TextureInfo.RangeCompressAddName, RestoreAdd);
 	}
-	TextureStates[Index] = ETextureState::Built;
 
 #if BENCHMARK_TEXTURESET_COMPILATION
 	const double BuildEndTime = FPlatformTime::Seconds();
-	UE_LOG(LogTextureSetCompile, Log, TEXT("%s: Texture data build took %fs"), *DerivedData.Textures[Index].GetName(), BuildEndTime - BuildStartTime);
+	UE_LOG(LogTextureSet, Log, TEXT("%s: texture generation took %fs"), *DebugContext, BuildEndTime - BuildStartTime);
 #endif
+
+	DerivedTexture.TextureState = EDerivedTextureState::SourceGenerated;
+}
+
+void FTextureSetCompiler::FreeTextureSource(FDerivedTexture& DerivedTexture, int Index) const
+{
+	check(DerivedTexture.TextureState >= EDerivedTextureState::SourceInitialized);
+
+	if (DerivedTexture.TextureState == EDerivedTextureState::SourceInitialized)
+		return;
+
+	FTextureSource& Source = DerivedTexture.Texture->Source;
+	FSharedBuffer ZeroLengthBuffer = FUniqueBuffer::Alloc(0).MoveToShared();
+	DerivedTexture.Texture->Source.Init(Source.GetSizeX(), Source.GetSizeY(), Source.GetNumSlices(), Source.GetNumMips(), Source.GetFormat(), ZeroLengthBuffer);
+		
+	// Initializing source resets the ID, so put it back
+	Source.SetId(GetTextureDataId(Index), true);
+
+	DerivedTexture.TextureState = EDerivedTextureState::SourceInitialized;
+}
+
+FDerivedParameterData FTextureSetCompiler::BuildParameterData(FName Name) const
+{
+	check(bResourcesLoaded);
+	TSharedRef<IParameterProcessingNode> Parameter = GraphInstance->GetOutputParameters().FindChecked(Name);
+
+	Parameter->Initialize(*GraphInstance);
+
+	FDerivedParameterData ParameterData;
+	ParameterData.Value = Parameter->GetValue();
+	ParameterData.Id = GetParameterDataId(Name);
+	return ParameterData;
 }

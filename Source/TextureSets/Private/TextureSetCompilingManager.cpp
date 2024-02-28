@@ -5,17 +5,17 @@
 #if WITH_EDITOR
 #include "AssetCompilingManager.h"
 #include "AsyncCompilationHelpers.h"
+#include "EditorSupportDelegates.h"
 #include "Misc/QueuedThreadPoolWrapper.h"
 #include "ObjectCacheContext.h"
 #include "ProfilingDebugging/CountersTrace.h"
 #include "TextureSet.h"
 #include "TextureSetCompiler.h"
 #include "TextureSetDefinition.h"
-#include "EditorSupportDelegates.h"
+#include "TextureSetTextureSourceProvider.h"
+#include "TextureSetsHelpers.h"
 
 #define LOCTEXT_NAMESPACE "TextureSets"
-
-DEFINE_LOG_CATEGORY(LogTextureSet);
 
 static AsyncCompilationHelpers::FAsyncCompilationStandardCVars CVarAsyncTextureSetStandard(
 	TEXT("TextureSet"),
@@ -104,12 +104,12 @@ FQueuedThreadPool* FTextureSetCompilingManager::GetThreadPool() const
 void FTextureSetCompilingManager::Shutdown()
 {
 	bHasShutdown = true;
-	if (CompilingTextureSets.Num() > 0)
+	if (AsyncCompilationTasks.Num() > 0)
 	{
 		TArray<UTextureSet*> PendingTextureSets;
-		PendingTextureSets.Reserve(CompilingTextureSets.Num());
+		PendingTextureSets.Reserve(AsyncCompilationTasks.Num());
 
-		for (UTextureSet* TextureSet : CompilingTextureSets)
+		for (auto& [TextureSet, Task] : AsyncCompilationTasks)
 		{
 			if (!TryCancelCompilation(TextureSet))
 			{
@@ -129,13 +129,9 @@ void FTextureSetCompilingManager::UpdateCompilationNotification()
 	Notification.Update(GetNumRemainingAssets());
 }
 
-bool FTextureSetCompilingManager::IsAsyncCompilationAllowed(UTextureSet* TextureSet) const
+bool FTextureSetCompilingManager::IsAsyncCompilationAllowed() const
 {
-	check(IsValid(TextureSet->Definition));
-
-	if (TextureSet->Definition->GetDefaultTextureSet() == TextureSet)
-		return false; // Default textures must compile immediately
-	else if (bHasShutdown || !FPlatformProcess::SupportsMultithreading())
+	if (bHasShutdown || !FPlatformProcess::SupportsMultithreading())
 		return false;
 	else
 		return CVarAsyncTextureSetStandard.AsyncCompilation.GetValueOnAnyThread() != 0;
@@ -149,48 +145,86 @@ FTextureSetCompilingManager& FTextureSetCompilingManager::Get()
 
 void FTextureSetCompilingManager::QueueCompilation(UTextureSet* const InTextureSet)
 {
+	check(!InTextureSet->IsDefaultTextureSet());
+
 	QueuedTextureSets.Add(InTextureSet);
 
 	// Swap out material instances with default values until compiling has finished
-	NotifyMaterialInstances({InTextureSet});
+	if (InTextureSet->DerivedData != nullptr)
+	{
+		InTextureSet->DerivedData = nullptr;
+		NotifyMaterialInstances({InTextureSet});
+	}
 }
 
-void FTextureSetCompilingManager::StartCompilation(UTextureSet* const TextureSet)
+void FTextureSetCompilingManager::StartCompilation(UTextureSet* const TextureSet, bool bAsync)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(FTextureSetCompilingManager::StartCompilation)
 	check(IsInGameThread());
 
-	if (CompilingTextureSets.Contains(TextureSet))
-	{
-		// Only log, because warnings count as a build failure on Hopper
-		// TODO: Upgrade to a warning when we are confident this is no-longer happening
-		UE_LOG(LogTextureSet, Log, TEXT("Texture Set %s is already compiling so cannot be started. If you are unsure, call IsRegistered(), TryCancelCompilation() and/or FinishCompilation() before attempting to queue a texture set."), *TextureSet->GetName());
-	}
 	QueuedTextureSets.Remove(TextureSet);
 
-	// Cancel or finish previous compilation
-	if (CompilingTextureSets.Contains(TextureSet) && !TryCancelCompilation(TextureSet))
+	TSharedRef<FTextureSetCompiler> Compiler = MakeShared<FTextureSetCompiler>(MakeCompilerArgs(TextureSet));
+	TSharedPtr<TextureSetCompilerTask>* ExistingTask = AsyncCompilationTasks.Find(TextureSet);
+
+	if (ExistingTask)
 	{
-		FinishCompilation({TextureSet});
+		if (ExistingTask->Get()->GetCompiler()->Equivalent(Compiler.Get()))
+		{
+			// New compiler would produce the same result as the existing in-flight task
+			if (bAsync)
+			{
+				// Nothing to do here, as the task will finish eventually will the data we need.
+				return;
+			}
+			else
+			{
+				// Make sure we finish the current job since we're not running async
+				FinishCompilation({TextureSet});
+				return;
+			}
+		}
+		else
+		{
+			UE_LOG(LogTextureSet, Warning, TEXT("%s: is already compiling, but data has changed. Trying to cancel or finish previous job and restarting with updated data."), *TextureSet->GetName());
+
+			// Cancel or finish previous compilation, as it's outdated
+			if (!TryCancelCompilation(TextureSet))
+				FinishCompilation({TextureSet});
+		}
 	}
 
 	// Should really be gone now unless cancel/finish don't work properly
-	check(!CompilingTextureSets.Contains(TextureSet));
+	check(!AsyncCompilationTasks.Contains(TextureSet));
 
-	TSharedRef<FTextureSetCompiler> Compiler = GetOrCreateCompiler(TextureSet);
-
-	if (Compiler->CompilationRequired())
+	if (Compiler->CompilationRequired(TextureSet->DerivedData.Get()))
 	{
-		CompilingTextureSets.Emplace(TextureSet);
-		UE_LOG(LogTextureSet, Log, TEXT("Texture Set %s compilation started"), *TextureSet->GetName());
+		TSharedPtr<TextureSetCompilerTask> Task = MakeShared<TextureSetCompilerTask>(Compiler, TextureSet->IsDefaultTextureSet());
 
-		if (IsAsyncCompilationAllowed(TextureSet))
-			Compiler->ExecuteAsync();
+		if (bAsync && IsAsyncCompilationAllowed())
+		{
+			UE_LOG(LogTextureSet, Log, TEXT("%s: starting async compilation"), *TextureSet->GetName());
+
+			Task->StartAsync(GetThreadPool(), EQueuedWorkPriority::Normal);
+
+			AsyncCompilationTasks.Add(TextureSet, Task);
+
+			// Swap out material instances with default values until compiling has finished
+			if (TextureSet->DerivedData != nullptr)
+			{
+				TextureSet->DerivedData = nullptr;
+				NotifyMaterialInstances({TextureSet});
+			}
+		}
 		else
-			Compiler->Execute();
+		{
+			Task->Start();
+			Task->Finalize();
+			AssignDerivedData(Task->GetDerivedData(), TextureSet);
+			NotifyMaterialInstances({TextureSet});
 
-		// Will either update the materials to the new values, or swap out material instances with default values until compiling has finished
-		NotifyMaterialInstances({TextureSet});
+			UE_LOG(LogTextureSet, Log, TEXT("%s: compiled"), *TextureSet->GetName());
+		}
 	}
 
 	TRACE_COUNTER_SET(QueuedTextureSetCompilation, GetNumRemainingAssets());
@@ -202,61 +236,41 @@ void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* cons
 
 	check(IsInGameThread());
 
-	TMap<TWeakObjectPtr<UTextureSet>, TSharedRef<FTextureSetCompiler>> PendingTextureSets;
-	PendingTextureSets.Reserve(InTextureSets.Num());
+	class FCompilableTextureSet final : public AsyncCompilationHelpers::ICompilable
+	{
+	public:
+		FCompilableTextureSet(UTextureSet* TextureSet, TSharedPtr<TextureSetCompilerTask> Task)
+			: TextureSet(TextureSet)
+			, Task(Task)
+		{}
+
+		virtual void Reschedule(FQueuedThreadPool* InThreadPool, EQueuedWorkPriority InPriority) override final
+		{
+			Task->SetPriority(InPriority);
+		}
+
+		virtual bool WaitCompletionWithTimeout(float TimeLimitSeconds) override final
+		{
+			return Task->TryFinalize();
+		}
+
+		virtual FName GetName() override final { return  TextureSet->GetFName(); }
+
+		TStrongObjectPtr<UTextureSet> TextureSet;
+		TSharedPtr<TextureSetCompilerTask> Task;
+	};
+
+	TArray<FCompilableTextureSet> CompilableTextures;
+	CompilableTextures.Reserve(InTextureSets.Num());
 
 	for (UTextureSet* TextureSet : InTextureSets)
 	{
-		if (QueuedTextureSets.Contains(TextureSet))
-		{
-			StartCompilation(TextureSet);
-		}
-
-		if (CompilingTextureSets.Contains(TextureSet))
-		{
-			PendingTextureSets.Add(TextureSet, Compilers.FindChecked(TextureSet));
-		}
+		check(AsyncCompilationTasks.Contains(TextureSet));
+		CompilableTextures.Add(FCompilableTextureSet(TextureSet, AsyncCompilationTasks.FindAndRemoveChecked(TextureSet)));
 	}
 
-	if (PendingTextureSets.Num())
+	if (CompilableTextures.Num() > 0)
 	{
-		class FCompilableTextureSet final : public AsyncCompilationHelpers::ICompilable
-		{
-		public:
-			FCompilableTextureSet(TPair<TWeakObjectPtr<UTextureSet>, TSharedRef<FTextureSetCompiler>> Args)
-				: TextureSet(Args.Get<TWeakObjectPtr<UTextureSet>>().Get())
-				, Compiler(Args.Get<TSharedRef<FTextureSetCompiler>>())
-			{
-				
-			}
-
-			FAsyncTaskBase* GetAsyncTask()
-			{
-				return Compiler->GetAsyncTask();
-			}
-
-			virtual void Reschedule(FQueuedThreadPool* InThreadPool, EQueuedWorkPriority InPriority) override final
-			{
-				if (FAsyncTaskBase* AsyncTask = GetAsyncTask())
-					AsyncTask->SetPriority(InPriority);
-			}
-
-			virtual bool WaitCompletionWithTimeout(float TimeLimitSeconds) override final
-			{
-				FTextureSetCompilingManager::Get().ProcessTextureSets(true);
-				// Wait until all compilers have cleared
-				return !FTextureSetCompilingManager::Get().Compilers.Contains(TextureSet.Get());
-			}
-
-			virtual FName GetName() override { return Compiler->GetTextureSetName(); }
-
-			TStrongObjectPtr<UTextureSet> TextureSet;
-			TSharedRef<FTextureSetCompiler> Compiler;
-
-		};
-
-		TArray<FCompilableTextureSet> CompilableTextures(PendingTextureSets.Array());
-
 		using namespace AsyncCompilationHelpers;
 		FObjectCacheContextScope ObjectCacheScope;
 		AsyncCompilationHelpers::FinishCompilation(
@@ -266,7 +280,12 @@ void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* cons
 			LogTextureSet,
 			[this](ICompilable* Object)
 			{
-				// Don't need to do anything here, as WaitCompletionWithTimeout calls ProcessTextureSets, which will remove them form the list
+				FCompilableTextureSet* Compilable = (FCompilableTextureSet*)Object;
+
+				// Remove the task, and move it's derived data into the texture set
+				AssignDerivedData(Compilable->Task->GetDerivedData(), Compilable->TextureSet.Get());
+
+				UE_LOG(LogTextureSet, Log, TEXT("%s: finished async compilation"), *Compilable->TextureSet->GetName());
 			}
 		);
 	}
@@ -276,14 +295,15 @@ bool FTextureSetCompilingManager::TryCancelCompilation(UTextureSet* const Textur
 {
 	check(IsInGameThread());
 
-	if (!CompilingTextureSets.Contains(TextureSet))
+	if (!AsyncCompilationTasks.Contains(TextureSet))
 		return true;
 
-	TSharedRef<FTextureSetCompiler> Compiler = Compilers.FindChecked(TextureSet);
-	if (Compiler->TryCancel())
+	TSharedPtr<TextureSetCompilerTask> Task = AsyncCompilationTasks.FindChecked(TextureSet);
+
+	if (Task->Cancel())
 	{
-		CompilingTextureSets.Remove(TextureSet);
-		UE_LOG(LogTextureSet, Log, TEXT("Texture Set %s cancelled"), *TextureSet->GetName());
+		AsyncCompilationTasks.Remove(TextureSet);
+		UE_LOG(LogTextureSet, Log, TEXT("%s: cancelled compilation"), *TextureSet->GetName());
 		return true;
 	}
 	else
@@ -292,10 +312,22 @@ bool FTextureSetCompilingManager::TryCancelCompilation(UTextureSet* const Textur
 	}
 }
 
+bool FTextureSetCompilingManager::IsCompiling(const UTextureSet* TextureSet) const
+{
+	check(IsInGameThread());
+	return AsyncCompilationTasks.Contains(TextureSet);
+}
+
+bool FTextureSetCompilingManager::IsQueued(const UTextureSet* TextureSet) const
+{
+	check(IsInGameThread());
+	return QueuedTextureSets.Contains(TextureSet);
+}
+
 bool FTextureSetCompilingManager::IsRegistered(const UTextureSet* TextureSet) const
 {
 	check(IsInGameThread());
-	return CompilingTextureSets.Contains(TextureSet) || QueuedTextureSets.Contains(TextureSet);
+	return IsQueued(TextureSet) || IsCompiling(TextureSet);
 }
 
 void FTextureSetCompilingManager::NotifyMaterialInstances(TArrayView<UTextureSet* const> InTextureSets)
@@ -312,34 +344,19 @@ void FTextureSetCompilingManager::NotifyMaterialInstances(TArrayView<UTextureSet
 	}
 }
 
-TSharedRef<FTextureSetCompiler> FTextureSetCompilingManager::GetOrCreateCompiler(UTextureSet* TextureSet)
+TSharedRef<FTextureSetCompilerArgs> FTextureSetCompilingManager::MakeCompilerArgs(UTextureSet* TextureSet)
 {
 	check(IsInGameThread());
-
-	if (!Compilers.Contains(TextureSet))
-	{
-		FTextureSetCompilerArgs CompilerArgs;
-		CompilerArgs.ModuleInfo = TextureSet->Definition->GetModuleInfo();
-		CompilerArgs.PackingInfo = TextureSet->Definition->GetPackingInfo();
-		CompilerArgs.bIsDefaultTextureSet = TextureSet == TextureSet->Definition->GetDefaultTextureSet();
-		CompilerArgs.DerivedData = &TextureSet->DerivedData; // TODO: Don't edit derived data in-place, since that seems risky!
-		CompilerArgs.SourceTextures = TextureSet->SourceTextures;
-		CompilerArgs.AssetParams = TextureSet->AssetParams;
-		CompilerArgs.OuterObject = TextureSet;
-		CompilerArgs.NamePrefix = TextureSet->GetName();
-		CompilerArgs.DebugContext = TextureSet->GetFullName();
-		CompilerArgs.UserKey = TextureSet->GetUserKey() + TextureSet->Definition->GetUserKey();
-
-		TSharedRef<FTextureSetCompiler> Compiler = MakeShared<FTextureSetCompiler>(CompilerArgs);
-		Compilers.Add(TextureSet, Compiler);
-		// TODO: Prepare compiler only if needed
-		Compiler->Prepare();
-		return Compiler;
-	}
-	else
-	{
-		return Compilers.FindChecked(TextureSet);
-	}
+	TSharedRef<FTextureSetCompilerArgs> CompilerArgs = MakeShared<FTextureSetCompilerArgs>();
+	CompilerArgs->ModuleInfo = TextureSet->Definition->GetModuleInfo();
+	CompilerArgs->PackingInfo = TextureSet->Definition->GetPackingInfo();
+	CompilerArgs->SourceTextures = TextureSet->SourceTextures;
+	CompilerArgs->AssetParams = TextureSet->AssetParams;
+	CompilerArgs->OuterObject = TextureSet;
+	CompilerArgs->NamePrefix = TextureSet->GetName();
+	CompilerArgs->DebugContext = TextureSet->GetFullName();
+	CompilerArgs->UserKey = TextureSet->GetUserKey() + TextureSet->Definition->GetUserKey();
+	return CompilerArgs;
 }
 
 void FTextureSetCompilingManager::FinishAllCompilation()
@@ -349,54 +366,21 @@ void FTextureSetCompilingManager::FinishAllCompilation()
 	check(IsInGameThread());
 	TRACE_CPUPROFILER_EVENT_SCOPE(FTextureSetCompilingManager::FinishAllCompilation)
 
-	if (CompilingTextureSets.Num() > 0)
+	if (AsyncCompilationTasks.Num() > 0)
 	{
 		TArray<UTextureSet*> PendingTextureSets;
-		PendingTextureSets.Reserve(CompilingTextureSets.Num());
+		PendingTextureSets.Reserve(AsyncCompilationTasks.Num());
 
-		for (UTextureSet* TextureSet : CompilingTextureSets)
-		{
-			check(IsValid(TextureSet));
+		for (auto& [TextureSet, Task] : AsyncCompilationTasks)
 			PendingTextureSets.Add(TextureSet);
-		}
 
 		FinishCompilation(PendingTextureSets);
 	}
 }
 
-TSharedRef<FTextureSetCompiler> FTextureSetCompilingManager::BorrowCompiler(UTextureSet* InTextureSet)
-{
-	check(IsValid(InTextureSet));
-
-	int& NumBorrowers = LentCompilers.FindOrAdd(InTextureSet);
-	NumBorrowers++;
-
-	if (!Compilers.Contains(InTextureSet))
-	{
-		check(IsInGameThread());
-		return GetOrCreateCompiler(InTextureSet);
-	}
-	else
-	{
-		return Compilers.FindChecked(InTextureSet);
-	}
-}
-
-void FTextureSetCompilingManager::ReturnCompiler(UTextureSet* InTextureSet)
-{
-	check(IsValid(InTextureSet));
-
-	int& NumBorrowers = LentCompilers.FindOrAdd(InTextureSet);
-	check(NumBorrowers > 0);
-	NumBorrowers--;
-}
-
 void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 {
 	check(IsInGameThread());
-
-	using namespace TextureSetCompilingManagerImpl;
-	TRACE_CPUPROFILER_EVENT_SCOPE(FTextureSetCompilingManager::ProcessTextures);
 
 	const double TickStartTime = FPlatformTime::Seconds();
 
@@ -405,110 +389,58 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 		return bLimitExecutionTime ? ((FPlatformTime::Seconds() - TickStartTime) < MaxSecondsPerFrame) : true;
 	};
 
-	if (CompilingTextureSets.Num() > 0)
+	if (AsyncCompilationTasks.Num() > 0)
 	{
-		FObjectCacheContextScope ObjectCacheScope;
+		TArray<UTextureSet*> FinishedTextureSets;
+		for (auto& [TextureSet, Task] : AsyncCompilationTasks)
 		{
-			TRACE_CPUPROFILER_EVENT_SCOPE(ProcessFinishedTextures);
+			check(IsValid(TextureSet));
 
-			TArray<UTextureSet*> TextureSetsToPostpone;
-			for (UTextureSet* TextureSet : CompilingTextureSets)
+			// HasTimeLeft() ensures we don't stall the editor if too many texture sets finish at the same time
+			if (HasTimeLeft() && Task->TryFinalize())
 			{
-				check(IsValid(TextureSet));
-
-				TSharedRef<FTextureSetCompiler> Compiler = Compilers.FindChecked(TextureSet);
-
-				// HasTimeLeft() ensures we don't stall the editor if too many texture sets finish at the same time
-				if (!HasTimeLeft() || Compiler->IsAsyncJobInProgress())
-				{
-					TextureSetsToPostpone.Emplace(MoveTemp(TextureSet));
-				}
-				else
-				{
-					UE_LOG(LogTextureSet, Log, TEXT("Texture Set %s compiled"), *TextureSet->GetName());
-				}
-			}
-
-			CompilingTextureSets = MoveTemp(TextureSetsToPostpone);
-		}
-	}
-
-	// Clean up any compilers that are no longer needed
-	TArray<UTextureSet*> CompilersToDelete;
-	for (auto& [TextureSet, Compiler] : Compilers)
-	{
-		if (!CompilingTextureSets.Contains(TextureSet))
-		{
-			bool CanDelete = true;
-
-			if (FApp::CanEverRender())
-			{
-				for (UTexture* Texture : TextureSet->GetDerivedData().Textures)
-				{
-					// It's finicky to get the texture to finish with a valid, non-default resource;
-					// Wait until we're not doing any async work
-					if (Texture->IsAsyncCacheComplete()) 
-					{
-						// Need to explicitly call FinishCachePlatformData otherwise we may have a texture stuck in limbo
-						Texture->FinishCachePlatformData();
-						// UpdateResource needs to be called AFTER FinishCachePlatformData
-						// Otherwise it just kicks off a new build and sets the resource to a default texture
-						Texture->UpdateResource();
-					}
-					
-					if (Texture->IsDefaultTexture())
-					{
-						CanDelete = false;
-					}
-				}
-			}
-
-			if (LentCompilers.FindOrAdd(TextureSet) > 0)
-				CanDelete = false;
-
-			if (CanDelete)
-			{
-				CompilersToDelete.Add(TextureSet);
+				FinishedTextureSets.Add(TextureSet);
 			}
 		}
-	}
 
-	for (UTextureSet* TextureSet : CompilersToDelete)
-	{
-		UE_LOG(LogTextureSet, Verbose, TEXT("Texture set %s is ready"), *TextureSet->GetName());
-		Compilers.Remove(TextureSet);
+		FinishCompilation(FinishedTextureSets);
+		NotifyMaterialInstances(FinishedTextureSets);
 	}
-
-	NotifyMaterialInstances({CompilersToDelete});
 
 	const int32 MaxParallel = CVarMaxAsyncTextureSetParallelCompiles.GetValueOnGameThread();
 
-	if (QueuedTextureSets.Num() > 0 && CompilingTextureSets.Num() < MaxParallel)
+	if (QueuedTextureSets.Num() > 0 && AsyncCompilationTasks.Num() < MaxParallel)
 	{
 		TArray<UTextureSet*> TextureSetsToStart;
-		TArray<UTextureSet*> TextureSetsToDequeue;
+		TArray<TSoftObjectPtr<UTextureSet>> TextureSetsToDequeue;
 		TextureSetsToStart.Reserve(FMath::Min(QueuedTextureSets.Num(), MaxParallel));
 
-		for (TSoftObjectPtr<UTextureSet> QueuedTextureSet : QueuedTextureSets)
+		for (const TSoftObjectPtr<UTextureSet>& QueuedTextureSet : QueuedTextureSets)
 		{
-			if (!HasTimeLeft() || (CompilingTextureSets.Num() + TextureSetsToStart.Num()) >= MaxParallel)
+			if (!HasTimeLeft())
 				break;
-
-			UTextureSet* TextureSet = QueuedTextureSet.Get();
 			
-			if (!IsValid(TextureSet))
+			if (!QueuedTextureSet.IsValid())
 			{
 				// Texture Set may be null if deleted or garbage collected
-				TextureSetsToDequeue.Add(TextureSet);
+				TextureSetsToDequeue.Add(QueuedTextureSet);
+				break;
 			}
-			else if (!CompilingTextureSets.Contains(TextureSet) || TryCancelCompilation(TextureSet))
+
+			UTextureSet* TextureSet = QueuedTextureSet.Get();
+
+			if (!AsyncCompilationTasks.Contains(TextureSet) || TryCancelCompilation(TextureSet))
 			{
 				// The texture set is not currently compiling, or was but the async job could be cancelled, so we are safe to kick it off.
 				TextureSetsToStart.Add(TextureSet);
 			}
+
+			// Do not continue starting texture sets if we'll be at our max
+			if ((AsyncCompilationTasks.Num() + TextureSetsToStart.Num()) >= MaxParallel)
+				break;
 		}
 
-		for (UTextureSet* TextureSet : TextureSetsToDequeue)
+		for (const TSoftObjectPtr<UTextureSet>& TextureSet : TextureSetsToDequeue)
 		{
 			QueuedTextureSets.Remove(TextureSet);
 		}
@@ -556,6 +488,34 @@ void FTextureSetCompilingManager::RefreshMaterialInstances()
 	}
 }
 
+void FTextureSetCompilingManager::AssignDerivedData(UTextureSetDerivedData* NewDerivedData, UTextureSet* TextureSet)
+{
+	FString DerivedDataName = TEXT("DerivedData");
+
+	ERenameFlags RenameFlags = REN_DoNotDirty | REN_DontCreateRedirectors;
+
+	// Discard the old derived data if it exists
+	UObject* ExistingDerivedData = StaticFindObject(nullptr, TextureSet, *DerivedDataName, true);
+	if (ExistingDerivedData)
+	{
+		ExistingDerivedData->Rename(nullptr, nullptr, RenameFlags);
+		ExistingDerivedData->ConditionalBeginDestroy();
+	}
+
+	// Reparent the derived data to the texture set
+	NewDerivedData->Rename(*DerivedDataName, TextureSet, RenameFlags);
+	TextureSet->DerivedData = NewDerivedData;
+
+	// Default texture set derived textures need to be public so they can be referenced as default textures in the generated graphs.
+	if (TextureSet->IsDefaultTextureSet())
+	{
+		NewDerivedData->SetFlags(RF_Public);
+
+		for (FDerivedTexture& DerivedTexture : NewDerivedData->Textures)
+			DerivedTexture.Texture->SetFlags(RF_Public);
+	}
+}
+
 bool FTextureSetCompilingManager::AllDependenciesLoaded(UMaterialInstance* MaterialInstance)
 {
 	FMaterialLayersFunctions Functions;
@@ -584,7 +544,7 @@ bool FTextureSetCompilingManager::AllDependenciesLoaded(UMaterialInstance* Mater
 int32 FTextureSetCompilingManager::GetNumRemainingAssets() const
 {
 	check(IsInGameThread());
-	return Compilers.Num() + QueuedTextureSets.Num();
+	return AsyncCompilationTasks.Num() + QueuedTextureSets.Num();
 }
 
 void FTextureSetCompilingManager::ProcessAsyncTasks(bool bLimitExecutionTime)

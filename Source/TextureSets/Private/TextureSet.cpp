@@ -7,16 +7,17 @@
 #include "TextureSetDerivedData.h"
 #include "TextureSetsHelpers.h"
 #include "UObject/ObjectSaveContext.h"
+#include "Serialization/Archive.h"
 #if WITH_EDITOR
 #include "Misc/DataValidation.h"
 #include "TextureSetCompilingManager.h"
-#include "TextureSetTextureSourceProvider.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "TextureSets"
 
 UTextureSet::UTextureSet(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
+, DerivedData(nullptr)
 {
 #if WITH_EDITOR
 	OnTextureSetDefinitionChangedHandle = UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent.AddUObject(this, &UTextureSet::OnDefinitionChanged);
@@ -61,14 +62,13 @@ void UTextureSet::AugmentMaterialTextureParameters(const FCustomParameterValue& 
 		return;
 
 #if WITH_EDITOR
-	if (!DerivedData.IsValid() || IsCompiling())
+	if (!DerivedData)
 	{
 		if (FApp::CanEverRender())
 		{
-			// If we are able to render, fall back to the default texture set if possible, to avoid 
-			if(IsValid(Definition->GetDefaultTextureSet()) && Definition->GetDefaultTextureSet() != this)
+			// Fall back to the default texture set if possible
+			if(IsValid(Definition->GetDefaultTextureSet()) && !this->IsDefaultTextureSet())
 			{
-				// Fall back to default texture if possible
 				Definition->GetDefaultTextureSet()->AugmentMaterialTextureParameters(CustomParameter, TextureParameters);
 			}
 			return;
@@ -81,15 +81,15 @@ void UTextureSet::AugmentMaterialTextureParameters(const FCustomParameterValue& 
 	}
 #endif
 
-	check(DerivedData.IsValid());
+	check(DerivedData);
 
-	for (int i = 0; i < DerivedData.TextureData.Num(); i++)
+	for (int i = 0; i < DerivedData->Textures.Num(); i++)
 	{
-		const FDerivedTextureData& DerivedTextureData = DerivedData.TextureData[i];
+		const FDerivedTextureData& DerivedTextureData = DerivedData->Textures[i].Data;
 
 		// Set the texture parameter for each packed texture
 		FTextureParameterValue TextureParameter;
-		TextureParameter.ParameterValue = DerivedData.Textures[i].Get();
+		TextureParameter.ParameterValue = DerivedData->Textures[i].Texture;
 		TextureParameter.ParameterInfo.Name = TextureSetsHelpers::MakeTextureParameterName(CustomParameter.ParameterInfo.Name, i);
 		TextureParameter.ParameterInfo.Association = CustomParameter.ParameterInfo.Association;
 		TextureParameter.ParameterInfo.Index = CustomParameter.ParameterInfo.Index;
@@ -103,18 +103,17 @@ void UTextureSet::AugmentMaterialVectorParameters(const FCustomParameterValue& C
 		return;
 
 #if WITH_EDITOR
-	if (!DerivedData.IsValid())
+	if (!DerivedData)
 	{
 		if (FApp::CanEverRender())
-	{
-			// If we are able to render, fall back to the default texture set if possible, to avoid 
-		if (IsValid(Definition->GetDefaultTextureSet()) && Definition->GetDefaultTextureSet() != this)
 		{
-				// Fall back to default texture if possible
+			// Fall back to the default texture set if possible
+			if (IsValid(Definition->GetDefaultTextureSet()) && !this->IsDefaultTextureSet())
+			{
 				Definition->GetDefaultTextureSet()->AugmentMaterialVectorParameters(CustomParameter, VectorParameters);
+			}
+			return;
 		}
-		return;
-	}
 		else
 		{
 			// Likely we're in a commandlet and cooking, so wait until we have valid derived data
@@ -123,10 +122,10 @@ void UTextureSet::AugmentMaterialVectorParameters(const FCustomParameterValue& C
 	}
 #endif
 
-	check(DerivedData.IsValid());
+	check(DerivedData);
 
 	// Set any constant parameters what we have
-	for (const auto& [ParameterName, Data] : DerivedData.MaterialParameters)
+	for (const auto& [ParameterName, Data] : DerivedData->MaterialParameters)
 	{
 		FVectorParameterValue Parameter;
 		Parameter.ParameterValue = FLinearColor(Data.Value);
@@ -136,9 +135,9 @@ void UTextureSet::AugmentMaterialVectorParameters(const FCustomParameterValue& C
 		VectorParameters.Add(Parameter);
 	}
 
-	for (int i = 0; i < DerivedData.TextureData.Num(); i++)
+	for (int i = 0; i < DerivedData->Textures.Num(); i++)
 	{
-		const FDerivedTextureData& DerivedTextureData = DerivedData.TextureData[i];
+		const FDerivedTextureData& DerivedTextureData = DerivedData->Textures[i].Data;
 
 		// Set any constant parameters that come with this texture
 		for (auto& [ParameterName, Value] : DerivedTextureData.TextureParameters)
@@ -153,6 +152,23 @@ void UTextureSet::AugmentMaterialVectorParameters(const FCustomParameterValue& C
 	}
 }
 
+void UTextureSet::Serialize(FArchive& Ar)
+{
+	// Only serialize derived data if cooking/cooked, or if we're a default texture set.
+	if (Ar.IsSaving())
+		bSerializeDerivedData = Ar.IsCooking() || IsDefaultTextureSet();
+
+	Super::Serialize(Ar);
+
+	if (bSerializeDerivedData)
+	{
+		if (Ar.IsSaving())
+			check(DerivedData);
+		
+		Ar << DerivedData;
+	}
+}
+
 void UTextureSet::PreSave(FObjectPreSaveContext SaveContext)
 {
 #if WITH_EDITOR
@@ -161,15 +177,6 @@ void UTextureSet::PreSave(FObjectPreSaveContext SaveContext)
 	// have changed.
 	// Don't allow async update if we're cooking
 	UpdateDerivedData(!SaveContext.IsCooking());
-
-	for (UTexture* DerivedTexture : DerivedData.Textures)
-	{
-		// Create a source provider and assign it if it doesn't already exist
-		if (!IsValid(Cast<UTextureSetTextureSourceProvider>(DerivedTexture->ProceduralTextureProvider)))
-		{
-			DerivedTexture->ProceduralTextureProvider = NewObject<UTextureSetTextureSourceProvider>(DerivedTexture);
-		}
-	}
 #endif
 
 	Super::PreSave(SaveContext);
@@ -178,6 +185,9 @@ void UTextureSet::PreSave(FObjectPreSaveContext SaveContext)
 void UTextureSet::PostLoad()
 {
 	Super::PostLoad();
+
+	if (DerivedData)
+		DerivedData->ConditionalPostLoad();
 
 #if WITH_EDITOR
 	UpdateDerivedData(true);
@@ -252,6 +262,7 @@ void UTextureSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 void UTextureSet::BeginCacheForCookedPlatformData(const ITargetPlatform* TargetPlatform)
 {
 	// Important to start immediately (2nd arg) so the derived textures get initialized with a valid format
+	// TODO: Currently can't execute async, because we need to call BeginCacheForCookedPlatformData when the derived textures have valid data
 	UpdateDerivedData(true, true);
 }
 #endif
@@ -262,7 +273,10 @@ bool UTextureSet::IsCachedCookedPlatformDataLoaded(const ITargetPlatform* Target
 	if (!IsValid(Definition))
 		return true; // As loaded as we'll get without a definition
 
-	return !IsCompiling() && DerivedData.IsValid();
+	if (IsCompiling() || !DerivedData)
+		return false;
+
+	return true;
 }
 #endif
 
@@ -277,7 +291,7 @@ void UTextureSet::ClearCachedCookedPlatformData(const ITargetPlatform* TargetPla
 void UTextureSet::ClearAllCachedCookedPlatformData()
 {
 	// Don't actually clear it, because we have other systems that rely on us being properly initialized
-	//DerivedData = FTextureSetDerivedData();
+	DerivedData = nullptr;
 }
 #endif
 
@@ -320,11 +334,33 @@ void UTextureSet::FixupData()
 		// Update Asset Params
 		AssetParams.UpdateParamList(this, Definition->GetRequiredAssetParamClasses());
 	}
+
+	// Ensure any textures that are hanging around in our package due to the way we used to handle
+	// derived data at least have valid sources to avoid warnings (they will eventually be cleaned
+	// up as they are unreferenced)
+	TArray<UObject*> Objects;
+	const bool bIncludeNestedObjects = false;
+	GetObjectsWithPackage(this->GetOutermost(), Objects);
+
+	for (UObject* Object : Objects)
+	{
+		UTexture* Texture = Cast<UTexture>(Object);
+
+		if (IsValid(Texture) && (!DerivedData || Object->GetOuter() != DerivedData))
+		{
+			if (!Texture->Source.IsValid())
+			{
+				UE_LOG(LogTextureSet, Log, TEXT("%s: Found texture %s in package with invalid source data. Intitializing with 4x4 black texture to avoid warnings"), *this->GetName(), *Texture->GetName());
+				uint8 BlackPixels[4*4] = { 0 };
+				Texture->Source.Init(4, 4, 1, 1, TSF_G8, BlackPixels);
+			}
+		}
+	}
 }
 #endif
 
 #if WITH_EDITOR
-void UTextureSet::UpdateDerivedData(bool bAsync, bool bStartImmediately)
+void UTextureSet::UpdateDerivedData(bool bAllowAsync, bool bStartImmediately)
 {
 	FixupData();
 
@@ -332,49 +368,51 @@ void UTextureSet::UpdateDerivedData(bool bAsync, bool bStartImmediately)
 	if (!IsValid(Definition) || Definition->IsDataValid(ValidationContext) == EDataValidationResult::Invalid)
 	{
 		// If we have no definition, clear our derived data
-		DerivedData = FTextureSetDerivedData();
+		DerivedData = nullptr;
 		return;
 	}
 
 	FTextureSetCompilingManager& CompilingManager = FTextureSetCompilingManager::Get();
 
-	if (bAsync)
-	{
-		if (bStartImmediately)
-		{
-			// Finish previous compilation
-			CompilingManager.FinishCompilation({this});
+	bool bAsync = bAllowAsync && !IsDefaultTextureSet();
 
-			// Note: StartCompilation not QueueCompilation, so compilation is kicked off immediately
-			CompilingManager.StartCompilation(this);
-		}
-		else
-		{
-			// Add it to the Queue, will be picked up when possible
-			CompilingManager.QueueCompilation(this);
-		}
+	if (!bAsync || bStartImmediately)
+	{
+		// StartCompilation not QueueCompilation, so compilation is kicked off immediately
+		CompilingManager.StartCompilation(this, bAsync);
 	}
 	else
 	{
-		// Finish previous compilation
-		CompilingManager.FinishCompilation({this});
-
-		// Note: StartCompilation not QueueCompilation, so compilation is kicked off immediately
-		CompilingManager.StartCompilation(this);
-
-		// Finish the current complilation before returning
-		CompilingManager.FinishCompilation({this});
+		// Add it to the Queue, will be picked up when possible
+		CompilingManager.QueueCompilation(this);
 	}
 }
 #endif
+
+const UTextureSetDerivedData* UTextureSet::GetDerivedData() const
+{
+	#if WITH_EDITOR
+	// If called in the editor it's possible we haven't updated our derived data yet, so stall here until we do.
+	((UTextureSet*)this)->UpdateDerivedData(false, true);
+	#endif
+
+	check(DerivedData);
+	return DerivedData.Get();
+}
+
+bool UTextureSet::IsDefaultTextureSet() const
+{
+	return IsValid(Definition) && Definition->GetDefaultTextureSet() == this;
+}
+
 
 #if WITH_EDITOR
 void UTextureSet::OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition)
 {
 	if (ChangedDefinition == Definition && !HasAnyFlags(RF_NeedPostLoad))
 	{
-		// Default texture set gets it's derived data updated immediately
-		if (ChangedDefinition->GetDefaultTextureSet() == this)
+		// Default texture set gets it's derived data updated immediately, so doesn't need to do anything here.
+		if (IsDefaultTextureSet())
 			return;
 
 		UpdateDerivedData(true);

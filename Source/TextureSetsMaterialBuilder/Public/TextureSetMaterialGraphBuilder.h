@@ -26,7 +26,7 @@ struct FTextureSetMaterialGraphBuilderArgs
 	UMaterialFunction* MaterialFunction;
 	FTextureSetDefinitionModuleInfo ModuleInfo;
 	FTextureSetPackingInfo PackingInfo;
-	const FTextureSetDerivedData* DefaultDerivedData;
+	const UTextureSetDerivedData* DefaultDerivedData;
 	FTextureSetAssetParamsCollection SampleParams;
 	FTextureSetSampleContext SampleContext;
 };

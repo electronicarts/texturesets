@@ -3,20 +3,19 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
+#include "CoreUObject.h"
+#include "HAL/CriticalSection.h"
 #include "TextureSetDerivedData.generated.h"
 
 USTRUCT()
-struct TEXTURESETSCOMMON_API FDerivedTextureData
+struct FDerivedTextureData
 {
 	GENERATED_BODY()
 
-public:
 	// Material parameters that were generated along with this packed texture
 	UPROPERTY(VisibleAnywhere)
 	TMap<FName, FVector4f> TextureParameters;
 
-	// Guid generated from the key
 	UPROPERTY(VisibleAnywhere)
 	FGuid Id;
 
@@ -28,11 +27,49 @@ public:
 	}
 };
 
+// Tracks the state of the UTexture and it's source data
+enum class EDerivedTextureState
+{
+	Invalid, // Has just been created and does not contain valid data
+	Configured, // Has had texture settings and source ID set, but source data is not initialized
+	SourceInitialized, // Source data has been initialized with dummy data
+	SourceGenerated, // Source data has been filled with valid data
+};
+
 USTRUCT()
-struct TEXTURESETSCOMMON_API FDerivedParameterData
+struct FDerivedTexture
 {
 	GENERATED_BODY()
 
+	// UTexture where we store the actual image data
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UTexture> Texture;
+
+	// Metadata attached to the texture, which is cached to the DDC
+	UPROPERTY(VisibleAnywhere)
+	FDerivedTextureData Data;
+
+#if WITH_EDITOR
+	EDerivedTextureState TextureState;
+
+	// Use this critical section when editing any properties of the FDerivedTexture or UTexture
+	TSharedPtr<FCriticalSection> TextureCS;
+#endif
+
+	FDerivedTexture()
+		: Texture(nullptr)
+		, Data()
+#if WITH_EDITOR
+		, TextureState(EDerivedTextureState::Invalid)
+		, TextureCS(MakeShared<FCriticalSection>())
+#endif
+	{}
+};
+
+USTRUCT()
+struct FDerivedParameterData
+{
+	GENERATED_BODY()
 public:
 	UPROPERTY(VisibleAnywhere)
 	FVector4f Value;
@@ -49,38 +86,20 @@ public:
 	}
 };
 
-USTRUCT()
-struct TEXTURESETSCOMMON_API FTextureSetDerivedData
+UCLASS()
+class TEXTURESETSCOMMON_API UTextureSetDerivedData : public UObject
 {
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(VisibleAnywhere, NoClear)
-	TArray<TObjectPtr<UTexture>> Textures;
-
 	UPROPERTY(VisibleAnywhere)
-	TArray<FDerivedTextureData> TextureData;
+	TArray<FDerivedTexture> Textures;
 
 	UPROPERTY(VisibleAnywhere)
 	TMap<FName, FDerivedParameterData> MaterialParameters;
 
 #if WITH_EDITOR
-	bool bIsCompiling = false;
+	// Use this critical section when editing the MaterialParameters map
+	FCriticalSection ParameterCS;
 #endif
-
-	inline bool IsValid() const
-	{
-#if WITH_EDITOR
-		if (bIsCompiling)
-			return false;
-#endif
-
-		if (Textures.Num() == 0 && MaterialParameters.Num() == 0)
-			return false;
-
-		if (Textures.Num() != TextureData.Num())
-			return false;
-
-		return true;
-	}
 };
