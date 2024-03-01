@@ -48,10 +48,10 @@ public:
 	UPROPERTY(EditAnywhere, meta=(ClampMin = 1, ClampMax = 4))
 	uint8 ChannelCount = 1;
 
-	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSets.ETextureSetChannelEncoding"))
+	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetChannelEncoding"))
 	uint8 Encoding = 0;
 
-	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSets.ETextureSetTextureFlags"))
+	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetTextureFlags"))
 	uint8 Flags = 0;
 };
 
@@ -161,11 +161,11 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	bool HardwareSRGB;
 
-	UPROPERTY(VisibleAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSets.ETextureSetTextureFlags"))
+	UPROPERTY(VisibleAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetTextureFlags"))
 	uint8 Flags;
 
 	// Union of the channel encodings for all the packed channels
-	UPROPERTY(VisibleAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSets.ETextureSetSourceTextureChannelMask"))
+	UPROPERTY(VisibleAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetSourceTextureChannelMask"))
 	uint8 ChannelEncodings = 0;
 
 	UPROPERTY(VisibleAnywhere)

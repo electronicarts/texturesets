@@ -38,7 +38,7 @@ public:
 	#define TS_SOFT_SOURCE_TEXTURE_REF 0
 
 	/** Mask used when reading this source texture. Functions similairly to the channel mask node in the material graph, i.e. un-checking channels means they will be ignored and the next unmasked channel will be used instead. Useful for reading from source textures that have already been channel packed. */
-	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSets.ETextureSetSourceTextureChannelMask"))
+	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetSourceTextureChannelMask"))
 	int32 ChannelMask;
 
 	inline FSoftObjectPath GetTexturePath() const
