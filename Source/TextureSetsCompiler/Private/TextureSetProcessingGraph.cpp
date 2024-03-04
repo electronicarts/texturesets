@@ -24,6 +24,8 @@ void FTextureSetProcessingGraph::Regenerate(const TArray<const UTextureSetModule
 	DefaultInputOperators.Empty();
 	OutputTextures.Empty();
 	OutputParameters.Empty();
+	InputOwners.Empty();
+	OutputOwners.Empty();
 
 	for (const UTextureSetModule* Module : Modules)
 	{
