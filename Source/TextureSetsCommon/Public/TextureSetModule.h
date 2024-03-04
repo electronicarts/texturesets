@@ -13,12 +13,15 @@ class UTextureSetDefinition;
 class FTextureSetMaterialGraphBuilder;
 
 // Abstract class for texture set modules. Modules provide a mechanism for extending textures sets with additional functionality.
-UCLASS(Abstract, EditInlineNew, DefaultToInstanced, CollapseCategories)
+UCLASS(Abstract, Optional, EditInlineNew, DefaultToInstanced, CollapseCategories)
 class TEXTURESETSCOMMON_API UTextureSetModule : public UObject
 {
 	GENERATED_BODY()
 public:
 #if WITH_EDITOR
+	// Overridable duplicate function, allows modules to data patch and update as needed.
+	virtual UTextureSetModule* DuplicateModule(UObject* Outer) const { return DuplicateObject<UTextureSetModule>(this, Outer); }
+
 	// Allow children to override name of an instance of this module.
 	// Useful for modules which allow multiple instances on the same definition.
 	virtual FString GetInstanceName() const { return this->GetClass()->GetName(); }

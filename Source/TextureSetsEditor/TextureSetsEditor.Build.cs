@@ -27,6 +27,7 @@ public class TextureSetsEditor : ModuleRules
 				"PropertyEditor",
 				"Slate",
 				"SlateCore",
+				"ToolMenus",
 			}
 			);
 	}

@@ -228,7 +228,7 @@ void UTextureSetDefinition::ResetEdits()
 		// Having 'this' as an outer caused a crash in RoutePresave (SavePackage2.cpp)
 		// when it was included in the save, and then cleaned up by the GC mid-save.
 		if (IsValid(Module))
-			EditModules.Add(DuplicateObject(Module, nullptr));
+			EditModules.Add(Module->DuplicateModule(nullptr));
 	}
 
 	// Packing
@@ -250,12 +250,11 @@ void UTextureSetDefinition::ApplyEdits()
 	for (const UTextureSetModule* EditModule : EditModules)
 	{
 		if (IsValid(EditModule))
-			Modules.Add(DuplicateObject(EditModule, this));
+			Modules.Add(EditModule->DuplicateModule(this));
 	}
 	
 	// Update cached processing graph
-	if (!ProcessingGraph->HasGenerated())
-		ProcessingGraph->Regenerate(Modules);
+	ProcessingGraph->Regenerate(Modules);
 
 	// Update module info
 	ModuleInfo = CreateModuleInfo(Modules, ProcessingGraph);

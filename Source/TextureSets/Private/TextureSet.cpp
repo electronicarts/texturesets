@@ -162,7 +162,7 @@ void UTextureSet::Serialize(FArchive& Ar)
 
 	if (bSerializeDerivedData)
 	{
-		if (Ar.IsSaving())
+		if (Ar.IsCooking() && Ar.IsSaving())
 			check(DerivedData);
 		
 		Ar << DerivedData;

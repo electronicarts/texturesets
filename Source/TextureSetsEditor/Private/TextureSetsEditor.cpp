@@ -3,6 +3,7 @@
 #include "TextureSetsEditor.h"
 
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "Engine/AssetManager.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSet.h"
 #include "AssetTypeActions/AssetTypeActions_TextureSetDefinition.h"
 #include "DEditorTextureSetParameterValue.h"
@@ -160,6 +161,18 @@ void FTextureSetsEditorModule::StartupModule()
 	});
 
 	UThumbnailManager::Get().RegisterCustomRenderer(UTextureSet::StaticClass(), UTextureSetThumbnailRenderer::StaticClass());
+
+	UToolMenu* ToolMenu = UToolMenus::Get()->ExtendMenu("MainFrame.MainMenu.Tools");
+	if (ToolMenu)
+	{
+		FToolMenuSection& Section = ToolMenu->AddSection("Texture Sets", FText::FromString(TEXT("Texture Sets")));
+		Section.AddMenuEntry("FixupTextureSetData",
+			LOCTEXT("FixupTextureSetData_Label", "Fixup Texture Set Data"),
+			LOCTEXT("FixupTextureSetData_Desc", "Update all texture set data that needs patching"),
+			FSlateIcon(),
+			FUIAction(FExecuteAction::CreateRaw(this, &FTextureSetsEditorModule::FixupTextureSetData), FCanExecuteAction())
+		);
+	}
 }
 
 void FTextureSetsEditorModule::ShutdownModule()
@@ -274,6 +287,49 @@ void FTextureSetsEditorModule::OnAssetPostImport(UFactory* ImportFactory, UObjec
 			}
 		}
 	}
+}
+
+void FTextureSetsEditorModule::FixupTextureSetData()
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(FName("AssetRegistry"));
+	const IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+	FARFilter Filter;
+	Filter.bRecursiveClasses = true;
+	Filter.ClassPaths.Add(UMaterial::StaticClass()->GetClassPathName());
+	Filter.ClassPaths.Add(UMaterialInstance::StaticClass()->GetClassPathName());
+	Filter.ClassPaths.Add(UMaterialFunction::StaticClass()->GetClassPathName());
+
+	AssetRegistry.EnumerateAssets(Filter, [&AssetRegistry](const FAssetData& AssetData)
+	{
+		TArray<FAssetIdentifier> Dependencies;
+
+		AssetRegistry.GetDependencies(AssetData.PackageName, Dependencies);
+
+		bool bMarkedDirty = false;
+
+		for (FAssetIdentifier DependentPackage : Dependencies)
+		{
+			TArray<FAssetData> DependentAssets;
+			AssetRegistry.GetAssetsByPackageName(DependentPackage.PackageName, DependentAssets);
+
+			for (FAssetData Dep : DependentAssets)
+			{
+				if (Dep.AssetClassPath == UTextureSet::StaticClass()->GetClassPathName()
+					|| Dep.AssetClassPath == UTextureSetDefinition::StaticClass()->GetClassPathName())
+				{
+					AssetData.GetPackage()->MarkPackageDirty();
+					bMarkedDirty = true;
+					break;
+				}
+			}
+
+			if (bMarkedDirty)
+				break;
+		}
+
+		return true;
+	});
 }
 
 #undef LOCTEXT_NAMESPACE
