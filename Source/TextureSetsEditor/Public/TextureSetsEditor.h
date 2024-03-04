@@ -41,5 +41,5 @@ private:
 	FDelegateHandle OnAssetPostImportDelegateHandle;
 	static void OnAssetPostImport(UFactory* ImportFactory, UObject* InObject);
 
-	void UpdateSamplerExpressions();
+	void FixupTextureSetData();
 };
