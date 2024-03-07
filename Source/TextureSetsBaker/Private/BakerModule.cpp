@@ -115,9 +115,7 @@ public:
 		return Hash;
 	}
 
-	virtual int GetWidth() const override { return BakeArgs.BakeWidth; }
-	virtual int GetHeight() const override { return BakeArgs.BakeHeight; }
-	virtual int GetSlices() const override { return 1; }
+	virtual FTextureDimension GetTextureDimension() const override { return { BakeArgs.BakeWidth, BakeArgs.BakeHeight, 1}; }
 
 	void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override
 	{

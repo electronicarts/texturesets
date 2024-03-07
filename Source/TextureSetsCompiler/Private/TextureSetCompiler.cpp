@@ -231,15 +231,13 @@ void FTextureSetCompiler::InitializeTextureSource(FDerivedTexture& DerivedTextur
 
 		const TSharedRef<ITextureProcessingNode> OutputTexture = OutputTextures.FindChecked(ChanelInfo.ProcessedTexture);
 
-		const int ChannelWidth = OutputTexture->GetWidth();
-		const int ChannelHeight = OutputTexture->GetHeight();
-		const int ChannelSlices = OutputTexture->GetSlices();
-		const float NewRatio = (float)ChannelWidth / (float)ChannelHeight;
+		ITextureProcessingNode::FTextureDimension ChannelDimension = OutputTexture->GetTextureDimension();
+		const float NewRatio = (float)ChannelDimension.Width / (float)ChannelDimension.Height;
 
 		// Calculate the maximum size of all of our processed textures. We'll use this as our packed texture size.
-		Width = FMath::Max(Width, ChannelWidth);
-		Height = FMath::Max(Height, ChannelHeight);
-		Slices = FMath::Max(Slices, ChannelSlices);
+		Width = FMath::Max(Width, ChannelDimension.Width);
+		Height = FMath::Max(Height, ChannelDimension.Height);
+		Slices = FMath::Max(Slices, ChannelDimension.Slices);
 		// Verify that all processed textures have the same aspect ratio
 		check(NewRatio == Ratio || Ratio == 0.0f);
 		Ratio = NewRatio;
@@ -319,11 +317,12 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 		if (c < TextureInfo.ChannelCount && OutputTextures.Contains(ChanelInfo.ProcessedTexture))
 		{
 			TSharedRef<ITextureProcessingNode> ProcessedTexture = OutputTextures.FindChecked(ChanelInfo.ProcessedTexture);
+			ITextureProcessingNode::FTextureDimension ProcessedTextureDimension = ProcessedTexture->GetTextureDimension();
 
-			check(ProcessedTexture->GetWidth() <= Width);
-			check(ProcessedTexture->GetHeight() <= Height);
+			check(ProcessedTextureDimension.Width <= Width);
+			check(ProcessedTextureDimension.Height <= Height);
 
-			if (ProcessedTexture->GetWidth() < Width || ProcessedTexture->GetHeight() < Height)
+			if (ProcessedTextureDimension.Width < Width || ProcessedTextureDimension.Height < Height)
 			{
 				ProcessedTexture = MakeShared<FTextureOperatorEnlarge>(ProcessedTexture, Width, Height, Slices);
 			}

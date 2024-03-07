@@ -24,9 +24,7 @@ public:
 	virtual const uint32 ComputeGraphHash() const override;
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override { check(LastNode); return LastNode->ComputeDataHash(Context); }
 
-	virtual int GetWidth() const override { check(LastNode); return LastNode->GetWidth(); }
-	virtual int GetHeight() const override { check(LastNode); return LastNode->GetHeight(); }
-	virtual int GetSlices() const override { check(LastNode); return LastNode->GetSlices(); }
+	virtual FTextureDimension GetTextureDimension() const override { check(LastNode); return LastNode->GetTextureDimension(); }
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() override { check(LastNode); return LastNode->GetTextureDef(); }
 
 	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override { LastNode->ComputeChunk(Chunk, TextureData); }

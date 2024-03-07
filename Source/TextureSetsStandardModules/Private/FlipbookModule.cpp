@@ -53,30 +53,30 @@ public:
 			FramesY = 1;
 		}
 
-		SubImageWidth = SourceImage->GetWidth();
-		SubImageHeight = SourceImage->GetHeight();
+		FTextureDimension SourceImageDimension = SourceImage->GetTextureDimension();
+
+		SubImageWidth = SourceImageDimension.Width;
+		SubImageHeight = SourceImageDimension.Height;
 		FramesPerImage = 1;
 
-		if (SourceImage->GetWidth() >= FramesX)
+		if (SourceImageDimension.Width >= FramesX)
 		{
-			check(SourceImage->GetWidth() % FramesX == 0); // Need to be able to divide the image cleanly into the specified number of frames
+			check(SourceImageDimension.Width % FramesX == 0); // Need to be able to divide the image cleanly into the specified number of frames
 			SubImageWidth /= FramesX;
 			FramesPerImage *= FramesX;
 		}
 
-		if (SourceImage->GetHeight() >= FramesY)
+		if (SourceImageDimension.Height >= FramesY)
 		{
-			check(SourceImage->GetWidth() % FramesY == 0); // Need to be able to divide the image cleanly into the specified number of frames
+			check(SourceImageDimension.Height % FramesY == 0); // Need to be able to divide the image cleanly into the specified number of frames
 			SubImageHeight /= FramesY;
 			FramesPerImage *= FramesY;
 		}
 
-		Slices = SourceImage->GetSlices() * FramesPerImage;
+		Slices = SourceImageDimension.Slices * FramesPerImage;
 	}
 
-	virtual int GetWidth() const override { return SubImageWidth; }
-	virtual int GetHeight() const override { return SubImageHeight; }
-	virtual int GetSlices() const override { return Slices; }
+	virtual FTextureDimension GetTextureDimension() const override { return { SubImageWidth, SubImageHeight, Slices}; }
 
 	FIntVector TransformToSource(FIntVector Position) const
 	{
@@ -98,13 +98,15 @@ public:
 			return;
 		}
 
+		FTextureDimension SourceImageDimension = SourceImage->GetTextureDimension();
+
 		FTextureProcessingChunk SourceChunk(
 			Chunk.Channel,
 			0,
 			1,
-			SourceImage->GetWidth(),
-			SourceImage->GetHeight(),
-			SourceImage->GetSlices());
+			SourceImageDimension.Width,
+			SourceImageDimension.Height,
+			SourceImageDimension.Slices);
 
 		TArray64<float> SourceTextureData;
 		SourceTextureData.SetNumUninitialized(SourceChunk.DataEnd + 1);
@@ -171,7 +173,9 @@ public:
 		for (auto& [OutputName, ProcessingNode] : Graph.GetOutputTextures())
 		{
 			ProcessingNode->Initialize(Graph);
-			FrameCount = FMath::Max(FrameCount, ProcessingNode->GetSlices());
+			ITextureProcessingNode::FTextureDimension SourceImageDimension = ProcessingNode->GetTextureDimension();
+
+			FrameCount = FMath::Max(FrameCount, SourceImageDimension.Slices);
 		}
 
 		Value.W = FrameCount;

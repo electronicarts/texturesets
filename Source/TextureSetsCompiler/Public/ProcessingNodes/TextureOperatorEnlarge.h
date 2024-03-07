@@ -26,26 +26,33 @@ public:
 		return Hash;
 	}
 
-	virtual int GetWidth() const override { return TargetWidth; }
-	virtual int GetHeight() const override { return TargetHeight; }
+	virtual FTextureDimension GetTextureDimension() const override
+	{
+		const FTextureDimension SourceDimension = SourceImage->GetTextureDimension();
+		return {TargetWidth, TargetHeight, SourceDimension.Slices};
+	}
 
 	inline FIntVector TransformToSource(const FIntVector& Position) const
 	{
+		const FTextureDimension SourceDimension = SourceImage->GetTextureDimension();
+
 		return FIntVector(
-			(int)(Position.X * (float)SourceImage->GetWidth() / (float)TargetWidth),
-			(int)(Position.Y * (float)SourceImage->GetHeight() / (float)TargetHeight),
-			(int)(Position.Z * (float)SourceImage->GetSlices() / (float)TargetSlices));
+			(int)(Position.X * (float)SourceDimension.Width / (float)TargetWidth),
+			(int)(Position.Y * (float)SourceDimension.Height / (float)TargetHeight),
+			(int)(Position.Z * (float)SourceDimension.Slices / (float)TargetSlices));
 	}
 
 	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override
 	{
+		const FTextureDimension SourceDimension = SourceImage->GetTextureDimension();
+
 		FTextureProcessingChunk SourceChunk = FTextureProcessingChunk(
 			Chunk.Channel,
 			0,
 			1,
-			SourceImage->GetWidth(),
-			SourceImage->GetHeight(),
-			SourceImage->GetSlices());
+			SourceDimension.Width,
+			SourceDimension.Height,
+			SourceDimension.Slices);
 
 		TArray64<float> SourceTextureData;
 		SourceTextureData.SetNumUninitialized(SourceChunk.DataEnd + 1);
@@ -57,15 +64,15 @@ public:
 		FVector3f Lerp;
 		for (Coord.Z = 0; Coord.Z < Chunk.TextureSlices; Coord.Z++)
 		{
-			Lerp.Z = FMath::Fmod(((float)Coord.Z / (float)TargetSlices) * (float)SourceImage->GetSlices(), 1);
+			Lerp.Z = FMath::Fmod(((float)Coord.Z / (float)TargetSlices) * (float)SourceDimension.Slices, 1);
 
 			for (Coord.Y = 0; Coord.Y < Chunk.TextureHeight; Coord.Y++)
 			{
-				Lerp.Y = FMath::Fmod(((float)Coord.Y / (float)TargetHeight) * (float)SourceImage->GetHeight(), 1);
+				Lerp.Y = FMath::Fmod(((float)Coord.Y / (float)TargetHeight) * (float)SourceDimension.Height, 1);
 
 				for (Coord.X = 0; Coord.X < Chunk.TextureWidth; Coord.X++)
 				{
-					Lerp.X = FMath::Fmod(((float)Coord.X / (float)TargetWidth) * (float)SourceImage->GetWidth(), 1);
+					Lerp.X = FMath::Fmod(((float)Coord.X / (float)TargetWidth) * (float)SourceDimension.Width, 1);
 
 					const FIntVector SourceBaseCoord = TransformToSource(Coord);
 

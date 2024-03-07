@@ -26,9 +26,7 @@ public:
 	virtual const uint32 ComputeGraphHash() const override;
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override;
 
-	virtual int GetWidth() const override { check(bLoaded); return Width; }
-	virtual int GetHeight() const override { check(bLoaded); return Height; }
-	virtual int GetSlices() const override { check(bLoaded); return Slices; }
+	virtual FTextureDimension GetTextureDimension() const override { check(bLoaded); return {Width, Height, Slices}; }
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() override { return SourceDefinition; }
 
 	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override;

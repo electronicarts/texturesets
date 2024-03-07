@@ -96,9 +96,14 @@ public:
 class ITextureProcessingNode : public IProcessingNode
 {
 public:
-	virtual int GetWidth() const = 0;
-	virtual int GetHeight() const = 0;
-	virtual int GetSlices() const = 0;
+	struct FTextureDimension
+	{
+		int Width;
+		int Height;
+		int Slices;
+	};
+
+	virtual FTextureDimension GetTextureDimension() const = 0;
 	virtual const struct FTextureSetProcessedTextureDef GetTextureDef() = 0;
 
 	// Compute the texture chunk and write into the texture data.
