@@ -12,6 +12,8 @@
 class UTexture;
 class FTextureOperator;
 
+#define DIRECT_READ 1
+
 class FTextureRead : public ITextureProcessingNode
 {
 public:
@@ -52,6 +54,12 @@ private:
 	int Width;
 	int Height;
 	int Slices;
+#if DIRECT_READ
+	ETextureSourceFormat TextureSourceFormat;
+	EGammaSpace TextureSourceGamma;
+	FSharedBuffer TextureSourceMip0;
+#else
 	FImage Image;
+#endif
 	bool bValidImage;
 };
