@@ -42,12 +42,12 @@ public:
 			(int)(Position.Z * (float)SourceDimension.Slices / (float)TargetSlices));
 	}
 
-	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override
+	virtual void ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const override
 	{
 		const FTextureDimension SourceDimension = SourceImage->GetTextureDimension();
 
-		FTextureProcessingChunk SourceChunk = FTextureProcessingChunk(
-			Chunk.Channel,
+		FTextureChannelDataDesc SourceChannel = FTextureChannelDataDesc(
+			Channel.ChannelIndex,
 			0,
 			1,
 			SourceDimension.Width,
@@ -55,22 +55,22 @@ public:
 			SourceDimension.Slices);
 
 		TArray64<float> SourceTextureData;
-		SourceTextureData.SetNumUninitialized(SourceChunk.DataEnd + 1);
+		SourceTextureData.SetNumUninitialized(SourceChannel.DataEnd + 1);
 
-		SourceImage->ComputeChunk(SourceChunk, SourceTextureData.GetData());
+		SourceImage->ComputeChannel(SourceChannel, SourceTextureData.GetData());
 
-		int DataIndex = Chunk.DataStart;
+		int DataIndex = Channel.DataStart;
 		FIntVector Coord;
 		FVector3f Lerp;
-		for (Coord.Z = 0; Coord.Z < Chunk.TextureSlices; Coord.Z++)
+		for (Coord.Z = 0; Coord.Z < Channel.TextureSlices; Coord.Z++)
 		{
 			Lerp.Z = FMath::Fmod(((float)Coord.Z / (float)TargetSlices) * (float)SourceDimension.Slices, 1);
 
-			for (Coord.Y = 0; Coord.Y < Chunk.TextureHeight; Coord.Y++)
+			for (Coord.Y = 0; Coord.Y < Channel.TextureHeight; Coord.Y++)
 			{
 				Lerp.Y = FMath::Fmod(((float)Coord.Y / (float)TargetHeight) * (float)SourceDimension.Height, 1);
 
-				for (Coord.X = 0; Coord.X < Chunk.TextureWidth; Coord.X++)
+				for (Coord.X = 0; Coord.X < Channel.TextureWidth; Coord.X++)
 				{
 					Lerp.X = FMath::Fmod(((float)Coord.X / (float)TargetWidth) * (float)SourceDimension.Width, 1);
 
@@ -84,8 +84,8 @@ public:
 						{
 							for(int z = 0; z < 2; z++)
 							{
-								const FIntVector SourceCoord = SourceChunk.ClampCoord(SourceBaseCoord + FIntVector(x,y,z));
-								Values[x][y][z] = SourceTextureData[SourceChunk.CoordToDataIndex(SourceCoord)];
+								const FIntVector SourceCoord = SourceChannel.ClampCoord(SourceBaseCoord + FIntVector(x,y,z));
+								Values[x][y][z] = SourceTextureData[SourceChannel.CoordToDataIndex(SourceCoord)];
 							}
 						}
 					}
@@ -118,7 +118,7 @@ public:
 					}
 					
 					TextureData[DataIndex] = Values[0][0][0];
-					DataIndex += Chunk.DataPixelStride;
+					DataIndex += Channel.DataPixelStride;
 				}
 			}
 		}

@@ -39,13 +39,13 @@ public:
 		return Hash;
 	}
 
-	void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override
+	void ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const override
 	{
-		SourceImage->ComputeChunk(Chunk, TextureData);
+		SourceImage->ComputeChannel(Channel, TextureData);
 
-		if (Chunk.Channel == 1 && bFlipGreen)
+		if (Channel.ChannelIndex == 1 && bFlipGreen)
 		{
-			for (int DataIndex = Chunk.DataStart; DataIndex <= Chunk.DataEnd; DataIndex += Chunk.DataPixelStride)
+			for (int DataIndex = Channel.DataStart; DataIndex <= Channel.DataEnd; DataIndex += Channel.DataPixelStride)
 			{
 				TextureData[DataIndex] = 1.0f - TextureData[DataIndex];
 			}

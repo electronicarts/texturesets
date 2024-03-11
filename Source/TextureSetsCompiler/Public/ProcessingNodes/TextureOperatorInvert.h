@@ -13,13 +13,13 @@ public:
 
 	virtual FName GetNodeTypeName() const  { return "Invert"; }
 
-	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override
+	virtual void ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const override
 	{
-		SourceImage->ComputeChunk(Chunk, TextureData);
+		SourceImage->ComputeChannel(Channel, TextureData);
 
-		for (int DataIndex = Chunk.DataStart; DataIndex <= Chunk.DataEnd; DataIndex += Chunk.DataPixelStride)
+		Channel.ForEachPixel([TextureData](int64 DataIndex)
 		{
 			TextureData[DataIndex] = 1.0f - TextureData[DataIndex];
-		}
+		});
 	}
 };

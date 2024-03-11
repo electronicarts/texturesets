@@ -31,7 +31,7 @@ public:
 	virtual FTextureDimension GetTextureDimension() const override { check(bLoaded); return {Width, Height, Slices}; }
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() override { return SourceDefinition; }
 
-	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override;
+	virtual void ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const override;
 
 	void AddOperator(CreateOperatorFunc Operator) { CreateOperatorFuncs.Add(Operator); }
 

@@ -89,19 +89,19 @@ public:
 		);
 	}
 
-	void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override
+	void ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const override
 	{
 		if (FramesPerImage == 1)
 		{
 			// Can early out without remapping the frames
-			SourceImage->ComputeChunk(Chunk, TextureData);
+			SourceImage->ComputeChannel(Channel, TextureData);
 			return;
 		}
 
 		FTextureDimension SourceImageDimension = SourceImage->GetTextureDimension();
 
-		FTextureProcessingChunk SourceChunk(
-			Chunk.Channel,
+		FTextureChannelDataDesc SourceChannel(
+			Channel.ChannelIndex,
 			0,
 			1,
 			SourceImageDimension.Width,
@@ -109,21 +109,21 @@ public:
 			SourceImageDimension.Slices);
 
 		TArray64<float> SourceTextureData;
-		SourceTextureData.SetNumUninitialized(SourceChunk.DataEnd + 1);
+		SourceTextureData.SetNumUninitialized(SourceChannel.DataEnd + 1);
 
-		SourceImage->ComputeChunk(SourceChunk, SourceTextureData.GetData());
+		SourceImage->ComputeChannel(SourceChannel, SourceTextureData.GetData());
 
-		int DataIndex = Chunk.DataStart;
+		int DataIndex = Channel.DataStart;
 		FIntVector Coord;
-		for (Coord.Z = 0; Coord.Z < Chunk.TextureSlices; Coord.Z++)
+		for (Coord.Z = 0; Coord.Z < Channel.TextureSlices; Coord.Z++)
 		{
-			for (Coord.Y = 0; Coord.Y < Chunk.TextureHeight; Coord.Y++)
+			for (Coord.Y = 0; Coord.Y < Channel.TextureHeight; Coord.Y++)
 			{
-				for (Coord.X = 0; Coord.X < Chunk.TextureWidth; Coord.X++)
+				for (Coord.X = 0; Coord.X < Channel.TextureWidth; Coord.X++)
 				{
-					const int SourceDataIndex = SourceChunk.CoordToDataIndex(TransformToSource(Coord));
+					const int SourceDataIndex = SourceChannel.CoordToDataIndex(TransformToSource(Coord));
 					TextureData[DataIndex] = SourceTextureData[SourceDataIndex];
-					DataIndex += Chunk.DataPixelStride;
+					DataIndex += Channel.DataPixelStride;
 				}
 			}
 		}

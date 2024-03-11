@@ -117,40 +117,40 @@ public:
 
 	virtual FTextureDimension GetTextureDimension() const override { return { BakeArgs.BakeWidth, BakeArgs.BakeHeight, 1}; }
 
-	void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override
+	void ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const override
 	{
 		if (BakeArgs.SourceModel)
 		{
 			int BakedIndex = 0;
-			int ChunkIndex = Chunk.DataStart;
+			int ChunkIndex = Channel.DataStart;
 			FIntVector Coord;
-			for (Coord.Z = 0; Coord.Z < Chunk.TextureSlices; Coord.Z++)
+			for (Coord.Z = 0; Coord.Z < Channel.TextureSlices; Coord.Z++)
 			{
-				for (Coord.Y = 0; Coord.Y < Chunk.TextureHeight; Coord.Y++)
+				for (Coord.Y = 0; Coord.Y < Channel.TextureHeight; Coord.Y++)
 				{
-					for (Coord.X = 0; Coord.X < Chunk.TextureWidth; Coord.X++)
+					for (Coord.X = 0; Coord.X < Channel.TextureWidth; Coord.X++)
 					{
 						// Fill with baked data
 						TextureData[ChunkIndex] = BakeResults.Pixels[BakedIndex];
 						BakedIndex++;
-						ChunkIndex += Chunk.DataPixelStride;
+						ChunkIndex += Channel.DataPixelStride;
 					}
 				}
 			}
 		}
 		else
 		{
-			int ChunkIndex = Chunk.DataStart;
+			int ChunkIndex = Channel.DataStart;
 			FIntVector Coord;
-			for (Coord.Z = 0; Coord.Z < Chunk.TextureSlices; Coord.Z++)
+			for (Coord.Z = 0; Coord.Z < Channel.TextureSlices; Coord.Z++)
 			{
-				for (Coord.Y = 0; Coord.Y < Chunk.TextureHeight; Coord.Y++)
+				for (Coord.Y = 0; Coord.Y < Channel.TextureHeight; Coord.Y++)
 				{
-					for (Coord.X = 0; Coord.X < Chunk.TextureWidth; Coord.X++)
+					for (Coord.X = 0; Coord.X < Channel.TextureWidth; Coord.X++)
 					{
 						// Fill with default value
 						TextureData[ChunkIndex] = 0.5f;
-						ChunkIndex += Chunk.DataPixelStride;
+						ChunkIndex += Channel.DataPixelStride;
 					}
 				}
 			}

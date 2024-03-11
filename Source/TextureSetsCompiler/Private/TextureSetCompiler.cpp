@@ -274,14 +274,6 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 	const FTextureSetPackedTextureDef TextureDef = Args->PackingInfo.GetPackedTextureDef(Index);
 	const FTextureSetPackedTextureInfo TextureInfo = Args->PackingInfo.GetPackedTextureInfo(Index);
 
-	FTextureSource& Source = DerivedTexture.Texture->Source;
-	int Width = Source.GetSizeX();
-	int Height = Source.GetSizeY();
-	int Slices = Source.GetNumSlices();
-	check(Source.GetFormat() == ETextureSourceFormat::TSF_RGBA32F);
-	const int PixelValueStride = 4;
-	const int NumPixelValues = Width * Height * Slices * PixelValueStride;
-
 	const TMap<FName, TSharedRef<ITextureProcessingNode>>& OutputTextures = GraphInstance->GetOutputTextures();
 
 	for (int c = 0; c < TextureInfo.ChannelCount; c++)
@@ -299,20 +291,43 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 	FVector4f RestoreMul = FVector4f::One();
 	FVector4f RestoreAdd = FVector4f::Zero();
 
-//#if BENCHMARK_TEXTURESET_COMPILATION
-//	UE_LOG(LogTextureSet, Log, TEXT("%s Build: Initializing data took %fs"), *DebugContext, FPlatformTime::Seconds() - SectionStartTime);
-//	SectionStartTime = FPlatformTime::Seconds();
-//#endif
-// 
+#if BENCHMARK_TEXTURESET_COMPILATION
+	UE_LOG(LogTextureSet, Log, TEXT("%s Build: Initializing processing graph took %fs"), *DebugContext, FPlatformTime::Seconds() - SectionStartTime);
+	SectionStartTime = FPlatformTime::Seconds();
+#endif
+ 
+	// TODO: Support textures sources of lower precision
+	FTextureSource& Source = DerivedTexture.Texture->Source;
+	const int Width = Source.GetSizeX();
+	const int Height = Source.GetSizeY();
+	const int Slices = Source.GetNumSlices();
+	check(Source.GetFormat() == ETextureSourceFormat::TSF_RGBA32F);
+	const int PixelValueStride = 4;
+	const int NumPixelValues = Width * Height * Slices * PixelValueStride;
+
 	// Init with NewData == null is used to allocate space, which is then filled with LockMip
 	Source.Init(Width, Height, Slices, 1, TSF_RGBA32F, nullptr);
 	float* PixelValues = (float*)Source.LockMip(0);
 	check(PixelValues != nullptr);
 
+	#if BENCHMARK_TEXTURESET_COMPILATION
+	UE_LOG(LogTextureSet, Log, TEXT("%s Build: Allocating source buffer took %fs"), *DebugContext, FPlatformTime::Seconds() - SectionStartTime);
+	SectionStartTime = FPlatformTime::Seconds();
+	#endif
+
 	for (int c = 0; c < 4; c++)
 	{
 		// Copy processed textures into packed textures
 		const auto& ChanelInfo = TextureInfo.ChannelInfo[c];
+
+		// Create a chunk to comptue the channel
+		FTextureChannelDataDesc ChannelDesc(
+			ChanelInfo.ProessedTextureChannel,
+			c,
+			PixelValueStride,
+			Width,
+			Height,
+			Slices);
 
 		if (c < TextureInfo.ChannelCount && OutputTextures.Contains(ChanelInfo.ProcessedTexture))
 		{
@@ -327,32 +342,29 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 				ProcessedTexture = MakeShared<FTextureOperatorEnlarge>(ProcessedTexture, Width, Height, Slices);
 			}
 
-			// Initialize the max and min pixel values so they will be overridden by the first pixel
-			float Min = TNumericLimits<float>::Max();
-			float Max = TNumericLimits<float>::Lowest();
+			// Compute the processed data
+			ProcessedTexture->ComputeChannel(ChannelDesc, PixelValues);
 
-			// Do the whole channel as a single chunk
-			FTextureProcessingChunk Chunk(
-				ChanelInfo.ProessedTextureChannel,
-				c,
-				PixelValueStride,
-				Width,
-				Height,
-				Slices);
-
-			ProcessedTexture->ComputeChunk(Chunk, PixelValues);
-
-			// Pixel data is already filled, we just need to calculate the min and max values
-			for (int DataIndex = Chunk.DataStart; DataIndex <= Chunk.DataEnd; DataIndex += Chunk.DataPixelStride)
-			{
-				const float PixelValue = PixelValues[DataIndex];
-				Min = FMath::Min(Min, PixelValue);
-				Max = FMath::Max(Max, PixelValue);
-			}
+			#if BENCHMARK_TEXTURESET_COMPILATION
+			UE_LOG(LogTextureSet, Log, TEXT("%s Build: Processing graph exectution for channel %i took %fs"), *DebugContext, c, FPlatformTime::Seconds() - SectionStartTime);
+			SectionStartTime = FPlatformTime::Seconds();
+			#endif
 
 			// Channel encoding (decoding happens in FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode)
 			if (ChanelInfo.ChannelEncoding & (uint8)ETextureSetChannelEncoding::RangeCompression)
 			{
+				// Initialize the max and min pixel values so they will be overridden by the first pixel
+				float Min = TNumericLimits<float>::Max();
+				float Max = TNumericLimits<float>::Lowest();
+
+				// Calculate the min and max values
+				for (int DataIndex = ChannelDesc.DataStart; DataIndex <= ChannelDesc.DataEnd; DataIndex += ChannelDesc.DataPixelStride)
+				{
+					const float PixelValue = PixelValues[DataIndex];
+					Min = FMath::Min(Min, PixelValue);
+					Max = FMath::Max(Max, PixelValue);
+				}
+
 				if (Min >= Max)
 				{
 					// Essentially ignore the texture at runtime and use the min value
@@ -365,22 +377,32 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 					float CompressMul = 1.0f / (Max - Min);
 					float CompressAdd = -Min * CompressMul;
 
-					for (int i = c; i < NumPixelValues; i += PixelValueStride)
+					ChannelDesc.ForEachPixel([PixelValues, CompressMul, CompressAdd](int64 DataIndex)
 					{
-						PixelValues[i] = PixelValues[i] * CompressMul + CompressAdd;
-					}
+						PixelValues[DataIndex] = PixelValues[DataIndex] * CompressMul + CompressAdd;
+					});
 
 					RestoreMul[c] = Max - Min;
 					RestoreAdd[c] = Min;
+
+					#if BENCHMARK_TEXTURESET_COMPILATION
+					UE_LOG(LogTextureSet, Log, TEXT("%s Build: Range compression of channel %i took %fs"), *DebugContext, c, FPlatformTime::Seconds() - SectionStartTime);
+					SectionStartTime = FPlatformTime::Seconds();
+					#endif
 				}
 			}
 
 			if ((ChanelInfo.ChannelEncoding & (uint8)ETextureSetChannelEncoding::SRGB) && (!TextureInfo.HardwareSRGB || c >= 3))
 			{
-				for (int i = c; i < NumPixelValues; i += PixelValueStride)
+				ChannelDesc.ForEachPixel([PixelValues](int64 DataIndex)
 				{
-					PixelValues[i] = FMath::Pow(PixelValues[i], 1.0f / 2.2f);
-				}
+					PixelValues[DataIndex] = FMath::Pow(PixelValues[DataIndex], 1.0f / 2.2f);
+				});
+
+				#if BENCHMARK_TEXTURESET_COMPILATION
+				UE_LOG(LogTextureSet, Log, TEXT("%s Build: SRGB adjustment of channel %i took %fs"), *DebugContext, c, FPlatformTime::Seconds() - SectionStartTime);
+				SectionStartTime = FPlatformTime::Seconds();
+				#endif
 			}
 
 		}
@@ -388,18 +410,23 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 		{
 			if (c < 3)
 			{
-				for (int i = c; i < NumPixelValues; i += PixelValueStride)
+				ChannelDesc.ForEachPixel([PixelValues](int64 DataIndex)
 				{
-					PixelValues[i] = 0.0f; // Fill unused RGB with black
-				}
+					PixelValues[DataIndex] = 0.0f; // Fill RGB with black
+				});
 			}
 			else
 			{
-				for (int i = c; i < NumPixelValues; i += PixelValueStride)
+				ChannelDesc.ForEachPixel([PixelValues](int64 DataIndex)
 				{
-					PixelValues[i] = 1.0f; // Fill unused Alpha with white
-				}
+					PixelValues[DataIndex] = 1.0f; // Fill Alpha with white
+				});
 			}
+
+			#if BENCHMARK_TEXTURESET_COMPILATION
+				UE_LOG(LogTextureSet, Log, TEXT("%s Build: Filling channel %i with blank data took %fs"), *DebugContext, c, FPlatformTime::Seconds() - SectionStartTime);
+				SectionStartTime = FPlatformTime::Seconds();
+			#endif
 		}
 	};
 
@@ -407,11 +434,6 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 
 	// UnlockMip causes GUID to be set from a hash, so force it back to the one we want to use
 	Source.SetId(GetTextureDataId(Index), true);
-
-//#if BENCHMARK_TEXTURESET_COMPILATION
-//	UE_LOG(LogTextureSet, Log, TEXT("%s Build: Filling channels data took %fs"), *DebugContext, FPlatformTime::Seconds() - SectionStartTime);
-//	SectionStartTime = FPlatformTime::Seconds();
-//#endif
 
 	FDerivedTextureData& Data = DerivedTexture.Data;
 	Data.Id = GetTextureDataId(Index);

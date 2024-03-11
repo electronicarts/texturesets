@@ -324,18 +324,18 @@ namespace
 		}
 	}
 	template<ETextureSourceFormat SourceFormat, typename TPixelType>
-	void CopyImageData(FSharedBuffer SourceBuffer, int SourceChannel, EGammaSpace GammaSpace, const FTextureProcessingChunk& DestChunk, float* DestData)
+	void CopyImageData(FSharedBuffer SourceBuffer, int SourceChannel, EGammaSpace GammaSpace, const FTextureChannelDataDesc& DestChannel, float* DestData)
 	{
 		static constexpr int SourceDataStride = GetStride<SourceFormat>();
 
-		const uint64 ExpectedSize = sizeof(TPixelType) * DestChunk.TextureHeight * DestChunk.TextureWidth * DestChunk.TextureSlices * SourceDataStride;
+		const uint64 ExpectedSize = sizeof(TPixelType) * DestChannel.TextureHeight * DestChannel.TextureWidth * DestChannel.TextureSlices * SourceDataStride;
 		check(SourceBuffer.GetSize() == ExpectedSize);
 
 		const TPixelType* SourceData = (TPixelType*)SourceBuffer.GetData();
 
-		int IDest = DestChunk.DataStart;
+		int IDest = DestChannel.DataStart;
 		int ISource = RemapChannel<SourceFormat>(SourceChannel);
-#define ITERATE_DATA for (; IDest <= DestChunk.DataEnd; IDest += DestChunk.DataPixelStride, ISource += SourceDataStride)
+#define ITERATE_DATA for (; IDest <= DestChannel.DataEnd; IDest += DestChannel.DataPixelStride, ISource += SourceDataStride)
 
 		if constexpr (std::is_same<float, TPixelType>::value || std::is_same<FFloat16, TPixelType>::value)
 		{
@@ -379,41 +379,41 @@ namespace
 	}
 }
 
-void FTextureRead::ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const
+void FTextureRead::ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const
 {
 	if (bValidImage)
 	{
 #if DIRECT_READ
-		const int SourceChannel = ChannelSwizzle[Chunk.Channel];
+		const int SourceChannel = ChannelSwizzle[Channel.ChannelIndex];
 
 		switch (TextureSourceFormat)
 		{
 		case TSF_G8:
-			CopyImageData<TSF_G8, uint8>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Chunk, TextureData);
+			CopyImageData<TSF_G8, uint8>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
 			break;
 		case TSF_BGRA8:
-			CopyImageData<TSF_BGRA8, uint8>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Chunk, TextureData);
+			CopyImageData<TSF_BGRA8, uint8>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
 			break;
 		case TSF_BGRE8:
-			CopyImageData<TSF_BGRE8, uint8>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Chunk, TextureData);
+			CopyImageData<TSF_BGRE8, uint8>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
 			break;
 		case TSF_RGBA16:
-			CopyImageData<TSF_RGBA16, uint16>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Chunk, TextureData);
+			CopyImageData<TSF_RGBA16, uint16>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
 			break;
 		case TSF_RGBA16F:
-			CopyImageData<TSF_RGBA16F, FFloat16>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Chunk, TextureData);
+			CopyImageData<TSF_RGBA16F, FFloat16>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
 			break;
 		case TSF_G16:
-			CopyImageData<TSF_G16, uint16>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Chunk, TextureData);
+			CopyImageData<TSF_G16, uint16>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
 			break;
 		case TSF_RGBA32F:
-			CopyImageData<TSF_RGBA32F, float>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Chunk, TextureData);
+			CopyImageData<TSF_RGBA32F, float>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
 			break;
 		case TSF_R16F:
-			CopyImageData<TSF_R16F, FFloat16>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Chunk, TextureData);
+			CopyImageData<TSF_R16F, FFloat16>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
 			break;
 		case TSF_R32F:
-			CopyImageData<TSF_R32F, float>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Chunk, TextureData);
+			CopyImageData<TSF_R32F, float>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
 			break;
 		default:
 			unimplemented();
@@ -423,9 +423,9 @@ void FTextureRead::ComputeChunk(const FTextureProcessingChunk& Chunk, float* Tex
 		const float* RawImageData = (float*)Image.RawData.GetData();
 		constexpr int RawImagePixelStride = 4;
 
-		int DataIndex = Chunk.DataStart;
-		int PixelIndex = ChannelSwizzle[Chunk.Channel];
-		for (; DataIndex <= Chunk.DataEnd; DataIndex += Chunk.DataPixelStride, PixelIndex += RawImagePixelStride)
+		int DataIndex = Channel.DataStart;
+		int PixelIndex = ChannelSwizzle[Channel.Channel];
+		for (; DataIndex <= Channel.DataEnd; DataIndex += Channel.DataPixelStride, PixelIndex += RawImagePixelStride)
 		{
 			TextureData[DataIndex] = RawImageData[PixelIndex];
 		}
@@ -434,9 +434,9 @@ void FTextureRead::ComputeChunk(const FTextureProcessingChunk& Chunk, float* Tex
 	else
 	{
 		// Fill tile data with default value
-		for (int DataIndex = Chunk.DataStart; DataIndex <= Chunk.DataEnd; DataIndex += Chunk.DataPixelStride)
+		for (int DataIndex = Channel.DataStart; DataIndex <= Channel.DataEnd; DataIndex += Channel.DataPixelStride)
 		{
-			TextureData[DataIndex] = SourceDefinition.DefaultValue[Chunk.Channel];
+			TextureData[DataIndex] = SourceDefinition.DefaultValue[Channel.ChannelIndex];
 		}
 	}
 }

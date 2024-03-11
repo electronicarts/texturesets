@@ -27,7 +27,7 @@ public:
 	virtual FTextureDimension GetTextureDimension() const override { check(LastNode); return LastNode->GetTextureDimension(); }
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() override { check(LastNode); return LastNode->GetTextureDef(); }
 
-	virtual void ComputeChunk(const FTextureProcessingChunk& Chunk, float* TextureData) const override { LastNode->ComputeChunk(Chunk, TextureData); }
+	virtual void ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const override { LastNode->ComputeChannel(Channel, TextureData); }
 
 	void AddOperator(CreateOperatorFunc Operator) { CreateOperatorFuncs.Add(Operator); }
 
