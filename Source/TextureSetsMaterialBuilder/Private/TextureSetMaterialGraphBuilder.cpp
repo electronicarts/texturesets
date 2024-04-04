@@ -679,6 +679,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 	const bool bVirtualTextureStreaming = TextureDef.bVirtualTextureStreaming;
 
 	UMaterialExpressionCustom* CustomExp = CreateExpression<UMaterialExpressionCustom>();
+	CustomExp->SamplerSourceMode = SSM_Wrap_WorldGroupSettings;
 	CustomExp->Inputs.Empty(); // required: class initializes with one input by default
 	CustomExp->IncludeFilePaths.Add("/Engine/Private/Common.ush");
 	CustomExp->Code = "";
@@ -688,6 +689,10 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNo
 	if (bVirtualTextureStreaming)
 	{
 		TObjectPtr<UMaterialExpressionTextureSample> SampleExpression = CreateExpression<UMaterialExpressionTextureSample>();
+		// We know this should be a UMaterialExpressionTextureObjectParameter when using VTs
+		TObjectPtr<const UMaterialExpressionTextureObjectParameter> TextureObjExpression = CastChecked<UMaterialExpressionTextureObjectParameter>(TextureObject.GetExpression());
+		SampleExpression->SamplerType = TextureObjExpression->SamplerType;
+		SampleExpression->SamplerSource = ESamplerSourceMode::SSM_Wrap_WorldGroupSettings;
 		SampleExpression->MipValueMode = TMVM_Derivative;
 
 		Connect(TextureObject, SampleExpression, "TextureObject");

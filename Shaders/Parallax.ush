@@ -39,6 +39,7 @@ float2 ParallaxOcclusionMapping(
 	
 	texcoordOffset = 0;
 	depthOffset = 0;
+	heightOut = 0;
 	
 	float textureAspectRatio = heightmapSize.x / heightmapSize.y;
 

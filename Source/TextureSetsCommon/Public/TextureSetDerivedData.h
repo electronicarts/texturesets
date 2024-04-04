@@ -102,4 +102,7 @@ public:
 	// Use this critical section when editing the MaterialParameters map
 	FCriticalSection ParameterCS;
 #endif
+
+	// UObject Interface
+	virtual void PostLoad() override;
 };

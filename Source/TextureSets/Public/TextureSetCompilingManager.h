@@ -78,7 +78,7 @@ private:
 	double LastReschedule = 0.0f;
 	bool bHasShutdown = false;
 
-	TSet<TSoftObjectPtr<UTextureSet>> QueuedTextureSets;
+	TSet<TWeakObjectPtr<UTextureSet>> QueuedTextureSets;
 	TMap<UTextureSet*, TSharedPtr<TextureSetCompilerTask>> AsyncCompilationTasks;
 	//auto& [TextureSet, Task]
 	FAsyncCompilationNotification Notification;

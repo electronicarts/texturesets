@@ -2,6 +2,8 @@
 
 #include "TextureSetCompilingManager.h"
 
+#include "Materials/MaterialFunctionInstance.h"
+
 #if WITH_EDITOR
 #include "AssetCompilingManager.h"
 #include "AsyncCompilationHelpers.h"
@@ -29,7 +31,7 @@ static AsyncCompilationHelpers::FAsyncCompilationStandardCVars CVarAsyncTextureS
 
 static TAutoConsoleVariable<int> CVarMaxAsyncTextureSetParallelCompiles(
 	TEXT("ts.MaxAsyncTextureSetParallelCompiles"),
-	4,
+	32,
 	TEXT("Maximum number of async texture set compilations. Mainly used to limit memory usage"));
 
 
@@ -99,6 +101,32 @@ FQueuedThreadPool* FTextureSetCompilingManager::GetThreadPool() const
 	}
 
 	return GTextureThreadPool;
+}
+
+// Copy the code of FMemoryBoundQueuedThreadPoolWrapper::GetMemoryLimit() to prevent a divergence and since it'll probably be temp code until we integrate latest refactor from mpalko
+int64 TextureSetManagerGetMemoryLimit()
+{
+	const FPlatformMemoryStats MemoryStats = FPlatformMemory::GetStats();
+
+	// UsedPhysical = "working set"
+	// UsedVirtual  = "commit charge"
+	UE_LOG(LogTextureSet, Verbose, TEXT("GetMemoryLimit UsedPhysical = %.3f MB (Peak %.3f MB) UsedVirtual = %.3f MB (Peak %.3f MB) AvailPhysical = %.3f MB AvailVirtual = %.3f MB "),
+		MemoryStats.UsedPhysical / (1024 * 1024.f),
+		MemoryStats.PeakUsedPhysical / (1024 * 1024.f),
+		MemoryStats.UsedVirtual / (1024 * 1024.f),
+		MemoryStats.PeakUsedVirtual / (1024 * 1024.f),
+		MemoryStats.AvailablePhysical / (1024 * 1024.f),
+		MemoryStats.AvailableVirtual / (1024 * 1024.f));
+
+	// Just make sure available physical fits in a int64, if it's bigger than that, we're not expecting to be memory limited anyway
+	// Also uses AvailableVirtual because the system might have plenty of physical memory but still be limited by virtual memory available in some cases.
+	//   (i.e. per-process quota, paging file size lower than actual memory available, etc.).
+	int64 AvailableMemory = (int64)FMath::Min3(MemoryStats.AvailablePhysical, MemoryStats.AvailableVirtual, (uint64)INT64_MAX);
+
+	const int64 LeaveMemoryHeadRoom = 64 * 1024 * 1024; // leave 64 MB head room
+	AvailableMemory = FMath::Max(0, AvailableMemory - LeaveMemoryHeadRoom);
+
+	return AvailableMemory;
 }
 
 void FTextureSetCompilingManager::Shutdown()
@@ -407,15 +435,22 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 		NotifyMaterialInstances(FinishedTextureSets);
 	}
 
-	const int32 MaxParallel = CVarMaxAsyncTextureSetParallelCompiles.GetValueOnGameThread();
+	int32 MaxParallel = CVarMaxAsyncTextureSetParallelCompiles.GetValueOnGameThread();
 
-	if (QueuedTextureSets.Num() > 0 && AsyncCompilationTasks.Num() < MaxParallel)
+	int64 MemoryLimit = TextureSetManagerGetMemoryLimit();
+	const uint64 MemoryPerTextureSet = 4ULL * 1024 * 1024 * 1024; // Memory per Texture Set Compilation
+	int32 MaximumParallelAllowedByMemory = MemoryLimit / MemoryPerTextureSet;
+
+	MaxParallel = FMath::Min(FMath::Max(1, GLargeThreadPool->GetNumThreads() / 2), MaxParallel);
+	MaxParallel = FMath::Min(MaximumParallelAllowedByMemory, MaxParallel);
+
+	if (QueuedTextureSets.Num() > 0 && !IsLoading() && AsyncCompilationTasks.Num() < MaxParallel)
 	{
 		TArray<UTextureSet*> TextureSetsToStart;
-		TArray<TSoftObjectPtr<UTextureSet>> TextureSetsToDequeue;
+		TArray<TWeakObjectPtr<UTextureSet>> TextureSetsToDequeue;
 		TextureSetsToStart.Reserve(FMath::Min(QueuedTextureSets.Num(), MaxParallel));
 
-		for (const TSoftObjectPtr<UTextureSet>& QueuedTextureSet : QueuedTextureSets)
+		for (const TWeakObjectPtr<UTextureSet> QueuedTextureSet : QueuedTextureSets)
 		{
 			if (!HasTimeLeft())
 				break;
@@ -440,7 +475,7 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 				break;
 		}
 
-		for (const TSoftObjectPtr<UTextureSet>& TextureSet : TextureSetsToDequeue)
+		for (const TWeakObjectPtr<UTextureSet>& TextureSet : TextureSetsToDequeue)
 		{
 			QueuedTextureSets.Remove(TextureSet);
 		}
@@ -456,32 +491,65 @@ void FTextureSetCompilingManager::ProcessTextureSets(bool bLimitExecutionTime)
 void FTextureSetCompilingManager::RefreshMaterialInstances()
 {
 	// Refresh all material instances that need to be, and invalidate the viewport
-	TSet<const UTextureSet*> PostPonedMaterialInstances;
+	TSet<const UTextureSet*> PostponedMaterialInstances;
 	if (!MaterialInstancesToUpdate.IsEmpty())
 	{
 		for (TObjectIterator<UMaterialInstance> It; It; ++It)
 		{
+			TObjectPtr<const UTextureSet> ContainedTextureSet = nullptr;
 			for (FCustomParameterValue& Param : It->CustomParameterValues)
 			{
 				const UTextureSet* TextureSet = Cast<UTextureSet>(Param.ParameterValue);
 				if (IsValid(TextureSet) && MaterialInstancesToUpdate.Contains(TextureSet))
 				{
-					FPropertyChangedEvent Event(nullptr);
-					if (AllDependenciesLoaded(*It))
-					{
-						It->PostEditChangeProperty(Event);
-					}
-					else
-					{
-						PostPonedMaterialInstances.Add(TextureSet);
-					}
-
+					ContainedTextureSet = TextureSet;
 					break; // Don't need to check other properties, since we've already refreshed this one
+				}
+			}
+
+			// Check if the material instance has overrides for the TS in a layer
+			FMaterialLayersFunctions Functions;
+			It->GetMaterialLayers(Functions);
+			for (int32 LayerIndex = 0;
+				LayerIndex < Functions.GetRuntime().Layers.Num() && !IsValid(ContainedTextureSet);
+				LayerIndex += 1)
+			{
+				const TObjectPtr<UMaterialFunctionInstance> LayerInstance
+					= IsValid(Functions.GetRuntime().Layers[LayerIndex])
+					? Cast<UMaterialFunctionInstance>(Functions.GetRuntime().Layers[LayerIndex])
+					: nullptr;
+				
+				if (!IsValid(LayerInstance))
+				{
+					continue;
+				}
+
+				for (FCustomParameterValue& Param : LayerInstance->CustomParameterValues)
+				{
+					const UTextureSet* TextureSet = Cast<UTextureSet>(Param.ParameterValue);
+					if (IsValid(TextureSet) && MaterialInstancesToUpdate.Contains(TextureSet))
+					{
+						ContainedTextureSet = TextureSet;
+						break; // Don't need to check other properties, since we've already refreshed this one
+					}
+				}
+			}
+			
+			if (IsValid(ContainedTextureSet))
+			{
+				if (AllDependenciesLoaded(*It))
+				{
+					FPropertyChangedEvent Event(nullptr);
+					It->PostEditChangeProperty(Event);
+				}
+				else
+				{
+					PostponedMaterialInstances.Add(ContainedTextureSet);
 				}
 			}
 		}
 
-		MaterialInstancesToUpdate = MoveTemp(PostPonedMaterialInstances);
+		MaterialInstancesToUpdate = MoveTemp(PostponedMaterialInstances);
 		
 		// Update all the viewports
 		FEditorSupportDelegates::RedrawAllViewports.Broadcast();

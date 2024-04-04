@@ -34,6 +34,9 @@ public:
 
 	UPROPERTY(EditAnywhere)
 	FTextureSetAssetParamsCollection AssetParams;
+
+	UPROPERTY(EditAnywhere)
+	int32 LODBiasOffset = 0;
 #endif
 
 #if WITH_EDITOR

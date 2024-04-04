@@ -69,7 +69,7 @@ void UTextureSet::AugmentMaterialTextureParameters(const FCustomParameterValue& 
 			// Fall back to the default texture set if possible
 			if(IsValid(Definition->GetDefaultTextureSet()) && !this->IsDefaultTextureSet())
 			{
-				Definition->GetDefaultTextureSet()->AugmentMaterialTextureParameters(CustomParameter, TextureParameters);
+				Definition->GetDefaultTextureSet()->AugmentMaterialParameters(CustomParameter, TextureParameters);
 			}
 			return;
 		}
@@ -83,6 +83,7 @@ void UTextureSet::AugmentMaterialTextureParameters(const FCustomParameterValue& 
 
 	check(DerivedData);
 
+	TextureParameters.Reserve(TextureParameters.Num() + DerivedData->Textures.Num());
 	for (int i = 0; i < DerivedData->Textures.Num(); i++)
 	{
 		const FDerivedTextureData& DerivedTextureData = DerivedData->Textures[i].Data;
@@ -110,7 +111,7 @@ void UTextureSet::AugmentMaterialVectorParameters(const FCustomParameterValue& C
 			// Fall back to the default texture set if possible
 			if (IsValid(Definition->GetDefaultTextureSet()) && !this->IsDefaultTextureSet())
 			{
-				Definition->GetDefaultTextureSet()->AugmentMaterialVectorParameters(CustomParameter, VectorParameters);
+				Definition->GetDefaultTextureSet()->AugmentMaterialParameters(CustomParameter, VectorParameters);
 			}
 			return;
 		}

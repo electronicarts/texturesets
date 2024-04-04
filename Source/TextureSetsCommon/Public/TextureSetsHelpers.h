@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "TextureSetsHelpers.generated.h"
 
+class IAssetRegistry;
 class UTexture;
 struct FAssetData;
 struct FTextureSetPackedTextureDef;
@@ -12,36 +13,49 @@ struct FTextureSetProcessedTextureDef;
 
 TEXTURESETSCOMMON_API DECLARE_LOG_CATEGORY_EXTERN(LogTextureSet, Log, All);
 
-class TEXTURESETSCOMMON_API TextureSetsHelpers
+namespace TextureSetsHelpers
 {
-public:
 	// Suffixes used when addressing specific channels of a texture by name
-	// Defined as {".r", ".g", ".b", ".a"}
-	static const TArray<FString> ChannelSuffixes;
+	const TArray<FString> ChannelSuffixes = {".r", ".g", ".b", ".a"};
 
-	static FName TextureBulkDataIdAssetTagName;
+	const FName TextureBulkDataIdAssetTagName("TextureSet::TextureBulkDataId");
 
 #if WITH_EDITOR
-	static bool GetSourceDataIdAsString(const UTexture* Texture, FString& StringOut);
+	TEXTURESETSCOMMON_API bool GetSourceDataIdAsString(const UTexture* Texture, FString& StringOut);
 #endif
-	static bool GetSourceDataIdAsString(const FAssetData& AssetData, FString& StringOut);
+	TEXTURESETSCOMMON_API bool GetSourceDataIdAsString(const FAssetData& AssetData, FString& StringOut);
 
-	static TArray<FName> GetUnpackedChannelNames(const TArray<FTextureSetPackedTextureDef>& PackedTextures, const TMap<FName, FTextureSetProcessedTextureDef>& ProcessedTextures);
+	TEXTURESETSCOMMON_API TArray<FName> GetUnpackedChannelNames(const TArray<FTextureSetPackedTextureDef>& PackedTextures, const TMap<FName, FTextureSetProcessedTextureDef>& ProcessedTextures);
 
-	static inline FName MakeTextureParameterName(FName ParameterName, int TextureIndex)
-	{
-		return FName(FString::Format(TEXT("TEXSET_{0}_PACKED_{1}"), {ParameterName.ToString(), FString::FromInt(TextureIndex)}));
-	}
+	TEXTURESETSCOMMON_API IAssetRegistry& GetAssetRegistry();
 
-	static inline FName MakeConstantParameterName(FName ParameterName, FName ConstantName)
-	{
-		return FName(FString::Format(TEXT("TEXSET_{0}_{1}"), {ParameterName.ToString(), ConstantName.ToString()}));
-	}
+	/**
+	  * Get all assets on disk (in packages) dependent on the given package via the asset registry.
+	  * May optionally filter returned values to include assets of a specified UClass (and it's derived classes).
+	  * Otherwise, return all found assets.
+	  * @param PackageName The package for which to find dependent assets
+	  * @param FilterClass Optional. If non-null, returned values will include assets of class FilterClass and it's derived classes
+	  * @return	Returns an array of FAssetData, each element corresponding to an asset in a package dependent on the specified package
+	  * @see FAssetData
+	  */
+	TEXTURESETSCOMMON_API TArray<FAssetData> GetDependenciesForPackage(const FName& PackageName, TObjectPtr<const UClass> FilterClass = nullptr);
 
-	static inline bool IsTextureSetParameterName(FName Name)
-	{
-		return Name.ToString().StartsWith("TEXSET_", ESearchCase::IgnoreCase);
-	}
+	/**
+	  * Get all on disk (in packages) dependent on the given package via the asset registry, filtered and grouped by the given UClasses.
+	  * 
+	  * @param PackageName The package for which to find dependent assets.
+	  * @param FilterClasses Classes by which to filter and group the return values.
+	  * @return	Returns a map of UClasses to arrays of FAssetData. Keys are each of the given UClasses, and values are
+	  * the assets of the respective UClass (or derived) type in packages dependent on the given package.
+	  * @see FAssetData
+	  */
+	TEXTURESETSCOMMON_API TMap<TObjectPtr<UClass>, TArray<FAssetData>> GetDependenciesForPackage(const FName& PackageName, TArrayView<const TObjectPtr<UClass>> FilterClasses);	
+
+	TEXTURESETSCOMMON_API FName MakeTextureParameterName(FName ParameterName, int TextureIndex);
+
+	TEXTURESETSCOMMON_API FName MakeConstantParameterName(FName ParameterName, FName ConstantName);
+
+	TEXTURESETSCOMMON_API bool IsTextureSetParameterName(FName Name);
 };
 
 UCLASS()
