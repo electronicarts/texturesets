@@ -37,7 +37,7 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 	if (!IsValid(Definition))
 		return 0;
 
-	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0.3"));
+	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0.4"));
 	Hash = HashCombine(Hash, GetTypeHash(Definition->GetUserKey()));
 
 	Hash = HashCombine(Hash, GetTypeHash(FTextureSetMaterialGraphBuilder::GetGraphBuilderVersion()));

@@ -51,9 +51,6 @@ class UDEPRECATED_TextureSetElementCollection : public UTextureSetModule
 {
 	GENERATED_BODY()
 
-public:
-	virtual UTextureSetModule* DuplicateModule(UObject* Outer) const;
-
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	TArray<FElementDefinition> Elements;
