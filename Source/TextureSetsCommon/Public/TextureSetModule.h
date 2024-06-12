@@ -8,6 +8,7 @@
 
 #include "TextureSetModule.Generated.h"
 
+class FTextureSetProcessingGraph;
 class UMaterialExpressionTextureSetSampleParameter;
 class UTextureSetDefinition;
 class FTextureSetMaterialGraphBuilder;

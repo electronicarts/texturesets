@@ -30,6 +30,13 @@ public class TextureSets : ModuleRules
 			
 		if (Target.bBuildEditor)
 		{
+			PublicDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"TextureSetsCompiler",
+				}
+				);
+
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{

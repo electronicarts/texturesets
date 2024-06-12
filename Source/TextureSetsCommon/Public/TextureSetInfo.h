@@ -8,7 +8,6 @@
 #include "TextureSetInfo.generated.h"
 
 struct FTextureSetPackedTextureDef;
-class FTextureSetProcessingGraph;
 class UTextureSetModule;
 
 UENUM(meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor="true"))

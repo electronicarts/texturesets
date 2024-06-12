@@ -6,6 +6,12 @@
 #include "TextureSetInfo.h"
 #include "TextureSetPackedTextureDef.h"
 
+#if WITH_EDITOR
+// NOTE: This is needed to be included here as UTextureSetDefinition is a UObject and a 
+// CDO has to be built which means we cannot forward reference the type for SharedRef.
+#include "TextureSetProcessingGraph.h"
+#endif
+
 #include "TextureSetDefinition.generated.h"
 
 class UTextureSet;
@@ -99,11 +105,11 @@ private:
 	uint32 CompilationHash;
 
 #if WITH_EDITOR
-	TSharedRef<FTextureSetProcessingGraph> ProcessingGraph;
+	TSharedRef<class FTextureSetProcessingGraph> ProcessingGraph;
 
 	void ApplyEdits();
 	void ResetEdits();
-	static FTextureSetDefinitionModuleInfo CreateModuleInfo(const TArray<const UTextureSetModule*>& Modules, const TSharedRef<FTextureSetProcessingGraph> ProcessingGraph);
+	static FTextureSetDefinitionModuleInfo CreateModuleInfo(const TArray<const UTextureSetModule*>& Modules, const TSharedRef<class FTextureSetProcessingGraph> ProcessingGraph);
 #endif
 
 };
