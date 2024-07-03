@@ -13,7 +13,7 @@ struct FBakerInstanceParam
 	GENERATED_BODY()
 public:
 	UPROPERTY(EditAnywhere)
-	UStaticMesh* SourceMesh;
+	UStaticMesh* SourceMesh = nullptr;
 	
 	UPROPERTY(EditAnywhere)
 	uint32 BakedTextureWidth = 512;
