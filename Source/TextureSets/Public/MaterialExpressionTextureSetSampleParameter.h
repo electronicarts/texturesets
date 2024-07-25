@@ -73,6 +73,7 @@ public:
 
 	// UObject Interface
 	virtual void BeginDestroy();
+	virtual void PreSave(FObjectPreSaveContext SaveContext) override;
 #if WITH_EDITOR
 	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) const override;
 #endif

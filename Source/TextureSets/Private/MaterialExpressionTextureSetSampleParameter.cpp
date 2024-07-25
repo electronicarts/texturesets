@@ -6,6 +6,7 @@
 #include "TextureSetDefinition.h"
 #include "TextureSetModule.h"
 #include "TextureSetsHelpers.h"
+#include "UObject/ObjectSaveContext.h"
 #if WITH_EDITOR
 #include "TextureSetMaterialGraphBuilder.h"
 #include "Misc/DataValidation.h"
@@ -62,6 +63,8 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 	Hash = HashCombine(Hash, GetTypeHash(PositionSource));
 	Hash = HashCombine(Hash, GetTypeHash(CameraVectorSource));
 
+	HashCombine(Hash, GetTypeHash(DefaultTextureSet.Get()));
+	
 	return Hash;
 }
 #endif
@@ -120,6 +123,11 @@ void UMaterialExpressionTextureSetSampleParameter::SetParameterName(const FName&
 bool UMaterialExpressionTextureSetSampleParameter::GetParameterValue(FMaterialParameterMetadata& OutMeta) const
 {
 	OutMeta.Value = DefaultTextureSet.Get();
+	if (!IsValid(DefaultTextureSet.Get()) && IsValid(Definition))
+	{
+		OutMeta.Value = Definition->GetDefaultTextureSet();
+	}
+	
 	OutMeta.Description = Desc;
 	OutMeta.ExpressionGuid = ExpressionGUID;
 	OutMeta.Group = Group;
@@ -179,6 +187,16 @@ void UMaterialExpressionTextureSetSampleParameter::BeginDestroy()
 #if WITH_EDITOR
 	UTextureSetDefinition::FOnTextureSetDefinitionChangedEvent.Remove(OnTextureSetDefinitionChangedHandle);
 #endif
+}
+
+void UMaterialExpressionTextureSetSampleParameter::PreSave(FObjectPreSaveContext SaveContext)
+{
+	if (!IsValid(DefaultTextureSet.Get()) && SaveContext.IsCooking())
+    {
+    	ensure (IsValid(Definition));
+    	DefaultTextureSet = Definition->GetDefaultTextureSet();
+    }
+	Super::PreSave(SaveContext);
 }
 
 #if WITH_EDITOR
