@@ -11,6 +11,7 @@
 #if WITH_EDITOR
 #include "Misc/DataValidation.h"
 #include "TextureSetCompilingManager.h"
+#include "UObject/AssetRegistryTagsContext.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "TextureSets"
@@ -229,15 +230,15 @@ EDataValidationResult UTextureSet::IsDataValid(FDataValidationContext& Context) 
 #endif
 
 #if WITH_EDITOR
-void UTextureSet::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+void UTextureSet::GetAssetRegistryTags(FAssetRegistryTagsContext Context) const
 {
 	if (IsValid(Definition))
 	{
-		OutTags.Add(FAssetRegistryTag("TextureSetDefinition", Definition->GetName(), FAssetRegistryTag::TT_Alphabetical));
-		OutTags.Add(FAssetRegistryTag("TextureSetDefinitionID", Definition->GetGuid().ToString(), FAssetRegistryTag::TT_Hidden));
+		Context.AddTag(FAssetRegistryTag("TextureSetDefinition", Definition->GetName(), FAssetRegistryTag::TT_Alphabetical));
+		Context.AddTag(FAssetRegistryTag("TextureSetDefinitionID", Definition->GetGuid().ToString(), FAssetRegistryTag::TT_Hidden));
 	}
 
-	Super::GetAssetRegistryTags(OutTags);
+	Super::GetAssetRegistryTags(Context);
 }
 #endif
 

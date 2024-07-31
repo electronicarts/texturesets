@@ -4,6 +4,7 @@
 
 #if WITH_EDITOR
 #include "AssetCompilingManager.h"
+#include "IAssetCompilingManager.h"
 #include "AsyncCompilationHelpers.h"
 #include "Containers/Set.h"
 #include "CoreMinimal.h"

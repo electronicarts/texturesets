@@ -134,10 +134,13 @@ void FTextureSetCompilingManager::Shutdown()
 	bHasShutdown = true;
 	if (AsyncCompilationTasks.Num() > 0)
 	{
-		TArray<UTextureSet*> PendingTextureSets;
-		PendingTextureSets.Reserve(AsyncCompilationTasks.Num());
+		TArray<UTextureSet*> InFlightTasks;
+		AsyncCompilationTasks.GetKeys(InFlightTasks);
 
-		for (auto& [TextureSet, Task] : AsyncCompilationTasks)
+		TArray<UTextureSet*> PendingTextureSets;
+		PendingTextureSets.Reserve(InFlightTasks.Num());
+
+		for (UTextureSet* TextureSet : InFlightTasks)
 		{
 			if (!TryCancelCompilation(TextureSet))
 			{

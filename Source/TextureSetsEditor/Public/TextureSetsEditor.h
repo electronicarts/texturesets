@@ -34,7 +34,7 @@ private:
 	TSharedPtr<FTextureSetParameterEditor> ParameterEditor;
 
 	FDelegateHandle OnGetExtraObjectTagsDelegateHandle;
-	static void OnGetExtraObjectTags(const UObject* Object, TArray<UObject::FAssetRegistryTag>& OutTags);
+	static void OnGetExtraObjectTagsWithContext(FAssetRegistryTagsContext Context);
 	
 	FDelegateHandle OnPostEngineInitDelegateHandle;
 
