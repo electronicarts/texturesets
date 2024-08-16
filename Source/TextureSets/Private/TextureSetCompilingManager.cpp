@@ -397,15 +397,9 @@ void FTextureSetCompilingManager::FinishAllCompilation()
 	check(IsInGameThread());
 	TRACE_CPUPROFILER_EVENT_SCOPE(FTextureSetCompilingManager::FinishAllCompilation)
 
-	if (AsyncCompilationTasks.Num() > 0)
+	while (GetNumRemainingAssets() > 0)
 	{
-		TArray<UTextureSet*> PendingTextureSets;
-		PendingTextureSets.Reserve(AsyncCompilationTasks.Num());
-
-		for (auto& [TextureSet, Task] : AsyncCompilationTasks)
-			PendingTextureSets.Add(TextureSet);
-
-		FinishCompilation(PendingTextureSets);
+		ProcessTextureSets(false);
 	}
 }
 
