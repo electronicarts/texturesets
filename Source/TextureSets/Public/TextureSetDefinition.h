@@ -74,7 +74,7 @@ public:
 private:
 
 	// Created once on construction, and used to compare definitions
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, DuplicateTransient)
 	FGuid UniqueID;
 
 #if WITH_EDITORONLY_DATA
