@@ -10,7 +10,7 @@ class UTextureSetElementCollectionAsset : public UObject
 {
 	GENERATED_BODY()
 public:
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="ElementCollection")
 	TMap<FName, FTextureSetSourceTextureDef> Elements;
 };
 
@@ -28,7 +28,7 @@ public:
 	virtual void ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 		FTextureSetMaterialGraphBuilder* Builder) const override;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="ElementCollection")
 	UTextureSetElementCollectionAsset* Collection;
 };
 
@@ -38,10 +38,10 @@ struct FElementDefinition
 	GENERATED_BODY()
 public:
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="ElementDefinition")
 	FName ElementName;
 
-	UPROPERTY(EditAnywhere, meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditAnywhere, Category="ElementDefinition", meta=(ShowOnlyInnerProperties))
 	FTextureSetSourceTextureDef ElementDef;
 };
 
@@ -52,7 +52,7 @@ class UDEPRECATED_TextureSetElementCollection : public UTextureSetModule
 	GENERATED_BODY()
 
 protected:
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Category="ElementCollection")
 	TArray<FElementDefinition> Elements;
 
 

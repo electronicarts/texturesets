@@ -55,7 +55,7 @@ public:
 
 private:
 #if WITH_EDITORONLY_DATA
-	UPROPERTY(Instanced, EditAnywhere, EditFixedSize, NoClear)
+	UPROPERTY(Instanced, EditAnywhere, Category="ParamCollection", EditFixedSize, NoClear)
 	TArray<class UTextureSetAssetParams*> ParamList;
 #endif
 };

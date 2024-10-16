@@ -44,13 +44,13 @@ public:
 		, Flags((uint8)Flags)
 	{}
 
-	UPROPERTY(EditAnywhere, meta=(ClampMin = 1, ClampMax = 4))
+	UPROPERTY(EditAnywhere, Category="TextureDefinition", meta=(ClampMin = 1, ClampMax = 4))
 	uint8 ChannelCount = 1;
 
-	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetChannelEncoding"))
+	UPROPERTY(EditAnywhere, Category="TextureDefinition", meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetChannelEncoding"))
 	uint8 Encoding = 0;
 
-	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetTextureFlags"))
+	UPROPERTY(EditAnywhere, Category="TextureDefinition", meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetTextureFlags"))
 	uint8 Flags = 0;
 };
 
@@ -79,7 +79,7 @@ public:
 		, DefaultValue(DefaultValue)
 	{}
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="TextureDefinition")
 	FVector4 DefaultValue; // Used as a fallback if this map is not provided
 };
 
@@ -105,16 +105,16 @@ public:
 
 private:
 #if WITH_EDITORONLY_DATA
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	TArray<const UTextureSetModule*> Modules;
 #endif
 
 	// Input texture maps which are to be processed
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	TMap<FName, FTextureSetProcessedTextureDef> SourceTextures;
 
 	// Processed texture maps which are to be packed
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	TMap<FName, FTextureSetProcessedTextureDef> ProcessedTextures;
 };
 
@@ -129,13 +129,13 @@ public:
 		, ChannelEncoding(0)
 	{}
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	FName ProcessedTexture;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	int ProessedTextureChannel = 0;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	uint8 ChannelEncoding; // ETextureSetChannelEncoding
 };
 
@@ -151,26 +151,26 @@ public:
 		, Flags((uint8)ETextureSetTextureFlags::Default)
 	{}
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	FTextureSetPackedChannelInfo ChannelInfo[4];
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	int ChannelCount;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	bool HardwareSRGB;
 
-	UPROPERTY(VisibleAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetTextureFlags"))
+	UPROPERTY(VisibleAnywhere, Category="Info", meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetTextureFlags"))
 	uint8 Flags;
 
 	// Union of the channel encodings for all the packed channels
-	UPROPERTY(VisibleAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetSourceTextureChannelMask"))
+	UPROPERTY(VisibleAnywhere, Category="Info", meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetSourceTextureChannelMask"))
 	uint8 ChannelEncodings = 0;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	FName RangeCompressMulName;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	FName RangeCompressAddName;
 };
 
@@ -199,10 +199,10 @@ public:
 #endif
 
 private:
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	TArray<FTextureSetPackedTextureDef> PackedTextureDefs;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	TArray<FTextureSetPackedTextureInfo> PackedTextureInfos;
 
 #if WITH_EDITOR
@@ -210,7 +210,7 @@ private:
 #endif
 
 #if WITH_EDITORONLY_DATA
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Info")
 	TArray<FText> Errors;
 #endif
 };

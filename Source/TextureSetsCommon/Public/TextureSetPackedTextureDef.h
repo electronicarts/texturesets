@@ -17,26 +17,26 @@ public:
 	{}
 
 	// Texture Format
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="PackedTextureDefinition")
 	TEnumAsByte<TextureCompressionSettings> CompressionSettings = TextureCompressionSettings::TC_Default;
 
 	// Sources
-	UPROPERTY(EditAnywhere, meta=(GetOptions="EditGetUnpackedChannelNames", EditCondition = "AvailableChannels > 0"))
+	UPROPERTY(EditAnywhere, Category="PackedTextureDefinition", meta=(GetOptions="EditGetUnpackedChannelNames", EditCondition = "AvailableChannels > 0"))
 	FName SourceR;
 
-	UPROPERTY(EditAnywhere, meta=(GetOptions="EditGetUnpackedChannelNames", EditCondition = "AvailableChannels > 1"))
+	UPROPERTY(EditAnywhere, Category="PackedTextureDefinition", meta=(GetOptions="EditGetUnpackedChannelNames", EditCondition = "AvailableChannels > 1"))
 	FName SourceG;
 
-	UPROPERTY(EditAnywhere, meta=(GetOptions="EditGetUnpackedChannelNames", EditCondition = "AvailableChannels > 2"))
+	UPROPERTY(EditAnywhere, Category="PackedTextureDefinition", meta=(GetOptions="EditGetUnpackedChannelNames", EditCondition = "AvailableChannels > 2"))
 	FName SourceB;
 
-	UPROPERTY(EditAnywhere, meta=(GetOptions="EditGetUnpackedChannelNames", EditCondition = "AvailableChannels > 3"))
+	UPROPERTY(EditAnywhere, Category="PackedTextureDefinition", meta=(GetOptions="EditGetUnpackedChannelNames", EditCondition = "AvailableChannels > 3"))
 	FName SourceA;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="PackedTextureDefinition")
 	bool bVirtualTextureStreaming = false;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="PackedTextureDefinition")
 	int32 LODBias = 0;
 
 	//UPROPERTY(EditAnywhere)

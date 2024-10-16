@@ -18,41 +18,41 @@ class TEXTURESETS_API UMaterialExpressionTextureSetSampleParameter : public UPro
 {
 	GENERATED_UCLASS_BODY()
 public:
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Parameter")
 	FName ParameterName;
 	
 	/** GUID that should be unique within the material, this is used for parameter renaming. */
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Parameter")
 	FGuid ExpressionGUID;
 
 	/** The name of the parameter Group to display in MaterialInstance Editor. Default is None group */
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Parameter")
 	FName Group;
 
 	/** Controls where the this parameter is displayed in a material instance parameter list.  The lower the number the higher up in the parameter list. */
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Parameter")
 	int32 SortPriority = 32;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Parameter")
 	TSoftObjectPtr<class UTextureSet> DefaultTextureSet;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Parameter")
 	TObjectPtr<class UTextureSetDefinition> Definition;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Parameter")
 	FTextureSetAssetParamsCollection SampleParams;
 
 	// TODO: Replace with FTextureSetSampleContext and/or make FTextureSetSampleContext a SampleParam (will require data fixup)
-	UPROPERTY(EditAnywhere, Category=Context)
+	UPROPERTY(EditAnywhere, Category="Context")
 	EBaseNormalSource BaseNormalSource = EBaseNormalSource::Vertex;
 
-	UPROPERTY(EditAnywhere, Category=Context)
+	UPROPERTY(EditAnywhere, Category="Context")
 	ETangentSource TangentSource = ETangentSource::Synthesized;
 
-	UPROPERTY(EditAnywhere, Category=Context)
+	UPROPERTY(EditAnywhere, Category="Context")
 	EPositionSource PositionSource = EPositionSource::World;
 
-	UPROPERTY(EditAnywhere, Category=Context)
+	UPROPERTY(EditAnywhere, Category="Context")
 	ECameraVectorSource CameraVectorSource = ECameraVectorSource::World;
 
 	// UProceduralMaterialFunction Interface
@@ -87,6 +87,6 @@ private:
 	void OnDefinitionChanged(UTextureSetDefinition* ChangedDefinition);
 #endif
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="Debug")
 	TArray<FText> BuilderErrors;
 };

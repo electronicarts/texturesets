@@ -42,10 +42,10 @@ class UPBRSampleParams : public UTextureSetSampleParams
 {
 	GENERATED_BODY()
 public:
-	UPROPERTY(EditAnywhere);
+	UPROPERTY(EditAnywhere, Category="PBRParams");
 	EPBRMicrosurface MicrosurfaceOutput = EPBRMicrosurface::Roughness;
 
-	UPROPERTY(EditAnywhere);
+	UPROPERTY(EditAnywhere, Category="PBRParams");
 	EPBRNormalSpace NormalOutput = EPBRNormalSpace::Tangent;
 };
 
@@ -54,7 +54,7 @@ class UPBRAssetParams : public UTextureSetAssetParams
 {
 	GENERATED_BODY()
 public:
-	UPROPERTY(EditAnywhere);
+	UPROPERTY(EditAnywhere, Category="PBRParams");
 	bool bFlipNormalGreen;
 };
 
@@ -85,12 +85,12 @@ public:
 		FTextureSetMaterialGraphBuilder* Builder) const override;
 
 private:
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="PBRSurface")
 	EPBRParamaterization Paramaterization = EPBRParamaterization::Basecolor_Metal;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="PBRSurface")
 	EPBRMicrosurface Microsurface = EPBRMicrosurface::Roughness;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="PBRSurface")
 	EPBRNormal Normal = EPBRNormal::Tangent;
 };

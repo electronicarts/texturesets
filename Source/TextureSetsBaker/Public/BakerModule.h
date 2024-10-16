@@ -12,13 +12,13 @@ struct FBakerInstanceParam
 {
 	GENERATED_BODY()
 public:
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Baker")
 	UStaticMesh* SourceMesh = nullptr;
 	
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Baker")
 	uint32 BakedTextureWidth = 512;
 	
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Baker")
 	uint32 BakedTextureHeight = 512;
 };
 
@@ -27,7 +27,7 @@ class UBakerAssetParams : public UTextureSetAssetParams
 {
 	GENERATED_BODY()
 public:
-	UPROPERTY(EditAnywhere, EditFixedSize, meta=(ReadOnlyKeys))
+	UPROPERTY(EditAnywhere, Category="Baker", EditFixedSize, meta=(ReadOnlyKeys))
 	TMap<FName, FBakerInstanceParam> BakerParams;
 
 	virtual void FixupData(UObject* Outer) override;
@@ -52,6 +52,6 @@ public:
 		const FTextureSetAssetParamsCollection* SampleParams,
 		FTextureSetMaterialGraphBuilder* Builder) const override;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Baker")
 	FName ElementName;
 };

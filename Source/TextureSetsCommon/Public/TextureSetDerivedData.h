@@ -13,10 +13,10 @@ struct FDerivedTextureData
 	GENERATED_BODY()
 
 	// Material parameters that were generated along with this packed texture
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="DerivedTextureData")
 	TMap<FName, FVector4f> TextureParameters;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="DerivedTextureData")
 	FGuid Id;
 
 	FORCEINLINE friend FArchive& operator<<(FArchive& Ar, FDerivedTextureData& Data)
@@ -42,11 +42,11 @@ struct FDerivedTexture
 	GENERATED_BODY()
 
 	// UTexture where we store the actual image data
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="DerivedTexture")
 	TObjectPtr<UTexture> Texture;
 
 	// Metadata attached to the texture, which is cached to the DDC
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="DerivedTexture")
 	FDerivedTextureData Data;
 
 #if WITH_EDITOR
@@ -71,11 +71,11 @@ struct FDerivedParameterData
 {
 	GENERATED_BODY()
 public:
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="DerivedParameter")
 	FVector4f Value;
 
 	// Hash of the data and logic used to produce this value
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="DerivedParameter")
 	FGuid Id;
 
 	FORCEINLINE friend FArchive& operator<<(FArchive& Ar, FDerivedParameterData& Data)
@@ -92,10 +92,10 @@ class TEXTURESETSCOMMON_API UTextureSetDerivedData : public UObject
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="DerivedData")
 	TArray<FDerivedTexture> Textures;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category="DerivedData")
 	TMap<FName, FDerivedParameterData> MaterialParameters;
 
 #if WITH_EDITOR

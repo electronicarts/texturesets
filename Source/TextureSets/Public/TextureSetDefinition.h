@@ -74,16 +74,16 @@ public:
 private:
 
 	// Created once on construction, and used to compare definitions
-	UPROPERTY(VisibleAnywhere, DuplicateTransient)
+	UPROPERTY(VisibleAnywhere, Category="TextureSetDefinition", DuplicateTransient)
 	FGuid UniqueID;
 
 #if WITH_EDITORONLY_DATA
 	// Modules and packing definitions are duplicated here in editor, so they can be freely edited by the user without causing excessive rebuilds.
 	// On load, ResetEdits() fills them in from the serialized data, and on pre-save, ApplyEdits() updates the serialized data.
-	UPROPERTY(Transient, EditAnywhere, DisplayName="Modules", meta=(NoElementDuplicate))
+	UPROPERTY(Transient, EditAnywhere, DisplayName="Modules", Category="TextureSetDefinition", meta=(NoElementDuplicate))
 	TArray<UTextureSetModule*> EditModules;
 
-	UPROPERTY(Transient, EditAnywhere, DisplayName="Packing", meta=(TitleProperty="CompressionSettings", NoElementDuplicate))
+	UPROPERTY(Transient, EditAnywhere, DisplayName="Packing", Category="TextureSetDefinition", meta=(TitleProperty="CompressionSettings", NoElementDuplicate))
 	TArray<FTextureSetPackedTextureDef> EditPackedTextures;
 #endif
 

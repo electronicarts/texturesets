@@ -18,24 +18,24 @@ class UFlipbookAssetParams : public UTextureSetAssetParams
 	GENERATED_BODY()
 public:
 	// Default flipbook framerate, in frames per second. Used when flipbook frame interpolation time is set to "seconds".
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Flipbook")
 	float FlipbookFramerate = 15.0f;
 
 	// Is this a looping flipbook animation, or a one-off.
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Flipbook")
 	bool bFlipbookLooping = true;
 
 	// Scale applied to the motion vectors, if they're enabled.
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Flipbook")
 	FVector2f MotionVectorScale {1.0f, 1.0f};
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="Flipbook")
 	EFlipbookSourceType FlipbookSourceType = EFlipbookSourceType::TextureArray;
 
-	UPROPERTY(EditAnywhere, meta=(EditCondition ="FlipbookSourceType == EFlipbookSourceType::TextureSheet"))
+	UPROPERTY(EditAnywhere, Category="Flipbook", meta=(EditCondition ="FlipbookSourceType == EFlipbookSourceType::TextureSheet"))
 	uint32 FlipbookSourceSheetWidth = 4;
 
-	UPROPERTY(EditAnywhere, meta=(EditCondition ="FlipbookSourceType == EFlipbookSourceType::TextureSheet"))
+	UPROPERTY(EditAnywhere, Category="Flipbook", meta=(EditCondition ="FlipbookSourceType == EFlipbookSourceType::TextureSheet"))
 	uint32 FlipbookSourceSheetHeight = 4;
 };
 
@@ -52,10 +52,10 @@ class UFlipbookSampleParams : public UTextureSetSampleParams
 {
 	GENERATED_BODY()
 public:
-	UPROPERTY(EditAnywhere);
+	UPROPERTY(EditAnywhere, Category="Flipbook");
 	bool bBlendFrames = true;
 
-	UPROPERTY(EditAnywhere);
+	UPROPERTY(EditAnywhere, Category="Flipbook");
 	EFlipbookTime FlipbookTimeType = EFlipbookTime::Seconds;
 };
 
@@ -64,7 +64,7 @@ class UFlipbookModule : public UTextureSetModule
 {
 	GENERATED_BODY()
 public:
-	UPROPERTY(EditAnywhere);
+	UPROPERTY(EditAnywhere, Category="Flipbook");
 	bool bUseMotionVectors = false;
 
 	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const { return UFlipbookAssetParams::StaticClass(); }

@@ -23,10 +23,10 @@ public:
 		FTextureSetMaterialGraphBuilder* Builder) const override;
 
 private:
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="CustomElement")
 	FName ElementName;
 
-	UPROPERTY(EditAnywhere, meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditAnywhere, Category="CustomElement", meta=(ShowOnlyInnerProperties))
 	FTextureSetSourceTextureDef ElementDef;
 
 };

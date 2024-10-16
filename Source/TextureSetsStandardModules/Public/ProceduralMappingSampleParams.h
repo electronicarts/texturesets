@@ -19,6 +19,6 @@ class UProceduralMappingSampleParams : public UTextureSetSampleParams
 {
 	GENERATED_BODY()
 public:
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category="ProceduralMapping")
 	ETriplanarMappingMode TriplanarMapping;
 };
