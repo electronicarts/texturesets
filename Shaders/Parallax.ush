@@ -28,7 +28,7 @@ float2 ParallaxOcclusionMapping(
 	};
 
 	// Multiply backwards for a world to tangent hack
-	float3 viewTangentSpace = mul(tangentToWorld, worldSpaceViewDirection);
+	float3 viewTangentSpace = normalize(mul(tangentToWorld, worldSpaceViewDirection));
 	
 	// Modify reference plane so it's relative to the pre range compressed texture
 	referencePlane = (referencePlane - rangeCompressAdd[heightmapChannel]) / rangeCompressMul[heightmapChannel];
