@@ -4,7 +4,7 @@
 
 #if WITH_EDITOR
 
-#include "Async/Async.h"
+#include "Async/ParallelFor.h"
 #include "DerivedDataBuildVersion.h"
 #include "DerivedDataCacheInterface.h"
 #include "Engine/Texture2D.h"
@@ -176,39 +176,6 @@ void FTextureSetCooker::ExecuteAsync(FQueuedThreadPool* InQueuedPool, EQueuedWor
 	AsyncTask->StartBackgroundTask(InQueuedPool, InQueuedWorkPriority);
 }
 
-void FTextureSetCooker::Finalize()
-{
-	check(IsInGameThread());
-	check(!IsAsyncJobInProgress())
-
-	for (int t = 0; t < DerivedData.Textures.Num(); t++)
-	{
-		// Configure textures is called again after cooking, to make sure the correct keys are used.
-		// If Mip data was updated in BuildTextureData, it would reset the key incorrectly.
-		ConfigureTexture(t);
-
-		UTexture* Texture = DerivedData.Textures[t];
-
-		for (const ITargetPlatform* Platform : TargetPlatforms)
-		{
-			if (Platform != nullptr)
-			{
-				Texture->BeginCacheForCookedPlatformData(Platform);
-			}
-			else
-			{
-				DerivedData.Textures[t]->UpdateResource();
-			}
-		}
-
-		// ResumeCaching() is called after we call BeginCacheForCookedPlatformData, to 
-		// combine with any other possible calls that occured when caching was suspended.
-		Texture->ResumeCaching();
-	}
-
-	DerivedData.bIsCooking = false;
-}
-
 bool FTextureSetCooker::IsAsyncJobInProgress() const
 {
 	check(IsInGameThread());
@@ -325,7 +292,11 @@ void FTextureSetCooker::Prepare()
 
 		// Default texture set derived textures need to be public so they can be referenced in the generated graphs
 		// Otherwise, they shouldn't be directly referenced
-		Texture->SetFlags(bIsDefaultTextureSet ? RF_Public : RF_NoFlags);
+		//Texture->SetFlags(bIsDefaultTextureSet ? RF_Public : RF_NoFlags);
+		
+		// TODO: For some reason derived textures are getting saved in material instances, and causing an error due to not being public.
+		// Setting to public as a quick fix, https://jaas.ea.com/browse/HOP-22896
+		Texture->SetFlags(RF_Public);
 
 		// Before applying any modification to the texture
 		// make sure no compilation is still ongoing.

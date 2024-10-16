@@ -34,7 +34,7 @@ public:
 	FName SourceA;
 
 	UPROPERTY(EditAnywhere)
-	bool bVirtualTextureStreaming;
+	bool bVirtualTextureStreaming = false;
 
 	//UPROPERTY(EditAnywhere)
 	//int SkipMip; // Not implemented

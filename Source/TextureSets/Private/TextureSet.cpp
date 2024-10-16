@@ -300,7 +300,7 @@ void UTextureSet::FixupData()
 		// If any source textures are unused and pointing to valid resources, save them as unused sources
 		for (const auto& [Name, TextureInfo] : SourceTextures)
 		{
-			if (!NewSourceTextures.Contains(Name) && !TextureInfo.Texture.IsNull())
+			if (!NewSourceTextures.Contains(Name) && !TextureInfo.Texture)
 			{
 				UnusedSourceTextures.Add(Name, TextureInfo);
 			}

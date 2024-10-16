@@ -98,9 +98,11 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 #if WITH_EDITOR
 void UMaterialExpressionTextureSetSampleParameter::ConfigureMaterialFunction(class UMaterialFunction* NewMaterialFunction)
 {
-	if (!IsValid(Definition))
+	FDataValidationContext ValidationContext;
+	if (IsValid(Definition) && Definition->IsDataValid(ValidationContext) == EDataValidationResult::Invalid)
+	{
 		return;
-
+	}
 	// Make sure our samping parameters are up to date before generating the sampling graph
 	UpdateSampleParamArray();
 
