@@ -51,3 +51,7 @@ material artists. e.g. triplanar mapping, flipbooking with motion vectors, paral
 
 
 Ready to try it out? Jump in to the [Quick Start Guide](./Docs/QuickStart.md) and create your first Texture Set!
+
+# Contributing
+
+See [CONTRIBUTING](./CONTRIBUTING.md)
