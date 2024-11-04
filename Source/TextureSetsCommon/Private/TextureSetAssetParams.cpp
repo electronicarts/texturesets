@@ -1,4 +1,4 @@
-// (c) Electronic Arts. All Rights Reserved.
+// Copyright (c) 2024 Electronic Arts. All Rights Reserved.
 
 #include "TextureSetAssetParams.h"
 #include "Templates/SubclassOf.h"

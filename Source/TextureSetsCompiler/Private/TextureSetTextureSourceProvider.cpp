@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright (c) 2024 Electronic Arts. All Rights Reserved.
 
 #include "TextureSetTextureSourceProvider.h"
 #include "TextureSetsHelpers.h"

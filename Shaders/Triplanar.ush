@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Electronic Arts. All Rights Reserved.
+
 #pragma once
 
 void TriplanarUVs(float3 Position, float3 Normal, float Falloff, out float2 UVX, out float2 UVY, out float2 UVZ, out float3 Weights)

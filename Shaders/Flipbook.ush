@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Electronic Arts. All Rights Reserved.
+
 #pragma once
 
 // Needs to match EFlipbookTime in FlipbookModule.h

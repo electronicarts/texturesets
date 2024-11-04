@@ -1,4 +1,4 @@
-// Copyright (c) Electronic Arts. All Rights Reserved.
+// Copyright (c) 2024 Electronic Arts. All Rights Reserved.
 
 #pragma once
 
