@@ -14,6 +14,7 @@ public:
 	TMap<FName, FTextureSetSourceTextureDef> Elements;
 };
 
+// Contains one or more custom elements in their own data asset, for reusing sets of custom elements between definitions across the project.
 UCLASS()
 class UTextureSetElementCollectionModule : public UTextureSetModule
 {

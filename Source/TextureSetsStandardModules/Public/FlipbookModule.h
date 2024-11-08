@@ -59,6 +59,7 @@ public:
 	EFlipbookTime FlipbookTimeType = EFlipbookTime::Seconds;
 };
 
+// Converts all texture elements into arrays, allowing flipbooking of animated textures.
 UCLASS()
 class UFlipbookModule : public UTextureSetModule
 {

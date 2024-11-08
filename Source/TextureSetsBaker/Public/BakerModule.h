@@ -33,7 +33,7 @@ public:
 	virtual void FixupData(UObject* Outer) override;
 };
 
-// Allows users to define a custom input texture map that can be packed, and unpacked with no extra processing.
+// Experimental module, do not use.
 UCLASS()
 class UBakerModule : public UTextureSetModule
 {

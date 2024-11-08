@@ -58,6 +58,7 @@ public:
 	bool bFlipNormalGreen;
 };
 
+// Defines common, standardized PBR shading elements - albedo, roughness, metallic, and normals.
 UCLASS()
 class UPBRSurfaceModule : public UTextureSetModule
 {

@@ -29,6 +29,7 @@ public:
 	bool bEnableParallaxOcclusionMapping = false;
 };
 
+// Adds a heightmap element to the texture set, and supports parallax occlusion mapping.
 UCLASS()
 class UHeightModule : public UTextureSetModule
 {
