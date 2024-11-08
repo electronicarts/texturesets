@@ -4,10 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
+#include "UObject/AssetRegistryTagsContext.h"
 
 class IAssetTools;
 class IAssetTypeActions;
 class IDetailCategoryBuilder;
+class UFactory;
 class UMaterialInstanceConstant;
 class FTextureSetParameterEditor;
 

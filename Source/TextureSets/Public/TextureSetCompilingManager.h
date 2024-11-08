@@ -12,6 +12,7 @@
 #include "TextureSetCompilerTask.h"
 #include "UObject/WeakObjectPtr.h"
 
+class UMaterialInstance;
 class UTextureSet;
 class FQueuedThreadPool;
 enum class EQueuedWorkPriority : uint8;

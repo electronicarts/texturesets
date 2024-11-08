@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 
+#include "Engine/TextureDefines.h"
+
 #include "TextureSetPackedTextureDef.generated.h"
 
 uint32 GetTypeHash(const struct FTextureSetPackedTextureDef& Value);

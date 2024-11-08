@@ -3,6 +3,8 @@
 #include "TextureSetsCommon.h"
 
 #include "Interfaces/IPluginManager.h"
+#include "Misc/Paths.h"
+#include "ShaderCore.h"
 
 void FTextureSetsCommonModule::StartupModule()
 {

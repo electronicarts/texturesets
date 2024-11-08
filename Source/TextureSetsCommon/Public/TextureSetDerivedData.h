@@ -7,6 +7,8 @@
 #include "HAL/CriticalSection.h"
 #include "TextureSetDerivedData.generated.h"
 
+class UTexture;
+
 USTRUCT()
 struct FDerivedTextureData
 {

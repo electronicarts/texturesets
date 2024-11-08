@@ -17,6 +17,7 @@
 #include "MaterialEditorModule.h"
 #include "MaterialExpressionTextureSetSampleParameter.h"
 #include "MaterialPropertyHelpers.h"
+#include "Materials/Material.h"
 #include "Materials/MaterialFunctionInterface.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "PropertyCustomizationHelpers.h"

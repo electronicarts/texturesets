@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 
-#include "TextureSetAssetParams.Generated.h"
+#include "TextureSetAssetParams.generated.h"
 
 // Data class which is instanced on each texture set asset. Module can use this to allow users to configure asset settings.
 UCLASS(Abstract, Optional, EditInlineNew, DefaultToInstanced, CollapseCategories)

@@ -4,6 +4,11 @@
 
 #include "CoreMinimal.h"
 
+#include "Async/AsyncWork.h"
+#include "Misc/QueuedThreadPool.h"
+#include "UObject/StrongObjectPtr.h"
+#include "UObject/ObjectPtr.h"
+
 class FTextureSetCompiler;
 class UTextureSetDerivedData;
 

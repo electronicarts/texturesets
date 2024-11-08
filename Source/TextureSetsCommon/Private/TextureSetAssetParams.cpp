@@ -1,6 +1,7 @@
 // (c) Electronic Arts. All Rights Reserved.
 
 #include "TextureSetAssetParams.h"
+#include "Templates/SubclassOf.h"
 #include "UObject/UObjectGlobals.h"
 
 #if WITH_EDITOR

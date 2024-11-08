@@ -3,10 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
 #include "TextureSetAssetParams.h"
 #include "TextureSetInfo.h"
 
-#include "TextureSetModule.Generated.h"
+#include "TextureSetModule.generated.h"
 
 class FTextureSetProcessingGraph;
 class UMaterialExpressionTextureSetSampleParameter;

@@ -9,7 +9,10 @@
 #include "TextureSetsHelpers.h"
 #include "UObject/ObjectSaveContext.h"
 #if WITH_EDITOR
+#include "AssetRegistry/AssetData.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "Materials/Material.h"
+#include "Materials/MaterialFunction.h"
 #include "Misc/DataValidation.h"
 #include "ProcessingNodes/IProcessingNode.h"
 #include "ProcessingNodes/TextureInput.h"

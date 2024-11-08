@@ -5,6 +5,7 @@
 #include <embree3/rtcore.h>
 #include <embree3/rtcore_ray.h>
 
+#include "Async/ParallelFor.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshSourceData.h"
 #include "StaticMeshAttributes.h"

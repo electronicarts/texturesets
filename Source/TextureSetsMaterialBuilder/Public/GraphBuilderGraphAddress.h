@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 
-class MaterialExpression;
+#include "Materials/MaterialExpression.h"
 
 struct TEXTURESETSMATERIALBUILDER_API FGraphBuilderGraphAddress
 {

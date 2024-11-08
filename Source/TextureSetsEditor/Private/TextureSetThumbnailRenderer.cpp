@@ -4,11 +4,13 @@
 
 #include "CanvasItem.h"
 #include "CanvasTypes.h"
+#include "Engine/Engine.h"
 #include "Engine/Texture.h"
 #include "Engine/Texture2D.h"
 #include "Engine/Texture2DArray.h"
 #include "NormalMapPreview.h"
 #include "Texture2DPreview.h"
+#include "TextureResource.h"
 #include "UObject/ConstructorHelpers.h"
 #include "TextureSet.h"
 #include "ThumbnailRendering/ThumbnailManager.h"

@@ -2,6 +2,8 @@
 
 #include "TextureSetDerivedData.h"
 
+#include "Engine/Texture.h"
+
 void UTextureSetDerivedData::PostLoad()
 {
 	for (const FDerivedTexture& DerivedTexture : Textures)

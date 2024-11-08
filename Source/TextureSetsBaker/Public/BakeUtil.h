@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 DECLARE_LOG_CATEGORY_EXTERN(LogTextureSetBake, Log, All);
 
+struct FStaticMeshSourceModel;
 class UStaticMesh;
 
 class BakeUtil

@@ -8,6 +8,8 @@
 #include "TextureSet.h"
 #include "TextureSetDefinition.h"
 #include "BakeUtil.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/StaticMeshSourceData.h"
 #include "StaticMeshCompiler.h"
 #include "MeshDescription.h"
 #include "ProcessingNodes/IProcessingNode.h"
