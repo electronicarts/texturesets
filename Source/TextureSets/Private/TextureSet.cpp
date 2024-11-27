@@ -290,14 +290,6 @@ void UTextureSet::ClearCachedCookedPlatformData(const ITargetPlatform* TargetPla
 #endif
 
 #if WITH_EDITOR
-void UTextureSet::ClearAllCachedCookedPlatformData()
-{
-	// Don't actually clear it, because we have other systems that rely on us being properly initialized
-	DerivedData = nullptr;
-}
-#endif
-
-#if WITH_EDITOR
 void UTextureSet::FixupData()
 {
 	// Only fixup the data if we have a valid definition. Otherwise leave it as-is so it's there for when we do.
