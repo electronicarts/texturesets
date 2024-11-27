@@ -234,7 +234,7 @@ void FTextureSetCompilingManager::StartCompilation(UTextureSet* const TextureSet
 
 		if (bAsync && IsAsyncCompilationAllowed())
 		{
-			UE_LOG(LogTextureSet, Log, TEXT("%s: starting async compilation"), *TextureSet->GetName());
+			UE_LOG(LogTextureSet, Verbose, TEXT("%s: starting async compilation"), *TextureSet->GetName());
 
 			Task->StartAsync(GetThreadPool(), EQueuedWorkPriority::Normal);
 
@@ -316,7 +316,7 @@ void FTextureSetCompilingManager::FinishCompilation(TArrayView<UTextureSet* cons
 				// Remove the task, and move it's derived data into the texture set
 				AssignDerivedData(Compilable->Task->GetDerivedData(), Compilable->TextureSet.Get());
 
-				UE_LOG(LogTextureSet, Log, TEXT("%s: finished async compilation"), *Compilable->TextureSet->GetName());
+				UE_LOG(LogTextureSet, Verbose, TEXT("%s: finished async compilation"), *Compilable->TextureSet->GetName());
 			}
 		);
 	}
