@@ -53,7 +53,7 @@ Ready to try it out? Jump in to the [Quick Start Guide](./Docs/QuickStart.md) an
 
 # Authors
 
-<p align="center">
+<div align="center">
 <b>Search for Extraordinary Experiences Division (SEED) - Electronic Arts
 <br>
 <a href="https://seed.ea.com">seed.ea.com</a>

@@ -5,7 +5,8 @@
 #include "TextureSetModule.h"
 #include "CustomElementModule.generated.h"
 
-// Allows creation of custom texture map elements, with explicit control over channel count, default values, and encoding.
+// Allows users to define a custom input texture map that can be packed
+// and unpacked with no extra processing.
 UCLASS()
 class UCustomElementModule : public UTextureSetModule
 {

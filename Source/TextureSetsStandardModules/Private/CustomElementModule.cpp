@@ -8,7 +8,9 @@
 
 void UCustomElementModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
-	Graph.AddOutputTexture(ElementName, Graph.AddInputTexture(ElementName, ElementDef));
+	TSharedRef<FTextureInput> Input = Graph.AddInputTexture(ElementName, ElementDef);
+
+	Graph.AddOutputTexture(ElementName, Input);
 }
 
 int32 UCustomElementModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const

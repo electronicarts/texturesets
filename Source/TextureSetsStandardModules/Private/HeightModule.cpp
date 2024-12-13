@@ -20,9 +20,21 @@
 
 void UHeightModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
-	const FTextureSetSourceTextureDef HeightDef(1, ETextureSetChannelEncoding::RangeCompression, FVector4(1, 0, 0, 0));
+	// Create a def for our source texture
+	FTextureSetSourceTextureDef HeightDef;
+	HeightDef.ChannelCount = 1;
+	HeightDef.Encoding = (uint8)ETextureSetChannelEncoding::RangeCompression;
+	HeightDef.DefaultValue = FVector4(1, 0, 0, 0);
+	HeightDef.Flags = (uint8)ETextureSetTextureFlags::Default;
 
-	Graph.AddOutputParameter("HeightParams", TSharedRef<IParameterProcessingNode>(new ParameterPassThrough<UHeightAssetParams>(
+	// Create input texture based on height def
+	TSharedRef<FTextureInput> TextureInput = Graph.AddInputTexture("Height", HeightDef);
+
+	// Output the texture without further modification
+	Graph.AddOutputTexture("Height", TextureInput);
+
+	// Output 
+	Graph.AddOutputParameter("HeightParams", MakeShared<ParameterPassThrough<UHeightAssetParams>>(
 		"HeightParams", 
 		[](const UHeightAssetParams* Parameter) -> FVector4f
 		{
@@ -32,9 +44,7 @@ void UHeightModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) 
 				0,
 				0);
 		}
-		)));
-
-	Graph.AddOutputTexture("Height", Graph.AddInputTexture("Height", HeightDef));
+		));
 }
 
 int32 UHeightModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
