@@ -8,15 +8,13 @@
 FTextureRead::FTextureRead(FName SourceNameIn, const FTextureSetSourceTextureDef& SourceDefinitionIn)
 	: SourceName(SourceNameIn)
 	, SourceDefinition(SourceDefinitionIn)
-	, Texture(nullptr)
 	, bLoaded(false)
-	, bInitialized(false)
+	, AsyncSource()
 	, ValidChannels(0)
 	, ChannelSwizzle{0, 1, 2, 3}
 	, Width(1)
 	, Height(1)
 	, Slices(1)
-	, bValidImage(false)
 {
 }
 
@@ -26,24 +24,23 @@ void FTextureRead::LoadResources(const FTextureSetProcessingContext& Context)
 	check(!IsLoading()); // LoadSynchronous often fails if we are loading something else
 #endif
 
+	check(IsInGameThread());
+
 	if (bLoaded)
 		return;
 
-	if(!IsValid(Texture) && Context.SourceTextures.Contains(SourceName))
+	if(Context.SourceTextures.Contains(SourceName))
 	{
 		const FTextureSetSourceTextureReference& TextureRef = Context.SourceTextures.FindChecked(SourceName);
-		Texture = TextureRef.GetTexture();
+		UTexture* Texture = TextureRef.GetTexture();
 		ChannelMask = TextureRef.ChannelMask;
 
 		if(IsValid(Texture))
 		{
-			TextureReferenceHolder = FReferenceHolder({Texture});
+			check(Texture->Source.IsValid());
+			AsyncSource = Texture->Source.CopyTornOff(); // This copies information required to make a safe IO load async.
 
-			Width = Texture->Source.GetSizeX();
-			Height = Texture->Source.GetSizeY();
-			Slices = Texture->Source.GetNumSlices();
-
-			switch (Texture->Source.GetFormat())
+			switch (AsyncSource.GetFormat())
 			{
 			case ETextureSourceFormat::TSF_G8:
 			case ETextureSourceFormat::TSF_G16:
@@ -82,6 +79,12 @@ void FTextureRead::LoadResources(const FTextureSetProcessingContext& Context)
 					}
 				}
 			}
+
+			Width = AsyncSource.GetSizeX();
+			Height = AsyncSource.GetSizeY();
+			Slices = AsyncSource.GetNumSlices();
+			TextureSourceFormat = AsyncSource.GetFormat();
+			TextureSourceGamma = AsyncSource.GetGammaSpace(0);
 		}
 	}
 
@@ -90,34 +93,15 @@ void FTextureRead::LoadResources(const FTextureSetProcessingContext& Context)
 
 void FTextureRead::Initialize(const FTextureSetProcessingGraph& Graph)
 {
-	FScopeLock Lock(&InitializeCS);
-
-	if (bInitialized)
-		return;
-
-	if(IsValid(Texture))
+	if (AsyncSource.IsValid())
 	{
-		check(Texture->Source.IsValid());
-
-#if DIRECT_READ
-		TextureSourceFormat = Texture->Source.GetFormat();
-		TextureSourceGamma = Texture->Source.GetGammaSpace(0);
 		// This version of GetMipData does not make any internal copies,
 		// and gives us read-only access to the internal shared buffer.
 		// According to the comments, the FSharedBuffer is ref counted
 		// so will remain valid as long as we need it
-		FTextureSource::FMipData MipData = Texture->Source.GetMipData(nullptr);
+		FTextureSource::FMipData MipData = AsyncSource.GetMipData(nullptr);
 		TextureSourceMip0 = MipData.GetMipData(0, 0, 0);
-		bValidImage = true;
-#else
-		// This does two copies, and ends up being a bottleneck in the compilation
-		FImage RawImage;
-		bValidImage = Texture->Source.GetMipImage(RawImage, 0, 0, 0);
-		RawImage.Linearize((int)Texture->SourceColorSettings.EncodingOverride, Image);
-#endif
 	}
-
-	bInitialized = true;
 }
 
 const uint32 FTextureRead::ComputeGraphHash() const
@@ -381,9 +365,10 @@ namespace
 
 void FTextureRead::ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const
 {
-	if (bValidImage)
+	if (Channel.ChannelIndex < ValidChannels)
 	{
-#if DIRECT_READ
+		check(!TextureSourceMip0.IsNull());
+
 		const int SourceChannel = ChannelSwizzle[Channel.ChannelIndex];
 
 		switch (TextureSourceFormat)
@@ -419,17 +404,6 @@ void FTextureRead::ComputeChannel(const FTextureChannelDataDesc& Channel, float*
 			unimplemented();
 			break;
 		}
-#else
-		const float* RawImageData = (float*)Image.RawData.GetData();
-		constexpr int RawImagePixelStride = 4;
-
-		int DataIndex = Channel.DataStart;
-		int PixelIndex = ChannelSwizzle[Channel.Channel];
-		for (; DataIndex <= Channel.DataEnd; DataIndex += Channel.DataPixelStride, PixelIndex += RawImagePixelStride)
-		{
-			TextureData[DataIndex] = RawImageData[PixelIndex];
-		}
-#endif
 	}
 	else
 	{

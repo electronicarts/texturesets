@@ -42,24 +42,16 @@ private:
 	TArray<CreateOperatorFunc> CreateOperatorFuncs;
 	TArray<TSharedRef<class ITextureProcessingNode>> Operators;
 
-	mutable FCriticalSection InitializeCS;
-
-	TObjectPtr<UTexture> Texture;
-	FReferenceHolder TextureReferenceHolder;
 	bool bLoaded;
-	bool bInitialized;
+	FTextureSource AsyncSource;
+
 	uint8 ValidChannels;
 	int32 ChannelMask;
 	uint8 ChannelSwizzle[4];
 	int Width;
 	int Height;
 	int Slices;
-#if DIRECT_READ
 	ETextureSourceFormat TextureSourceFormat;
 	EGammaSpace TextureSourceGamma;
 	FSharedBuffer TextureSourceMip0;
-#else
-	FImage Image;
-#endif
-	bool bValidImage;
 };
