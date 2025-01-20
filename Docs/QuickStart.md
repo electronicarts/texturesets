@@ -1,5 +1,7 @@
 # Quick Start Guide
 
+> **_NOTE:_** Texture sets is a plugin, but currently requires a small number of engine changes to function. For more information see [Installing Texture Sets](./Installation.md)
+
 ## Creating a Definition
 
 A texture set definition contains the "template" that texture sets will use. All texture sets and texture set samplers reference a definition to know how to build, process, pack, unpack, sample, and generally handle a specific flavor of texture set.
