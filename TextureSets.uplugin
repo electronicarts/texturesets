@@ -42,11 +42,6 @@
 			"LoadingPhase": "Default"
 		},
 		{
-			"Name": "TextureSetsBaker",
-			"Type": "UncookedOnly",
-			"LoadingPhase": "Default"
-		},
-		{
 			"Name": "TextureSetsStandardModules",
 			"Type": "UncookedOnly",
 			"LoadingPhase": "Default"
