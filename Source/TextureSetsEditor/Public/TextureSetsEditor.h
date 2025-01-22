@@ -21,10 +21,8 @@ public:
 
 private:
 
-	void RegisterAssetTools();
-
 	void RegisterAssetTypeAction(IAssetTools& AssetTools, TSharedRef<IAssetTypeActions> Action);
-	void UnregisterAssetTools();
+	void UnregisterAssetTypeActions();
 
 	void RegisterCustomizations();
 	void UnregisterCustomizations();
@@ -42,6 +40,4 @@ private:
 
 	FDelegateHandle OnAssetPostImportDelegateHandle;
 	static void OnAssetPostImport(UFactory* ImportFactory, UObject* InObject);
-
-	void FixupTextureSetData();
 };
