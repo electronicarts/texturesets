@@ -32,29 +32,3 @@ public:
 	UPROPERTY(EditAnywhere, Category="ElementCollection")
 	UTextureSetElementCollectionAsset* Collection;
 };
-
-USTRUCT(BlueprintType)
-struct FElementDefinition
-{
-	GENERATED_BODY()
-public:
-
-	UPROPERTY(EditAnywhere, Category="ElementDefinition")
-	FName ElementName;
-
-	UPROPERTY(EditAnywhere, Category="ElementDefinition", meta=(ShowOnlyInnerProperties))
-	FTextureSetSourceTextureDef ElementDef;
-};
-
-// Old method of doing an element collection, where the user would subclass it with a blueprint.
-UCLASS(Deprecated, Abstract, Blueprintable)
-class UDEPRECATED_TextureSetElementCollection : public UTextureSetModule
-{
-	GENERATED_BODY()
-
-protected:
-	UPROPERTY(EditDefaultsOnly, Category="ElementCollection")
-	TArray<FElementDefinition> Elements;
-
-
-};
