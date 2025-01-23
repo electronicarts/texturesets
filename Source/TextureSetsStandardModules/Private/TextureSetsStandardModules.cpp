@@ -37,4 +37,4 @@ void FTextureSetsStandardModulesModule::ShutdownModule()
 
 #undef LOCTEXT_NAMESPACE
 	
-IMPLEMENT_MODULE(FTextureSetsStandardModulesModule, FTextureSetsStandardModules)
+IMPLEMENT_MODULE(FTextureSetsStandardModulesModule, TextureSetsStandardModules)

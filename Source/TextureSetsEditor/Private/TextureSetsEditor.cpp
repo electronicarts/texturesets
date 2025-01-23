@@ -276,4 +276,4 @@ void FTextureSetsEditorModule::OnAssetPostImport(UFactory* ImportFactory, UObjec
 
 #undef LOCTEXT_NAMESPACE
 
-IMPLEMENT_MODULE(FTextureSetsEditorModule, TextureSets)
+IMPLEMENT_MODULE(FTextureSetsEditorModule, TextureSetsEditor)
