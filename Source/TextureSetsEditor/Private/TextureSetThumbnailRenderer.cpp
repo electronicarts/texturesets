@@ -79,6 +79,11 @@ void UTextureSetThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint3
 			UTexture* PreviewTexture = PreviewTextures[i];
 
 			// Use A canvas tile item to draw
+			if (PreviewTexture->GetResource() == nullptr)
+			{
+				continue;
+			}
+
 			FCanvasTileItem CanvasTile(Position, PreviewTexture->GetResource(), Size, UV0, UV1, FLinearColor::White);
 			
 			if (UTexture2DArray* Texture2DArray = Cast<UTexture2DArray>(PreviewTexture)) 
