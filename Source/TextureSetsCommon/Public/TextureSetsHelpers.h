@@ -53,6 +53,4 @@ namespace TextureSetsHelpers
 	TEXTURESETSCOMMON_API FName MakeTextureParameterName(FName ParameterName, int TextureIndex);
 
 	TEXTURESETSCOMMON_API FName MakeConstantParameterName(FName ParameterName, FName ConstantName);
-
-	TEXTURESETSCOMMON_API bool IsTextureSetParameterName(FName Name);
 };

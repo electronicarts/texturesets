@@ -18,8 +18,7 @@ void UTextureSetTextureSourceProvider::ConfigureTexture(UTexture* Texture) const
 	{
 		// If compiler args are not valid, patch ourselves out of the texture
 		UE_LOG(LogTextureSet, Log, TEXT("%s: UTextureSetTextureSourceProvider has not been properly configured. Removing from %s"), *this->GetName(), *Texture->GetName());
-		Texture->ProceduralTextureProvider = nullptr;
-		Texture->bSourceBulkDataTransient = false;
+		Texture->TextureSourceProvider = nullptr;
 		
 		if (!Texture->Source.IsValid())
 		{
@@ -36,7 +35,7 @@ void UTextureSetTextureSourceProvider::ConfigureTexture(UTexture* Texture) const
 	FDerivedTexture& DerivedTexture = GetDerivedTexture();
 	FScopeLock Lock(DerivedTexture.TextureCS.Get());
 	check(DerivedTexture.Texture == Texture);
-	check(DerivedTexture.Texture->ProceduralTextureProvider == this);
+	check(DerivedTexture.Texture->TextureSourceProvider == this);
 
 	FTextureSetCompiler TempCompiler(CompilerArgs.ToSharedRef());
 	TempCompiler.ConfigureTexture(DerivedTexture, Index);

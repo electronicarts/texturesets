@@ -173,14 +173,11 @@ bool TextureSetCompilerTask::TryFinalize()
 	{
 		for (int t = 0; t < DerivedData->Textures.Num(); t++)
 		{
-			// Transient source data since it's faster to recompute it than caching uncompressed floating point data.
-			DerivedData->Textures[t].Texture->bSourceBulkDataTransient = true;
-
 			// Create source provider, which will fill in the source data on demand prior to a texture build 
 			UTextureSetTextureSourceProvider* SourceProvider = NewObject<UTextureSetTextureSourceProvider>(DerivedData->Textures[t].Texture);
 			SourceProvider->CompilerArgs = Compiler->Args;
 			SourceProvider->Index = t;
-			DerivedData->Textures[t].Texture->ProceduralTextureProvider = SourceProvider;
+			DerivedData->Textures[t].Texture->TextureSourceProvider = SourceProvider;
 		}
 		bHasAddedSourceProviders = true;
 	}
@@ -202,9 +199,8 @@ bool TextureSetCompilerTask::TryFinalize()
 			// Wait until we're not doing any async work
 			if (DerivedTexture.Texture->IsAsyncCacheComplete()) 
 			{
-				// Need to explicitly call FinishCachePlatformData otherwise we may have a texture stuck in limbo
-				DerivedTexture.Texture->FinishCachePlatformData();
-				// UpdateResource needs to be called AFTER FinishCachePlatformData
+				DerivedTexture.Texture->BlockOnAnyAsyncBuild();
+				// UpdateResource needs to be called AFTER BlockOnAnyAsyncBuild
 				// Otherwise it just kicks off a new build and sets the resource to a default texture
 				DerivedTexture.Texture->UpdateResource();
 			}
@@ -243,7 +239,7 @@ void TextureSetCompilerTask::Finalize()
 		{
 			for (const FDerivedTexture& DerivedTexture : DerivedData->Textures)
 			{
-				DerivedTexture.Texture->FinishCachePlatformData();
+				DerivedTexture.Texture->BlockOnAnyAsyncBuild();
 			}
 		}
 

@@ -63,7 +63,7 @@ uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash
 	Hash = HashCombine(Hash, GetTypeHash(PositionSource));
 	Hash = HashCombine(Hash, GetTypeHash(CameraVectorSource));
 
-	HashCombine(Hash, GetTypeHash(DefaultTextureSet.Get()));
+	Hash = HashCombine(Hash, GetTypeHash(DefaultTextureSet.Get()));
 	
 	return Hash;
 }
@@ -194,7 +194,7 @@ void UMaterialExpressionTextureSetSampleParameter::PreSave(FObjectPreSaveContext
 	if (!IsValid(DefaultTextureSet.Get()) && SaveContext.IsCooking())
     {
     	ensure (IsValid(Definition));
-    	DefaultTextureSet = Definition->GetDefaultTextureSet();
+    	DefaultTextureSet = const_cast<UTextureSet*>(Definition->GetDefaultTextureSet());
     }
 	Super::PreSave(SaveContext);
 }

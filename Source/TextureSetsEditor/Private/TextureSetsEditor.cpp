@@ -32,22 +32,8 @@
 
 #define LOCTEXT_NAMESPACE "FTextureSetsModule"
 
-static TAutoConsoleVariable<bool> CVarShowTextureSetParameters(
-	TEXT("ts.ShowTextureSetParameters"),
-	false,
-	TEXT("Makes texture set parameters visible in the material instance editor. These are usually hidden."));
-
-
-class FTextureSetParameterEditor : public ICustomMaterialParameterEditor, public IMaterialParameterFilter
+class FTextureSetParameterEditor : public ICustomMaterialParameterEditor
 {
-	virtual bool IsMaterialParameterHidden(TObjectPtr<UDEditorParameterValue> Param) override
-	{
-		if (CVarShowTextureSetParameters.GetValueOnAnyThread())
-			return false;
-
-		return TextureSetsHelpers::IsTextureSetParameterName(Param->ParameterInfo.Name);
-	}
-
 	virtual bool CanHandleParam(TObjectPtr<UDEditorCustomParameterValue> Param) override
 	{
 		return Param.GetClass() == UDEditorTextureSetParameterValue::StaticClass();
@@ -154,7 +140,6 @@ void FTextureSetsEditorModule::StartupModule()
 	RegisterCustomizations();
 
 	ParameterEditor = MakeShared<FTextureSetParameterEditor>();
-	FMaterialPropertyHelpers::RegisterParameterFilter(ParameterEditor);
 	FMaterialPropertyHelpers::RegisterCustomParameterEditor(ParameterEditor);
 
 	OnGetExtraObjectTagsDelegateHandle = UObject::FAssetRegistryTag::OnGetExtraObjectTagsWithContext.AddStatic(&FTextureSetsEditorModule::OnGetExtraObjectTagsWithContext);
@@ -176,7 +161,6 @@ void FTextureSetsEditorModule::ShutdownModule()
 	UnregisterAssetTypeActions();
 	UnregisterCustomizations();
 
-	FMaterialPropertyHelpers::UnregisterParameterFilter(ParameterEditor);
 	FMaterialPropertyHelpers::UnregisterCustomParameterEditor(ParameterEditor);
 	ParameterEditor.Reset();
 

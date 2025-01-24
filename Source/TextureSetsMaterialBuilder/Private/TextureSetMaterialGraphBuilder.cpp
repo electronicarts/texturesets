@@ -50,7 +50,7 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(const FTextureS
 		Meta.Value.Type = EMaterialParameterType::Texture;
 		Meta.Value.Texture = DefaultTexture;
 		Meta.Group = Args.ParameterGroup;
-		Meta.SortPriority = 0;
+		Meta.bHidden = true;
 		TextureObject->SetParameterValue(PackedTextureName, Meta, EMaterialExpressionSetParameterValueFlags::AssignGroupAndSortPriority);
 		TextureObject->UpdateParameterGuid(true, true);
 		PackedTextureObjects.Add(TextureObject);
@@ -328,6 +328,7 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeConstantParameter(FNam
 	NewParam->ParameterName = TextureSetsHelpers::MakeConstantParameterName(Args.ParameterName, Name);
 	NewParam->DefaultValue = FLinearColor(Default);
 	NewParam->Group = Args.ParameterGroup;
+	NewParam->bHidden = true;
 
 	// Main pin on the parameter is actually a float3, need to append the alpha to make it a float4.
 	UMaterialExpression* AppendNode = CreateExpression<UMaterialExpressionAppendVector>();
@@ -815,16 +816,14 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::MakeSynthesizeTangentCusto
 
 int32 FTextureSetMaterialGraphBuilder::FindInputIndexChecked(UMaterialExpression* InputNode, FName InputName)
 {
-	const int32 NumInputs = InputNode->GetInputsView().Num();
-
 	int32 InputIndex = -1;
 	FString FoundNodes;
-	for (int32 Idx = 0; Idx < NumInputs; Idx++)
+	for (FExpressionInputIterator It{ InputNode }; It; ++It)
 	{
-		FName InputNodeName = InputNode->GetInputName(Idx);		
+		FName InputNodeName = InputNode->GetInputName(It.Index);
 		if (InputNodeName.Compare(InputName) == 0)
 		{
-			InputIndex = Idx;
+			InputIndex = It.Index;
 			break;
 		}
 		else

@@ -15,7 +15,7 @@ DEFINE_LOG_CATEGORY(LogTextureSet);
 #if WITH_EDITOR
 bool TextureSetsHelpers::GetSourceDataIdAsString(const UTexture* Texture, FString& StringOut)
 {
-	if (Texture->Source.IsValid() && !Texture->bSourceBulkDataTransient)
+	if (Texture->Source.IsValid())
 	{
 		StringOut = Texture->Source.GetId().ToString();
 		return true;
@@ -184,9 +184,4 @@ FName TextureSetsHelpers::MakeTextureParameterName(FName ParameterName, int Text
 FName TextureSetsHelpers::MakeConstantParameterName(FName ParameterName, FName ConstantName)
 {
 	return FName(FString::Format(TEXT("TEXSET_{0}_{1}"), { ParameterName.ToString(), ConstantName.ToString() }));
-}
-
-bool TextureSetsHelpers::IsTextureSetParameterName(FName Name)
-{
-	return Name.ToString().StartsWith("TEXSET_", ESearchCase::IgnoreCase);
 }

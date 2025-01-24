@@ -9,7 +9,7 @@
 #include "TextureSetTextureSourceProvider.generated.h"
 
 UCLASS()
-class TEXTURESETSCOMPILER_API UTextureSetTextureSourceProvider : public UProceduralTextureProvider
+class TEXTURESETSCOMPILER_API UTextureSetTextureSourceProvider : public UTextureSourceProvider
 {
 	GENERATED_BODY()
 public:
@@ -19,7 +19,7 @@ public:
 	TSharedPtr<const FTextureSetCompilerArgs> CompilerArgs;
 	int Index;
 
-	// UProceduralTextureProvider Interface
+	// UTextureSourceProvider Interface
 	virtual void ConfigureTexture(UTexture* Texture) const override;
 	virtual void Prepare(UTexture* Texture) override;
 	virtual void UpdateSource(FTextureSource& Source) const override;
