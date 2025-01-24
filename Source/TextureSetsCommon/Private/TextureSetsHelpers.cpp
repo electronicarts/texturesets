@@ -190,16 +190,3 @@ bool TextureSetsHelpers::IsTextureSetParameterName(FName Name)
 {
 	return Name.ToString().StartsWith("TEXSET_", ESearchCase::IgnoreCase);
 }
-
-UReferenceHolder* FReferenceHolder::GetHolder()
-{
-	static UReferenceHolder* Holder = nullptr;
-
-	if (!Holder)
-	{
-		Holder = NewObject<UReferenceHolder>();
-		Holder->AddToRoot();
-	}
-
-	return Holder;
-}

@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TextureSetsHelpers.generated.h"
 
 class IAssetRegistry;
 class UTexture;
@@ -56,44 +55,4 @@ namespace TextureSetsHelpers
 	TEXTURESETSCOMMON_API FName MakeConstantParameterName(FName ParameterName, FName ConstantName);
 
 	TEXTURESETSCOMMON_API bool IsTextureSetParameterName(FName Name);
-};
-
-UCLASS()
-class TEXTURESETSCOMMON_API UReferenceHolder : public UObject
-{
-	GENERATED_BODY()
-public:
-	UPROPERTY()
-	TMap<FGuid, UObject*> References;
-
-};
-
-// Utility class for holding references of UObjects to prevent them from being garbage collected.
-class TEXTURESETSCOMMON_API FReferenceHolder
-{
-public:
-	FReferenceHolder() {}
-
-	FReferenceHolder(TArray<UObject*> Objects)
-	{
-		for (UObject* Object : Objects)
-		{
-			FGuid Id = FGuid::NewGuid();
-			Ids.Add(Id);
-			GetHolder()->References.Add(Id, Object);
-		}
-	}
-
-	~FReferenceHolder()
-	{
-		for (FGuid Id : Ids)
-		{
-			GetHolder()->References.Remove(Id);
-		}
-	}
-
-private:
-	TArray<FGuid> Ids;
-
-	static UReferenceHolder* GetHolder();
 };
