@@ -18,6 +18,16 @@
 
 #define LOCTEXT_NAMESPACE "TextureSets"
 
+void UHeightModule::GetAssetParamClasses(TSet<TSubclassOf<UTextureSetAssetParams>>& Classes) const
+{
+	Classes.Add(UHeightAssetParams::StaticClass());
+}
+
+void UHeightModule::GetSampleParamClasses(TSet<TSubclassOf<UTextureSetSampleParams>>& Classes) const
+{
+	Classes.Add(UHeightSampleParams::StaticClass());
+}
+
 void UHeightModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	// Create a def for our source texture

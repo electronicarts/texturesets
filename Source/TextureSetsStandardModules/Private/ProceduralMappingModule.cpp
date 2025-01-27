@@ -10,9 +10,9 @@
 #include "Materials/MaterialExpressionDDX.h"
 #include "Materials/MaterialExpressionDDY.h"
 
-TSubclassOf<UTextureSetSampleParams> UProceduralMappingModule::GetSampleParamClass() const
+void UProceduralMappingModule::GetSampleParamClasses(TSet<TSubclassOf<UTextureSetSampleParams>>& Classes) const
 {
-	return UProceduralMappingSampleParams::StaticClass();
+	Classes.Add(UProceduralMappingSampleParams::StaticClass());
 }
 
 int32 UProceduralMappingModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const

@@ -56,6 +56,16 @@ private:
 	bool bFlipGreen;
 };
 
+void UPBRSurfaceModule::GetAssetParamClasses(TSet<TSubclassOf<UTextureSetAssetParams>>& Classes) const
+{
+	Classes.Add(UPBRAssetParams::StaticClass());
+}
+
+void UPBRSurfaceModule::GetSampleParamClasses(TSet<TSubclassOf<UTextureSetSampleParams>>& Classes) const
+{
+	Classes.Add(UPBRSampleParams::StaticClass());
+}
+
 void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	if (Paramaterization == EPBRParamaterization::Basecolor_Metal || Paramaterization == EPBRParamaterization::Dielectric)

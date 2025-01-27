@@ -160,35 +160,30 @@ TArray<FName> UTextureSetDefinition::EditGetUnpackedChannelNames() const
 #if WITH_EDITOR
 TArray<TSubclassOf<UTextureSetAssetParams>> UTextureSetDefinition::GetRequiredAssetParamClasses() const
 {
-	TArray<TSubclassOf<UTextureSetAssetParams>> RequiredTypes;
+	TSet<TSubclassOf<UTextureSetAssetParams>> RequiredTypes;
 	for (const UTextureSetModule* Module : ModuleInfo.GetModules())
 	{
 		if (IsValid(Module))
 		{
-			UClass* SampleParamClass = Module->GetAssetParamClass();
-
-			if (SampleParamClass != nullptr)
-				if (!RequiredTypes.Contains(SampleParamClass))
-					RequiredTypes.Add(SampleParamClass);
+			Module->GetAssetParamClasses(RequiredTypes);
 		}
 	}
-	return RequiredTypes;
+	return RequiredTypes.Array();
 }
 #endif
 
 #if WITH_EDITOR
 TArray<TSubclassOf<UTextureSetSampleParams>> UTextureSetDefinition::GetRequiredSampleParamClasses() const
 {
-	TArray<TSubclassOf<UTextureSetSampleParams>> RequiredTypes;
+	TSet<TSubclassOf<UTextureSetSampleParams>> RequiredTypes;
 	for (const UTextureSetModule* Module : GetModuleInfo().GetModules())
 	{
-		UClass* SampleParamClass = Module->GetSampleParamClass();
-
-		if (SampleParamClass != nullptr)
-			if (!RequiredTypes.Contains(SampleParamClass))
-				RequiredTypes.Add(SampleParamClass);
+		if (IsValid(Module))
+		{
+			Module->GetSampleParamClasses(RequiredTypes);
+		}
 	}
-	return RequiredTypes;
+	return RequiredTypes.Array();
 }
 #endif
 

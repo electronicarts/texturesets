@@ -68,8 +68,8 @@ public:
 	UPROPERTY(EditAnywhere, Category="Flipbook");
 	bool bUseMotionVectors = false;
 
-	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const { return UFlipbookAssetParams::StaticClass(); }
-	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UFlipbookSampleParams::StaticClass(); }
+	virtual void GetAssetParamClasses(TSet<TSubclassOf<UTextureSetAssetParams>>& Classes) const override;
+	virtual void GetSampleParamClasses(TSet<TSubclassOf<UTextureSetSampleParams>>& Classes) const override;
 	
 	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 

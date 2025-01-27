@@ -75,8 +75,8 @@ public:
 	const FName WorldNormalName = "WorldNormal";
 	const FName SurfaceGradientName = "SurfaceGradient";
 
-	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const override { return UPBRAssetParams::StaticClass(); }
-	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UPBRSampleParams::StaticClass(); }
+	virtual void GetAssetParamClasses(TSet<TSubclassOf<UTextureSetAssetParams>>& Classes) const override;
+	virtual void GetSampleParamClasses(TSet<TSubclassOf<UTextureSetSampleParams>>& Classes) const override;
 
 	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 

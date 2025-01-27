@@ -28,11 +28,11 @@ public:
 	// Useful for modules which allow multiple instances on the same definition.
 	virtual FString GetInstanceName() const { return this->GetClass()->GetName(); }
 
-	// Which class this module uses to attach parameters to a texture set asset instance
-	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const { return nullptr; }
+	// Which classes this module requests be attached to the texture set asset
+	virtual void GetAssetParamClasses(TSet<TSubclassOf<UTextureSetAssetParams>>& Classes) const {}
 
-	// Which class this module uses to attach parameters to the sampler material expression
-	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const { return nullptr; }
+	// Which classes this module requests be attached to the sampler material expression
+	virtual void GetSampleParamClasses(TSet<TSubclassOf<UTextureSetSampleParams>>& Classes) const {}
 
 	// Process the source data into the intermediate results
 	// Transforms source elements into processed data

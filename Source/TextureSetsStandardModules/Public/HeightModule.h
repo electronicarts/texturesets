@@ -35,8 +35,8 @@ class UHeightModule : public UTextureSetModule
 {
 	GENERATED_BODY()
 public:
-	virtual TSubclassOf<UTextureSetAssetParams> GetAssetParamClass() const override { return UHeightAssetParams::StaticClass(); }
-	virtual TSubclassOf<UTextureSetSampleParams> GetSampleParamClass() const override { return UHeightSampleParams::StaticClass(); }
+	virtual void GetAssetParamClasses(TSet<TSubclassOf<UTextureSetAssetParams>>& Classes) const override;
+	virtual void GetSampleParamClasses(TSet<TSubclassOf<UTextureSetSampleParams>>& Classes) const override;
 	
 	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 

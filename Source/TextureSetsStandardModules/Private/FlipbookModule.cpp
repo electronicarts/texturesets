@@ -223,6 +223,16 @@ private:
 	FVector4f Value;
 };
 
+void UFlipbookModule::GetAssetParamClasses(TSet<TSubclassOf<UTextureSetAssetParams>>& Classes) const
+{
+	Classes.Add(UFlipbookAssetParams::StaticClass());
+}
+
+void UFlipbookModule::GetSampleParamClasses(TSet<TSubclassOf<UTextureSetSampleParams>>& Classes) const
+{
+	Classes.Add(UFlipbookSampleParams::StaticClass());
+}
+
 void UFlipbookModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
 {
 	// FTextureOperatorSubframe will make all processed textures into texture arrays
