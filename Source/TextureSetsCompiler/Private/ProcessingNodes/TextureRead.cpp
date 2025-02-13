@@ -263,7 +263,7 @@ namespace
 	};
 
 	template<ETextureSourceFormat SourceFormat>
-	static constexpr int GetStride()
+	static constexpr int GetPixelStride()
 	{
 		switch (SourceFormat)
 		{
@@ -307,42 +307,88 @@ namespace
 			return RRRRMap[Channel];
 		}
 	}
-	template<ETextureSourceFormat SourceFormat, typename TPixelType>
-	void CopyImageData(FSharedBuffer SourceBuffer, int SourceChannel, EGammaSpace GammaSpace, const FTextureChannelDataDesc& DestChannel, float* DestData)
-	{
-		static constexpr int SourceDataStride = GetStride<SourceFormat>();
 
-		const uint64 ExpectedSize = sizeof(TPixelType) * DestChannel.TextureHeight * DestChannel.TextureWidth * DestChannel.TextureSlices * SourceDataStride;
+	template <typename Lambda>
+	static void IterateData(const FTextureDataTileDesc& DestChannel, const FTextureDataTileDesc& SourceChannel, const Lambda& Func)
+	{
+		// Validate that source and dest tiles are the same size, so we can iterate them together.
+		check(SourceChannel.TileSize == DestChannel.TileSize);
+
+		int64 ISource = SourceChannel.TileDataOffset;
+		int64 IDest = DestChannel.TileDataOffset;
+			
+		for (int32 Z = 0; Z < DestChannel.TileSize.Z; Z++)
+		{
+			for (int32 Y = 0; Y < DestChannel.TileSize.Y; Y++)
+			{
+				for (int32 X = 0; X < DestChannel.TileSize.X; X++)
+				{
+					Func(ISource, IDest);
+
+					// Next Pixel
+					ISource += SourceChannel.TileDataStepSize.X;
+					IDest += DestChannel.TileDataStepSize.X;
+				}
+
+				// Next row
+				ISource += SourceChannel.TileDataStepSize.Y;
+				IDest += DestChannel.TileDataStepSize.Y;
+			}
+
+			// Next slice
+			ISource += SourceChannel.TileDataStepSize.Z;
+			IDest += DestChannel.TileDataStepSize.Z;
+		}
+	}
+
+	template<ETextureSourceFormat SourceFormat, typename TPixelType>
+	void CopyImageData(FSharedBuffer SourceBuffer, int SourceChannelIndex, EGammaSpace GammaSpace, const FTextureDataTileDesc& DestTile, float* DestData)
+	{
+		const uint64 ExpectedSize = sizeof(TPixelType) * DestTile.TextureSize.X * DestTile.TextureSize.Y * DestTile.TextureSize.Z * GetPixelStride<SourceFormat>();
 		check(SourceBuffer.GetSize() == ExpectedSize);
+
+		const FIntVector3 DataStride = FTextureDataTileDesc::ComputeDataStrides(GetPixelStride<SourceFormat>(), DestTile.TextureSize);
+		const int32 DataOffset = FTextureDataTileDesc::ComputeDataOffset(DestTile.TileOffset, DataStride) + RemapChannel<SourceFormat>(SourceChannelIndex);
+
+		const FTextureDataTileDesc SourceTile(
+			DestTile.TextureSize,
+			DestTile.TileSize,
+			DestTile.TileOffset,
+			DataStride,
+			DataOffset
+		);
 
 		const TPixelType* SourceData = (TPixelType*)SourceBuffer.GetData();
 
-		int IDest = DestChannel.DataStart;
-		int ISource = RemapChannel<SourceFormat>(SourceChannel);
-#define ITERATE_DATA for (; IDest <= DestChannel.DataEnd; IDest += DestChannel.DataPixelStride, ISource += SourceDataStride)
-
 		if constexpr (std::is_same<float, TPixelType>::value || std::is_same<FFloat16, TPixelType>::value)
 		{
-			ITERATE_DATA
+			IterateData(DestTile, SourceTile, [&DestData, &SourceData](int64 ISource, int64 IDest)
 			{
 				DestData[IDest] = SourceData[ISource];
-			}
+			});
+
 		}
 		else if constexpr (std::is_same<uint8, TPixelType>::value)
 		{
 			switch (GammaSpace)
 			{
 			case EGammaSpace::Linear:
-				ITERATE_DATA
+				IterateData(DestTile, SourceTile, [&DestData, &SourceData](int64 ISource, int64 IDest)
+				{
 					DestData[IDest] = (float)SourceData[ISource] / 255.f;
+				});
 				break;
 			case EGammaSpace::sRGB:
-				ITERATE_DATA
+				IterateData(DestTile, SourceTile, [&DestData, &SourceData](int64 ISource, int64 IDest)
+				{
 					DestData[IDest] = sRGBToLinearTable[SourceData[ISource]];
+				});
 				break;
 			case EGammaSpace::Pow22:
-				ITERATE_DATA
+				IterateData(DestTile, SourceTile, [&DestData, &SourceData](int64 ISource, int64 IDest)
+				{
 					DestData[IDest] = Pow22OneOver255Table[SourceData[ISource]];
+				});
 				break;
 			default:
 				unimplemented()
@@ -351,8 +397,10 @@ namespace
 		}
 		else if constexpr (std::is_same<uint16, TPixelType>::value)
 		{
-			ITERATE_DATA
+			IterateData(DestTile, SourceTile, [&DestData, &SourceData](int64 ISource, int64 IDest)
+			{
 				DestData[IDest] = (float)SourceData[ISource] / 65535.f;
+			});
 		}
 		else
 		{
@@ -363,42 +411,45 @@ namespace
 	}
 }
 
-void FTextureRead::ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const
+void FTextureRead::ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const
 {
-	if (Channel.ChannelIndex < ValidChannels)
+	if (Channel < ValidChannels)
 	{
 		check(!TextureSourceMip0.IsNull());
+		check(Tile.TextureSize.X == Width);
+		check(Tile.TextureSize.Y == Height);
+		check(Tile.TextureSize.Z == Slices);
 
-		const int SourceChannel = ChannelSwizzle[Channel.ChannelIndex];
+		const int SourceChannelIndex = ChannelSwizzle[Channel];
 
 		switch (TextureSourceFormat)
 		{
 		case TSF_G8:
-			CopyImageData<TSF_G8, uint8>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
+			CopyImageData<TSF_G8, uint8>(TextureSourceMip0, SourceChannelIndex, TextureSourceGamma, Tile, TextureData);
 			break;
 		case TSF_BGRA8:
-			CopyImageData<TSF_BGRA8, uint8>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
+			CopyImageData<TSF_BGRA8, uint8>(TextureSourceMip0, SourceChannelIndex, TextureSourceGamma, Tile, TextureData);
 			break;
 		case TSF_BGRE8:
-			CopyImageData<TSF_BGRE8, uint8>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
+			CopyImageData<TSF_BGRE8, uint8>(TextureSourceMip0, SourceChannelIndex, TextureSourceGamma, Tile, TextureData);
 			break;
 		case TSF_RGBA16:
-			CopyImageData<TSF_RGBA16, uint16>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
+			CopyImageData<TSF_RGBA16, uint16>(TextureSourceMip0, SourceChannelIndex, TextureSourceGamma, Tile, TextureData);
 			break;
 		case TSF_RGBA16F:
-			CopyImageData<TSF_RGBA16F, FFloat16>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
+			CopyImageData<TSF_RGBA16F, FFloat16>(TextureSourceMip0, SourceChannelIndex, TextureSourceGamma, Tile, TextureData);
 			break;
 		case TSF_G16:
-			CopyImageData<TSF_G16, uint16>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
+			CopyImageData<TSF_G16, uint16>(TextureSourceMip0, SourceChannelIndex, TextureSourceGamma, Tile, TextureData);
 			break;
 		case TSF_RGBA32F:
-			CopyImageData<TSF_RGBA32F, float>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
+			CopyImageData<TSF_RGBA32F, float>(TextureSourceMip0, SourceChannelIndex, TextureSourceGamma, Tile, TextureData);
 			break;
 		case TSF_R16F:
-			CopyImageData<TSF_R16F, FFloat16>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
+			CopyImageData<TSF_R16F, FFloat16>(TextureSourceMip0, SourceChannelIndex, TextureSourceGamma, Tile, TextureData);
 			break;
 		case TSF_R32F:
-			CopyImageData<TSF_R32F, float>(TextureSourceMip0, SourceChannel, TextureSourceGamma, Channel, TextureData);
+			CopyImageData<TSF_R32F, float>(TextureSourceMip0, SourceChannelIndex, TextureSourceGamma, Tile, TextureData);
 			break;
 		default:
 			unimplemented();
@@ -408,9 +459,9 @@ void FTextureRead::ComputeChannel(const FTextureChannelDataDesc& Channel, float*
 	else
 	{
 		// Fill tile data with default value
-		for (int DataIndex = Channel.DataStart; DataIndex <= Channel.DataEnd; DataIndex += Channel.DataPixelStride)
+		Tile.ForEachPixel([TextureData, Channel, this](FTextureDataTileDesc::ForEachPixelContext& Context)
 		{
-			TextureData[DataIndex] = SourceDefinition.DefaultValue[Channel.ChannelIndex];
-		}
+			TextureData[Context.DataIndex] = SourceDefinition.DefaultValue[Channel];
+		});
 	}
 }

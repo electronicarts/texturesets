@@ -24,6 +24,7 @@ struct FTextureSetCompilerArgs
 	FString DebugContext;
 	FString UserKey;
 	TObjectPtr<UObject> OuterObject;
+	FIntVector3 TileSize = FIntVector3(128,128,1);
 };
 
 class TEXTURESETSCOMPILER_API FTextureSetCompiler

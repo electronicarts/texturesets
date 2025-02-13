@@ -19,7 +19,7 @@ public:
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override { return SourceImage->ComputeDataHash(Context); };
 
 	virtual FTextureDimension GetTextureDimension() const override { return SourceImage->GetTextureDimension(); }
-	virtual const FTextureSetProcessedTextureDef GetTextureDef() override { return SourceImage->GetTextureDef(); }
+	virtual const FTextureSetProcessedTextureDef GetTextureDef() const override { return SourceImage->GetTextureDef(); }
 
 	const TSharedRef<ITextureProcessingNode> SourceImage;
 };

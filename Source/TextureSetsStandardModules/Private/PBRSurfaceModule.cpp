@@ -39,16 +39,16 @@ public:
 		return Hash;
 	}
 
-	void ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const override
+	void ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override
 	{
-		SourceImage->ComputeChannel(Channel, TextureData);
+		SourceImage->ComputeChannel(Channel, Tile, TextureData);
 
-		if (Channel.ChannelIndex == 1 && bFlipGreen)
+		if (Channel == 1 && bFlipGreen)
 		{
-			for (int DataIndex = Channel.DataStart; DataIndex <= Channel.DataEnd; DataIndex += Channel.DataPixelStride)
+			Tile.ForEachPixel([TextureData](FTextureDataTileDesc::ForEachPixelContext& Context)
 			{
-				TextureData[DataIndex] = 1.0f - TextureData[DataIndex];
-			}
+				TextureData[Context.DataIndex] = 1.0f - TextureData[Context.DataIndex];
+			});
 		}
 	}
 

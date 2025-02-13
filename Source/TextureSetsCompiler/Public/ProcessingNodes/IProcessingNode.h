@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "TextureSetProcessingContext.h"
-#include "TextureChannelDataDesc.h"
+#include "TextureDataTileDesc.h"
 
 class FTextureSetProcessingGraph;
 
@@ -46,10 +46,10 @@ public:
 	};
 
 	virtual FTextureDimension GetTextureDimension() const = 0;
-	virtual const struct FTextureSetProcessedTextureDef GetTextureDef() = 0;
+	virtual const struct FTextureSetProcessedTextureDef GetTextureDef() const = 0;
 
 	// Compute a texture channel and write into the texture data.
-	virtual void ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const = 0;
+	virtual void ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const = 0;
 };
 
 // Processing node that computes a Vec4 parameter

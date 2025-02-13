@@ -29,9 +29,9 @@ public:
 	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override;
 
 	virtual FTextureDimension GetTextureDimension() const override { check(bLoaded); return {Width, Height, Slices}; }
-	virtual const FTextureSetProcessedTextureDef GetTextureDef() override { return SourceDefinition; }
+	virtual const FTextureSetProcessedTextureDef GetTextureDef() const override { return SourceDefinition; }
 
-	virtual void ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const override;
+	virtual void ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override;
 
 	void AddOperator(CreateOperatorFunc Operator) { CreateOperatorFuncs.Add(Operator); }
 

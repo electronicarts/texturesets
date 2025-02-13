@@ -21,7 +21,7 @@ public:
 	{
 	}
 
-	virtual FName GetNodeTypeName() const  { return "Subframe"; }
+	virtual FName GetNodeTypeName() const  { return "Subframe V1"; }
 
 	virtual const uint32 ComputeGraphHash() const override
 	{
@@ -30,7 +30,7 @@ public:
 		return Hash;
 	}
 
-	virtual const FTextureSetProcessedTextureDef GetTextureDef() override
+	virtual const FTextureSetProcessedTextureDef GetTextureDef() const override
 	{
 		FTextureSetProcessedTextureDef Def = SourceImage->GetTextureDef();
 		Def.Flags |= (uint8)ETextureSetTextureFlags::Array;
@@ -61,14 +61,14 @@ public:
 
 		if (SourceImageDimension.Width >= FramesX)
 		{
-			check(SourceImageDimension.Width % FramesX == 0); // Need to be able to divide the image cleanly into the specified number of frames
+			//check(SourceImageDimension.Width % FramesX == 0); // Need to be able to divide the image cleanly into the specified number of frames
 			SubImageWidth /= FramesX;
 			FramesPerImage *= FramesX;
 		}
 
 		if (SourceImageDimension.Height >= FramesY)
 		{
-			check(SourceImageDimension.Height % FramesY == 0); // Need to be able to divide the image cleanly into the specified number of frames
+			//check(SourceImageDimension.Height % FramesY == 0); // Need to be able to divide the image cleanly into the specified number of frames
 			SubImageHeight /= FramesY;
 			FramesPerImage *= FramesY;
 		}
@@ -89,41 +89,54 @@ public:
 		);
 	}
 
-	void ComputeChannel(const FTextureChannelDataDesc& Channel, float* TextureData) const override
+	void ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override
 	{
 		if (FramesPerImage == 1)
 		{
 			// Can early out without remapping the frames
-			SourceImage->ComputeChannel(Channel, TextureData);
+			SourceImage->ComputeChannel(Channel, Tile, TextureData);
 			return;
 		}
-
-		FTextureDimension SourceImageDimension = SourceImage->GetTextureDimension();
-
-		FTextureChannelDataDesc SourceChannel(
-			Channel.ChannelIndex,
-			0,
-			1,
-			SourceImageDimension.Width,
-			SourceImageDimension.Height,
-			SourceImageDimension.Slices);
-
-		TArray64<float> SourceTextureData;
-		SourceTextureData.SetNumUninitialized(SourceChannel.DataEnd + 1);
-
-		SourceImage->ComputeChannel(SourceChannel, SourceTextureData.GetData());
-
-		int DataIndex = Channel.DataStart;
-		FIntVector Coord;
-		for (Coord.Z = 0; Coord.Z < Channel.TextureSlices; Coord.Z++)
+		
+		const FTextureDimension SourceImageDimension = SourceImage->GetTextureDimension();
+		const FIntVector3 SourceImageSize = FIntVector3(SourceImageDimension.Width, SourceImageDimension.Height, SourceImageDimension.Slices);
+		const FTextureSetProcessedTextureDef SourceDef = SourceImage->GetTextureDef();
+		
+		const FTextureDimension DestDimension = GetTextureDimension();
+		const FTextureSetProcessedTextureDef DestDef = GetTextureDef();
+		
+		const FIntVector3 SubImageSize(SubImageWidth, SubImageHeight, 1);
+		
+		for (int32 SourceSlice = 0; SourceSlice < SourceImageDimension.Slices; SourceSlice++)
 		{
-			for (Coord.Y = 0; Coord.Y < Channel.TextureHeight; Coord.Y++)
+			for (int32 SourceFrameY = 0; SourceFrameY < FramesY; SourceFrameY++)
 			{
-				for (Coord.X = 0; Coord.X < Channel.TextureWidth; Coord.X++)
+				for (int32 SourceFrameX = 0; SourceFrameX < FramesX; SourceFrameX++)
 				{
-					const int SourceDataIndex = SourceChannel.CoordToDataIndex(TransformToSource(Coord));
-					TextureData[DataIndex] = SourceTextureData[SourceDataIndex];
-					DataIndex += Channel.DataPixelStride;
+					int32 DestSlice = SourceFrameX + (SourceFrameY * FramesX) + (SourceSlice * SourceFrameY * FramesX);
+
+					// Can skip this frame entirely if it's outside the tile we're computing
+					if (DestSlice < Tile.TileOffset.Z || DestSlice >= Tile.TileOffset.Z + Tile.TileSize.Z)
+						continue;
+
+					FIntVector3 SourceTileSize = FIntVector3(Tile.TileSize.X, Tile.TileSize.Y, 1);
+					FIntVector3 SourceTileOffset = FIntVector3(SourceFrameX, SourceFrameY, SourceSlice) * SubImageSize;
+
+					// Shift the source tile offset to account for the requested tile
+					SourceTileOffset.X += Tile.TileOffset.X;
+					SourceTileOffset.Y += Tile.TileOffset.Y;
+
+					// Create a tile that describes the subimage texture in the texture sheet, but the memory in the texture array
+					// This will allow the source image to do the remapping as it reads.
+					FTextureDataTileDesc SourceTile(
+						SourceImageSize,
+						SourceTileSize,
+						SourceTileOffset,
+						Tile.TileDataStride,
+						Tile.TileCoordToDataIndex(FIntVector3(0, 0, DestSlice - Tile.TileOffset.Z))
+					);
+					
+					SourceImage->ComputeChannel(Channel, SourceTile, TextureData);
 				}
 			}
 		}

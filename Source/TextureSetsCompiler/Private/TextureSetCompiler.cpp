@@ -110,7 +110,7 @@ FGuid FTextureSetCompiler::ComputeTextureDataId(int PackedTextureIndex) const
 
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
 
-	IdBuilder << FString("TextureSetDerivedTexture_V0.9"); // Version string, bump this to invalidate everything
+	IdBuilder << FString("TextureSetDerivedTexture_V0.21"); // Version string, bump this to invalidate everything
 	IdBuilder << Args->UserKey; // Key for debugging, easily force rebuild
 	IdBuilder << GetTypeHash(Args->PackingInfo.GetPackedTextureDef(PackedTextureIndex));
 
@@ -301,9 +301,9 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 	const int Width = Source.GetSizeX();
 	const int Height = Source.GetSizeY();
 	const int Slices = Source.GetNumSlices();
+	const FIntVector3 TextureSize(Width, Height, Slices);
 	check(Source.GetFormat() == ETextureSourceFormat::TSF_RGBA32F);
-	const int PixelValueStride = 4;
-	const int NumPixelValues = Width * Height * Slices * PixelValueStride;
+	const uint8 PixelValueStride = 4;
 
 	// Init with NewData == null is used to allocate space, which is then filled with LockMip
 	Source.Init(Width, Height, Slices, 1, TSF_RGBA32F, nullptr);
@@ -315,19 +315,12 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 	SectionStartTime = FPlatformTime::Seconds();
 	#endif
 
-	for (int c = 0; c < 4; c++)
-	{
-		// Copy processed textures into packed textures
-		const auto& ChanelInfo = TextureInfo.ChannelInfo[c];
+	const FIntVector3 NumTiles = FIntVector3::DivideAndRoundUp(TextureSize, Args->TileSize);
+	const int32 TotalTiles = NumTiles.X * NumTiles.Y * NumTiles.Z;
 
-		// Create a chunk to comptue the channel
-		FTextureChannelDataDesc ChannelDesc(
-			ChanelInfo.ProessedTextureChannel,
-			c,
-			PixelValueStride,
-			Width,
-			Height,
-			Slices);
+	for (uint8 c = 0; c < 4; c++) // Process each channel
+	{
+		const auto& ChanelInfo = TextureInfo.ChannelInfo[c];
 
 		if (c < TextureInfo.ChannelCount && OutputTextures.Contains(ChanelInfo.ProcessedTexture))
 		{
@@ -342,13 +335,46 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 				ProcessedTexture = MakeShared<FTextureOperatorEnlarge>(ProcessedTexture, Width, Height, Slices);
 			}
 
-			// Compute the processed data
-			ProcessedTexture->ComputeChannel(ChannelDesc, PixelValues);
+			// Compute the tile for each channel
+			for (int32 t = 0; t < TotalTiles; t++)
+			{
+				const FIntVector3 TileOffset(
+					Args->TileSize.X * (t % NumTiles.X),
+					Args->TileSize.Y * ((t / NumTiles.X) % NumTiles.Y),
+					Args->TileSize.Z * (t / (NumTiles.X * NumTiles.Y))
+				);
+				check(TileOffset.Z < TextureSize.Z);
+
+				const FIntVector3 TileSize = Args->TileSize.ComponentMin(TextureSize - TileOffset);
+				check(TileSize.GetMin() > 0);
+
+				const FIntVector3 DataStride = FTextureDataTileDesc::ComputeDataStrides(PixelValueStride, TextureSize);
+				const int32 DataOffset = c + FTextureDataTileDesc::ComputeDataOffset(TileOffset, DataStride);
+
+				FTextureDataTileDesc TileDesc(
+					TextureSize,
+					TileSize,
+					TileOffset,
+					DataStride,
+					DataOffset
+				);
+
+				ProcessedTexture->ComputeChannel(ChanelInfo.ProessedTextureChannel, TileDesc, PixelValues);
+			}
 
 			#if BENCHMARK_TEXTURESET_COMPILATION
 			UE_LOG(LogTextureSet, Log, TEXT("%s Build: Processing graph exectution for channel %i took %fs"), *DebugContext, c, FPlatformTime::Seconds() - SectionStartTime);
 			SectionStartTime = FPlatformTime::Seconds();
 			#endif
+
+			// For encoding we don't allocate any data, so use a single tile that covers the whole image.
+			FTextureDataTileDesc TileDesc(
+				TextureSize,
+				TextureSize,
+				FIntVector3::ZeroValue,
+				FTextureDataTileDesc::ComputeDataStrides(PixelValueStride, TextureSize),
+				c
+			);
 
 			// Channel encoding (decoding happens in FTextureSetMaterialGraphBuilder::MakeTextureSamplerCustomNode)
 			if (ChanelInfo.ChannelEncoding & (uint8)ETextureSetChannelEncoding::RangeCompression)
@@ -358,12 +384,12 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 				float Max = TNumericLimits<float>::Lowest();
 
 				// Calculate the min and max values
-				for (int DataIndex = ChannelDesc.DataStart; DataIndex <= ChannelDesc.DataEnd; DataIndex += ChannelDesc.DataPixelStride)
+				TileDesc.ForEachPixel([PixelValues, &Min, &Max](FTextureDataTileDesc::ForEachPixelContext& Context)
 				{
-					const float PixelValue = PixelValues[DataIndex];
+					const float PixelValue = PixelValues[Context.DataIndex];
 					Min = FMath::Min(Min, PixelValue);
 					Max = FMath::Max(Max, PixelValue);
-				}
+				});
 
 				if (Min >= Max)
 				{
@@ -377,9 +403,9 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 					float CompressMul = 1.0f / (Max - Min);
 					float CompressAdd = -Min * CompressMul;
 
-					ChannelDesc.ForEachPixel([PixelValues, CompressMul, CompressAdd](int64 DataIndex)
+					TileDesc.ForEachPixel([PixelValues, CompressMul, CompressAdd](FTextureDataTileDesc::ForEachPixelContext& Context)
 					{
-						PixelValues[DataIndex] = PixelValues[DataIndex] * CompressMul + CompressAdd;
+						PixelValues[Context.DataIndex] = PixelValues[Context.DataIndex] * CompressMul + CompressAdd;
 					});
 
 					RestoreMul[c] = Max - Min;
@@ -394,9 +420,9 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 
 			if ((ChanelInfo.ChannelEncoding & (uint8)ETextureSetChannelEncoding::SRGB) && (!TextureInfo.HardwareSRGB || c >= 3))
 			{
-				ChannelDesc.ForEachPixel([PixelValues](int64 DataIndex)
+				TileDesc.ForEachPixel([PixelValues](FTextureDataTileDesc::ForEachPixelContext& Context)
 				{
-					PixelValues[DataIndex] = FMath::Pow(PixelValues[DataIndex], 1.0f / 2.2f);
+					PixelValues[Context.DataIndex] = FMath::Pow(PixelValues[Context.DataIndex], 1.0f / 2.2f);
 				});
 
 				#if BENCHMARK_TEXTURESET_COMPILATION
@@ -408,18 +434,26 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 		}
 		else
 		{
+			FTextureDataTileDesc TileDesc(
+				TextureSize,
+				TextureSize,
+				FIntVector3::ZeroValue,
+				FTextureDataTileDesc::ComputeDataStrides(PixelValueStride, TextureSize),
+				c
+			);
+
 			if (c < 3)
 			{
-				ChannelDesc.ForEachPixel([PixelValues](int64 DataIndex)
+				TileDesc.ForEachPixel([PixelValues](FTextureDataTileDesc::ForEachPixelContext& Context)
 				{
-					PixelValues[DataIndex] = 0.0f; // Fill RGB with black
+					PixelValues[Context.DataIndex] = 0.0f; // Fill RGB with black
 				});
 			}
 			else
 			{
-				ChannelDesc.ForEachPixel([PixelValues](int64 DataIndex)
+				TileDesc.ForEachPixel([PixelValues](FTextureDataTileDesc::ForEachPixelContext& Context)
 				{
-					PixelValues[DataIndex] = 1.0f; // Fill Alpha with white
+					PixelValues[Context.DataIndex] = 1.0f; // Fill Alpha with white
 				});
 			}
 
