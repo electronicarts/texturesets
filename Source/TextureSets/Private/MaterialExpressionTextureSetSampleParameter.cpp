@@ -96,6 +96,8 @@ bool UMaterialExpressionTextureSetSampleParameter::ConfigureMaterialFunction(cla
 
 	BuilderErrors = Builder.GetErrors();
 
+	UMaterialEditingLibrary::LayoutMaterialFunctionExpressions(NewMaterialFunction);
+
 	return BuilderErrors.IsEmpty();
 }
 #endif

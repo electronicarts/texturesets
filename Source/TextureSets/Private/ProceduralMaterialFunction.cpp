@@ -92,30 +92,16 @@ bool UProceduralMaterialFunction::UpdateMaterialFunction()
 	FName FunctionName = MakeUniqueObjectName(GetOutermostObject(), UMaterialFunction::StaticClass());
 	EObjectFlags Flags = RF_Public;
 
-	UMaterialFunction* NewMaterialFunction = Cast<UMaterialFunction>(MaterialFunction);
-
-	if (!IsValid(NewMaterialFunction))
-	{
-		// Create a new material function
-		NewMaterialFunction = NewObject<UMaterialFunction>(GetOutermostObject(), FunctionName, Flags);
-		MaterialFunction = NewMaterialFunction;
-	}
-	else
-	{
-		// Reset the existing material function
-		NewMaterialFunction->ClearFlags(NewMaterialFunction->GetFlags());
-		NewMaterialFunction->SetFlags(Flags);
-
-		FMaterialExpressionCollection& ExpressionCollection = NewMaterialFunction->GetExpressionCollection();
-		ExpressionCollection.Expressions.Empty();
-		ExpressionCollection.EditorComments.Empty();
-		ExpressionCollection.ExpressionExecBegin = nullptr;
-		ExpressionCollection.ExpressionExecBegin = nullptr;
-	}
-
+	UMaterialFunction* NewMaterialFunction = NewObject<UMaterialFunction>(GetOutermostObject(), FunctionName, Flags);
 	bSuccessfullyConfigured = ConfigureMaterialFunction(NewMaterialFunction);
 
-	UMaterialEditingLibrary::LayoutMaterialFunctionExpressions(NewMaterialFunction);
+	if (!bSuccessfullyConfigured)
+	{
+		// Abort, leaving the old function in place as to not break any connections until it succeeds.
+		return false;
+	}
+
+	MaterialFunction = NewMaterialFunction;
 
 	MaterialFunctionHash = NewHash;
 
