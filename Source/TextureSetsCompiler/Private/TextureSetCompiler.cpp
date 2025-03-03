@@ -218,7 +218,7 @@ void FTextureSetCompiler::InitializeTextureSource(FDerivedTexture& DerivedTextur
 	int Height = 4;
 	int Slices = 1;
 	int Mips = 1;
-	float Ratio = 0;
+	float Ratio = 0.0f;
 
 	const TMap<FName, TSharedRef<ITextureProcessingNode>>& OutputTextures = GraphInstance->GetOutputTextures();
 
@@ -232,15 +232,21 @@ void FTextureSetCompiler::InitializeTextureSource(FDerivedTexture& DerivedTextur
 		const TSharedRef<ITextureProcessingNode> OutputTexture = OutputTextures.FindChecked(ChanelInfo.ProcessedTexture);
 
 		ITextureProcessingNode::FTextureDimension ChannelDimension = OutputTexture->GetTextureDimension();
-		const float NewRatio = (float)ChannelDimension.Width / (float)ChannelDimension.Height;
-
 		// Calculate the maximum size of all of our processed textures. We'll use this as our packed texture size.
 		Width = FMath::Max(Width, ChannelDimension.Width);
 		Height = FMath::Max(Height, ChannelDimension.Height);
 		Slices = FMath::Max(Slices, ChannelDimension.Slices);
-		// Verify that all processed textures have the same aspect ratio
-		check(NewRatio == Ratio || Ratio == 0.0f);
-		Ratio = NewRatio;
+
+		if (Ratio == 0.0f)
+		{
+			Ratio = (float)ChannelDimension.Width / (float)ChannelDimension.Height;
+		}
+		else if (ChannelDimension.Width > 1 || ChannelDimension.Height > 1)
+		{	
+			// Verify that all processed textures have the same aspect ratio
+			// Note: 1x1 textures do not factor in to this ratio check
+			check(Ratio == ((float)ChannelDimension.Width / (float)ChannelDimension.Height));
+		}
 	};
 
 	if (!Source.IsValid() || Source.GetSizeX() != Width || Source.GetSizeY() != Height || Source.GetNumSlices() != Slices || Source.GetNumMips() != Mips || Source.GetFormat() != TSF_RGBA32F)
