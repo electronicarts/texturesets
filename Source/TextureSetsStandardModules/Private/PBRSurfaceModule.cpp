@@ -29,14 +29,12 @@ public:
 		bFlipGreen = FlipbookAssetParams->bFlipNormalGreen;
 	}
 
-	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override
+	virtual void ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const override
 	{ 
-		uint32 Hash = FTextureOperator::ComputeDataHash(Context);
+		FTextureOperator::ComputeDataHash(Context, HashBuilder);
 
 		const UPBRAssetParams* FlipbookAssetParams = Context.AssetParams.Get<UPBRAssetParams>();
-		Hash = HashCombine(Hash, GetTypeHash(FlipbookAssetParams->bFlipNormalGreen));
-
-		return Hash;
+		HashBuilder << (FlipbookAssetParams->bFlipNormalGreen);
 	}
 
 	void ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override

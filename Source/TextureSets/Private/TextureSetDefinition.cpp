@@ -194,23 +194,25 @@ const UTextureSet* UTextureSetDefinition::GetDefaultTextureSet() const
 }
 
 #if WITH_EDITOR
-uint32 UTextureSetDefinition::ComputeCompilationHash()
+FGuid UTextureSetDefinition::ComputeCompilationHash()
 {
-	uint32 Hash = GetTypeHash(FString("TextureSetDefinition"));
+	UE::DerivedData::FBuildVersionBuilder Hash;
+
+	Hash << FString("TextureSetDefinition");
 
 	// Key for debugging, easily force rebuild
-	Hash = HashCombine(Hash, GetTypeHash(UserKey));
+	Hash << UserKey;
 
 	for (const auto& [Name, Node] : ProcessingGraph->GetOutputTextures())
-		Hash = HashCombine(Hash, Node->ComputeGraphHash());
+		Node->ComputeGraphHash(Hash);
 
 	for (int i = 0; i < PackingInfo.PackedTextureDefs.Num(); i++)
-		Hash = HashCombine(Hash, GetTypeHash(PackingInfo.PackedTextureDefs[i]));
+		Hash << GetTypeHash(PackingInfo.PackedTextureDefs[i]);
 
 	for (const auto& [Name, Node] : ProcessingGraph->GetOutputParameters())
-		Hash = HashCombine(Hash, Node->ComputeGraphHash());
+		Node->ComputeGraphHash(Hash);
 
-	return Hash;
+	return Hash.Build();
 }
 #endif
 
@@ -271,7 +273,7 @@ void UTextureSetDefinition::ApplyEdits()
 	// Ensure default texture set always has up to date derived data available immediately
 	DefaultTextureSet->UpdateDerivedData(false);
 
-	const uint32 NewHash = ComputeCompilationHash();
+	const FGuid NewHash = ComputeCompilationHash();
 	if (NewHash != CompilationHash)
 	{
 		CompilationHash = NewHash;

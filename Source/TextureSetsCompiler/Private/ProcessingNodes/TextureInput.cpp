@@ -11,14 +11,12 @@ FTextureInput::FTextureInput(FName SourceNameIn, const FTextureSetSourceTextureD
 {
 }
 
-const uint32 FTextureInput::ComputeGraphHash() const
+void FTextureInput::ComputeGraphHash(FHashBuilder& HashBuilder) const
 {
-	uint32 Hash = GetTypeHash(GetNodeTypeName().ToString());
+	HashBuilder << GetNodeTypeName();
 
 	check(LastNode);
-	Hash = HashCombine(Hash, LastNode->ComputeGraphHash());
-
-	return Hash;
+	LastNode->ComputeGraphHash(HashBuilder);
 }
 
 void FTextureInput::InstantiateOperators(const FTextureSetProcessingGraph& Graph)

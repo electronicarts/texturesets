@@ -104,23 +104,18 @@ void FTextureRead::Initialize(const FTextureSetProcessingGraph& Graph)
 	}
 }
 
-const uint32 FTextureRead::ComputeGraphHash() const
+void FTextureRead::ComputeGraphHash(FHashBuilder& HashBuilder) const
 {
-	uint32 Hash = GetTypeHash(GetNodeTypeName().ToString());
-
-	Hash = HashCombine(Hash, GetTypeHash(SourceName.ToString()));
-	Hash = HashCombine(Hash, GetTypeHash(SourceDefinition));
-
-	return Hash;
+	HashBuilder << GetNodeTypeName();
+	HashBuilder << SourceName;
+	HashBuilder << GetTypeHash(SourceDefinition);
 }
 
-const uint32 FTextureRead::ComputeDataHash(const FTextureSetProcessingContext& Context) const
+void FTextureRead::ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const
 {
 #if TS_SOFT_SOURCE_TEXTURE_REF
 	check(!IsLoading()); // LoadSynchronous often fails if we are loading something else
 #endif
-
-	uint32 Hash = 0;
 
 	if(Context.SourceTextures.Contains(SourceName))
 	{
@@ -153,12 +148,10 @@ const uint32 FTextureRead::ComputeDataHash(const FTextureSetProcessingContext& C
 			}
 			
 			check(!PayloadIdString.IsEmpty())
-			Hash = HashCombine(Hash, GetTypeHash(PayloadIdString));
-			Hash = HashCombine(Hash, GetTypeHash(TextureRef.ChannelMask));
+			HashBuilder << PayloadIdString;
+			HashBuilder << TextureRef.ChannelMask;
 		}
 	}
-
-	return Hash;
 }
 
 namespace

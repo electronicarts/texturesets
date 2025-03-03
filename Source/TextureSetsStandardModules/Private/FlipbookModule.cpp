@@ -23,13 +23,6 @@ public:
 
 	virtual FName GetNodeTypeName() const  { return "Subframe V1"; }
 
-	virtual const uint32 ComputeGraphHash() const override
-	{
-		uint32 Hash = FTextureOperator::ComputeGraphHash();
-
-		return Hash;
-	}
-
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() const override
 	{
 		FTextureSetProcessedTextureDef Def = SourceImage->GetTextureDef();
@@ -196,29 +189,24 @@ public:
 		bInitialized = true;
 	}
 
-	virtual const uint32 ComputeGraphHash() const override
+	virtual void ComputeGraphHash(FHashBuilder& HashBuilder) const override
 	{
-		uint32 Hash = GetTypeHash(GetNodeTypeName().ToString());
+		HashBuilder << GetNodeTypeName().ToString();
 
 		for (const TSharedRef<ITextureProcessingNode>& ProcessingNode : ProcessedTextures)
-			Hash = HashCombine(Hash, ProcessingNode->ComputeGraphHash());
-
-		return Hash;
+			ProcessingNode->ComputeGraphHash(HashBuilder);
 	}
 
-	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override
+	virtual void ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const override
 	{
 		const UFlipbookAssetParams* Parameter = Context.AssetParams.Get<UFlipbookAssetParams>();
-		uint32 Hash = 0;
 
-		Hash = HashCombine(Hash, GetTypeHash(Parameter->FlipbookFramerate));
-		Hash = HashCombine(Hash, GetTypeHash(Parameter->bFlipbookLooping));
-		Hash = HashCombine(Hash, GetTypeHash(Parameter->MotionVectorScale));
+		HashBuilder << GetTypeHash(Parameter->FlipbookFramerate);
+		HashBuilder << GetTypeHash(Parameter->bFlipbookLooping);
+		HashBuilder << GetTypeHash(Parameter->MotionVectorScale);
 
 		for (const TSharedRef<ITextureProcessingNode>& ProcessingNode : ProcessedTextures)
-			Hash = HashCombine(Hash, ProcessingNode->ComputeDataHash(Context));
-
-		return Hash;
+			ProcessingNode->ComputeDataHash(Context, HashBuilder);
 	}
 
 	virtual FVector4f GetValue() const override

@@ -25,14 +25,14 @@ public:
 		// No initialization needed
 	}
 
-	virtual const uint32 ComputeGraphHash() const override
+	virtual void ComputeGraphHash(FHashBuilder& HashBuilder) const override
 	{
-		return GetTypeHash(GetNodeTypeName().ToString());
+		HashBuilder << GetNodeTypeName();
 	}
 
-	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override
+	virtual void ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const override
 	{
-		return GetTypeHash(Callback(Context.AssetParams.Get<ParameterClass>()));
+		HashBuilder << Callback(Context.AssetParams.Get<ParameterClass>());
 	}
 
 	virtual FVector4f GetValue() const override { return Value; }

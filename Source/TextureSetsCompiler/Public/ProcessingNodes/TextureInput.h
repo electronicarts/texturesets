@@ -21,8 +21,8 @@ public:
 
 	virtual void Initialize(const FTextureSetProcessingGraph& Graph) override { check(LastNode); LastNode->Initialize(Graph); }
 
-	virtual const uint32 ComputeGraphHash() const override;
-	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const override { check(LastNode); return LastNode->ComputeDataHash(Context); }
+	virtual void ComputeGraphHash(FHashBuilder& HashBuilder) const override;
+	virtual void ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const override { check(LastNode); LastNode->ComputeDataHash(Context, HashBuilder); }
 
 	virtual FTextureDimension GetTextureDimension() const override { check(LastNode); return LastNode->GetTextureDimension(); }
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() const override { check(LastNode); return LastNode->GetTextureDef(); }

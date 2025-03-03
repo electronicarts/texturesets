@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "TextureSetInfo.h"
 #include "TextureSetPackedTextureDef.h"
+#include "Misc/Guid.h"
 
 #if WITH_EDITOR
 // NOTE: This is needed to be included here as UTextureSetDefinition is a UObject and a 
@@ -65,7 +66,7 @@ public:
 	const UTextureSet* GetDefaultTextureSet() const;
 
 #if WITH_EDITOR
-	uint32 ComputeCompilationHash();
+	FGuid ComputeCompilationHash();
 #endif
 
 	FGuid GetGuid() const { return UniqueID; }
@@ -102,7 +103,7 @@ private:
 	FTextureSetPackingInfo PackingInfo;
 	
 	UPROPERTY(VisibleAnywhere, Category="Debug")
-	uint32 CompilationHash;
+	FGuid CompilationHash;
 
 #if WITH_EDITOR
 	TSharedRef<class FTextureSetProcessingGraph> ProcessingGraph;

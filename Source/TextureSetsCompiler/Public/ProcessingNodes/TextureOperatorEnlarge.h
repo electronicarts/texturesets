@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
 #include "TextureOperator.h"
 
 class FTextureOperatorEnlarge : public FTextureOperator
@@ -16,14 +15,11 @@ public:
 
 	virtual FName GetNodeTypeName() const  { return "Enlarge v2"; }
 
-	virtual const uint32 ComputeGraphHash() const override
+	virtual void ComputeGraphHash(FHashBuilder& HashBuilder) const override
 	{
-		uint32 Hash = FTextureOperator::ComputeGraphHash();
-
-		Hash = HashCombine(Hash, GetTypeHash(TargetWidth));
-		Hash = HashCombine(Hash, GetTypeHash(TargetHeight));
-
-		return Hash;
+		FTextureOperator::ComputeGraphHash(HashBuilder);
+		HashBuilder << TargetWidth;
+		HashBuilder << TargetHeight;
 	}
 
 	virtual FTextureDimension GetTextureDimension() const override

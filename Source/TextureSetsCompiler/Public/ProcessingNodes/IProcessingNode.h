@@ -4,7 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "TextureSetProcessingContext.h"
+#include "TextureSetInfo.h"
 #include "TextureDataTileDesc.h"
+#include "DerivedDataBuildVersion.h"
 
 class FTextureSetProcessingGraph;
 
@@ -12,6 +14,8 @@ class FTextureSetProcessingGraph;
 class IProcessingNode
 {
 public:
+	typedef UE::DerivedData::FBuildVersionBuilder FHashBuilder;
+
 	virtual ~IProcessingNode() {}
 
 	// Return a uniqe name for this node type
@@ -27,11 +31,11 @@ public:
 
 	// Computes the hash of the graph logic. Doesn't take into account any data, and can be called without initializing the node.
 	// Result should include hashes from dependent nodes' ComputeGraphHash() functions
-	virtual const uint32 ComputeGraphHash() const = 0;
+	virtual void ComputeGraphHash(FHashBuilder& HashBuilder) const = 0;
 
 	// Computes the hash of the graph's input data. Can be called without initializing the node.
 	// Result should include hashes from dependent nodes' ComputeDataHash() functions
-	virtual const uint32 ComputeDataHash(const FTextureSetProcessingContext& Context) const = 0;
+	virtual void ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const = 0;
 };
 
 // Processing node that computes texture data
@@ -46,7 +50,7 @@ public:
 	};
 
 	virtual FTextureDimension GetTextureDimension() const = 0;
-	virtual const struct FTextureSetProcessedTextureDef GetTextureDef() const = 0;
+	virtual const FTextureSetProcessedTextureDef GetTextureDef() const = 0;
 
 	// Compute a texture channel and write into the texture data.
 	virtual void ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const = 0;

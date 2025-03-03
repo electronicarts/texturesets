@@ -127,8 +127,8 @@ FGuid FTextureSetCompiler::ComputeTextureDataId(int PackedTextureIndex) const
 		const TSharedRef<ITextureProcessingNode>* TextureNode = GraphInstance->GetOutputTextures().Find(TextureName);
 		if (TextureNode)
 		{
-			IdBuilder << TextureNode->Get().ComputeGraphHash();
-			IdBuilder << TextureNode->Get().ComputeDataHash(Context);
+			TextureNode->Get().ComputeGraphHash(IdBuilder);
+			TextureNode->Get().ComputeDataHash(Context, IdBuilder);
 		}
 	}
 
@@ -140,8 +140,8 @@ FGuid FTextureSetCompiler::ComputeParameterDataId(const TSharedRef<IParameterPro
 	UE::DerivedData::FBuildVersionBuilder IdBuilder;
 	IdBuilder << FString("TextureSetParameter_V0.6"); // Version string, bump this to invalidate everything
 	IdBuilder << Args->UserKey; // Key for debugging, easily force rebuild
-	IdBuilder << Parameter->ComputeGraphHash();
-	IdBuilder << Parameter->ComputeDataHash(Context);
+	Parameter->ComputeGraphHash(IdBuilder);
+	Parameter->ComputeDataHash(Context, IdBuilder);
 	return IdBuilder.Build();
 }
 
