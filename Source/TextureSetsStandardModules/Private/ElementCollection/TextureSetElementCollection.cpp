@@ -30,22 +30,6 @@ void UTextureSetElementCollectionModule::ConfigureProcessingGraph(FTextureSetPro
 	}
 }
 
-int32 UTextureSetElementCollectionModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
-{
-	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
-
-	if (IsValid(Collection))
-	{
-		for (const auto& [ElementName, ElementDef]: Collection->Elements)
-		{
-			Hash = HashCombine(Hash, GetTypeHash(ElementName.ToString()));
-			Hash = HashCombine(Hash, GetTypeHash(ElementDef));
-		}
-	}
-	
-	return Hash;
-}
-
 void UTextureSetElementCollectionModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {

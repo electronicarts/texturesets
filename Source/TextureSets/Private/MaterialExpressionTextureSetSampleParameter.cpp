@@ -33,43 +33,6 @@ UMaterialExpressionTextureSetSampleParameter::UMaterialExpressionTextureSetSampl
 }
 
 #if WITH_EDITOR
-uint32 UMaterialExpressionTextureSetSampleParameter::ComputeMaterialFunctionHash()
-{
-	if (!IsValid(Definition))
-		return 0;
-
-	uint32 Hash = GetTypeHash(FString("TextureSetSampleParameter_V0.4"));
-	Hash = HashCombine(Hash, GetTypeHash(Definition->GetUserKey()));
-
-	Hash = HashCombine(Hash, GetTypeHash(FTextureSetMaterialGraphBuilder::GetGraphBuilderVersion()));
-
-	Hash = HashCombine(Hash, GetTypeHash(ParameterName.ToString()));
-	Hash = HashCombine(Hash, GetTypeHash(Group.ToString()));
-	Hash = HashCombine(Hash, GetTypeHash(SortPriority));
-
-	FTextureSetPackingInfo PackingInfo = Definition->GetPackingInfo();
-	for (int i = 0; i < PackingInfo.NumPackedTextures(); i++)
-	{
-		Hash = HashCombine(Hash, GetTypeHash(PackingInfo.GetPackedTextureDef(i)));
-	}
-
-	for (const UTextureSetModule* Module : Definition->GetModuleInfo().GetModules())
-	{
-		Hash = HashCombine(Hash, Module->ComputeSamplingHash(&SampleParams));
-	}
-
-	Hash = HashCombine(Hash, GetTypeHash(BaseNormalSource));
-	Hash = HashCombine(Hash, GetTypeHash(TangentSource));
-	Hash = HashCombine(Hash, GetTypeHash(PositionSource));
-	Hash = HashCombine(Hash, GetTypeHash(CameraVectorSource));
-
-	Hash = HashCombine(Hash, GetTypeHash(DefaultTextureSet.Get()));
-	
-	return Hash;
-}
-#endif
-
-#if WITH_EDITOR
 bool UMaterialExpressionTextureSetSampleParameter::ConfigureMaterialFunction(class UMaterialFunction* NewMaterialFunction)
 {
 	// Clear builder errors, because we don't want previous build errors preventing us from rebuilding

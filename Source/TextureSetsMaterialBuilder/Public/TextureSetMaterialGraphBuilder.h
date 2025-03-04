@@ -49,9 +49,6 @@ public:
 
 	FTextureSetMaterialGraphBuilder(const FTextureSetMaterialGraphBuilderArgs& Args);
 
-	// Change this to regenerate all texture set material graphs
-	static FString GetGraphBuilderVersion() { return "0.3"; }
-
 	template <class T> T* CreateExpression()
 	{
 		return Cast<T>(UMaterialEditingLibrary::CreateMaterialExpressionInFunction(Args.MaterialFunction, T::StaticClass()));

@@ -251,20 +251,6 @@ void UFlipbookModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph
 	Graph.AddOutputParameter("FlipbookParams", TSharedRef<IParameterProcessingNode>(new FFlipbookParamsNode()));
 }
 
-int32 UFlipbookModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
-{
-	const UFlipbookSampleParams* FlipbookSampleParams = SampleParams->Get<UFlipbookSampleParams>();
-
-	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
-
-	Hash = HashCombine(Hash, GetTypeHash(FlipbookSampleParams->bBlendFrames));
-	Hash = HashCombine(Hash, GetTypeHash((uint32)FlipbookSampleParams->FlipbookTimeType));
-
-	Hash = HashCombine(Hash, GetTypeHash(bUseMotionVectors)); // May not need to explicitly hash this as it adds a new texture, but can't hurt
-
-	return Hash;
-}
-
 void UFlipbookModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams, FTextureSetMaterialGraphBuilder* Builder) const
 {
 	const UFlipbookSampleParams* FlipbookSampleParams = SampleParams->Get<UFlipbookSampleParams>();

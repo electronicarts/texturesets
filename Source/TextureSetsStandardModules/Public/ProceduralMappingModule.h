@@ -14,7 +14,6 @@ class UProceduralMappingModule : public UTextureSetModule
 public:
 	virtual void GetSampleParamClasses(TSet<TSubclassOf<UTextureSetSampleParams>>& Classes) const override;
 
-	virtual int32 ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const override;
 	virtual void ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 		FTextureSetMaterialGraphBuilder* Builder) const override;
 };

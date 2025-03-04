@@ -40,11 +40,4 @@ protected:
 
 	virtual uint32 ComputeMaterialFunctionHash() { unimplemented(); return 0; }
 	virtual bool ConfigureMaterialFunction(UMaterialFunction* NewMaterialFunction) { unimplemented(); return false; }
-
-private:
-	UPROPERTY(DuplicateTransient);
-	uint32 MaterialFunctionHash;
-
-	UPROPERTY(DuplicateTransient);
-	bool bSuccessfullyConfigured;
 };

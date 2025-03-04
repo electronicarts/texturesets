@@ -131,21 +131,6 @@ void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Gra
 	}
 }
 
-int32 UPBRSurfaceModule::ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const
-{
-	const UPBRSampleParams* PBRSampleParams = SampleParams->Get<UPBRSampleParams>();
-
-	uint32 Hash = Super::ComputeSamplingHash(SampleParams);
-
-	Hash = HashCombine(Hash, GetTypeHash(PBRSampleParams->MicrosurfaceOutput));
-	Hash = HashCombine(Hash, GetTypeHash(PBRSampleParams->NormalOutput));
-	Hash = HashCombine(Hash, GetTypeHash(Paramaterization));
-	Hash = HashCombine(Hash, GetTypeHash(Microsurface));
-	Hash = HashCombine(Hash, GetTypeHash(Normal));
-
-	return Hash;
-}
-
 void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
 	FTextureSetMaterialGraphBuilder* Builder) const
 {

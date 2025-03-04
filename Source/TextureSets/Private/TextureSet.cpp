@@ -168,6 +168,8 @@ void UTextureSet::Serialize(FArchive& Ar)
 			check(DerivedData);
 		
 		Ar << DerivedData;
+
+		bSerializeDerivedData = false;
 	}
 }
 

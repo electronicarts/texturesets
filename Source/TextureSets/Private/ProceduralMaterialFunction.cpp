@@ -16,7 +16,6 @@
 UProceduralMaterialFunction::UProceduralMaterialFunction(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	MaterialFunctionHash = 0;
 }
 
 void UProceduralMaterialFunction::PostLoad()
@@ -32,8 +31,6 @@ void UProceduralMaterialFunction::PostEditImport()
 {
 	Super::PostEditImport();
 
-	MaterialFunction = nullptr;
-	MaterialFunctionHash = 0;
 	UpdateMaterialFunction();
 }
 #endif
@@ -81,19 +78,12 @@ bool UProceduralMaterialFunction::SetMaterialFunction(UMaterialFunctionInterface
 #if WITH_EDITOR
 bool UProceduralMaterialFunction::UpdateMaterialFunction()
 {
-	uint32 NewHash = HashCombine(ComputeMaterialFunctionHash(), GetTypeHash(FString("ProceduralMaterialFunction_V1")));
-
-	if (bSuccessfullyConfigured && IsValid(MaterialFunction) && (MaterialFunctionHash == NewHash))
-	{
-		// Nothing needs updating
-		return false;
-	}
-
 	FName FunctionName = MakeUniqueObjectName(GetOutermostObject(), UMaterialFunction::StaticClass());
-	EObjectFlags Flags = RF_Public;
+	EObjectFlags Flags = RF_Transient;
 
-	UMaterialFunction* NewMaterialFunction = NewObject<UMaterialFunction>(GetOutermostObject(), FunctionName, Flags);
-	bSuccessfullyConfigured = ConfigureMaterialFunction(NewMaterialFunction);
+	UMaterialFunction* NewMaterialFunction = NewObject<UMaterialFunction>();
+	NewMaterialFunction->SetFlags(RF_Transient);
+	bool bSuccessfullyConfigured = ConfigureMaterialFunction(NewMaterialFunction);
 
 	if (!bSuccessfullyConfigured)
 	{
@@ -101,9 +91,20 @@ bool UProceduralMaterialFunction::UpdateMaterialFunction()
 		return false;
 	}
 
+	// Destroy the old material function
+	if (IsValid(MaterialFunction))
+		MaterialFunction->ConditionalBeginDestroy();
+
+	// Rename and assign the new material function
+	NewMaterialFunction->Rename(TEXT("GeneratedFunction"), this, REN_DontCreateRedirectors | REN_DoNotDirty);
 	MaterialFunction = NewMaterialFunction;
 
-	MaterialFunctionHash = NewHash;
+	// Update all material expressions in the function with deterministic guids
+	for (UMaterialExpression* CurrentExpression : NewMaterialFunction->GetExpressions())
+	{
+		FGuid& GUID = CurrentExpression->GetMaterialExpressionId();
+		GUID = FGuid::NewDeterministicGuid(CurrentExpression->GetPathName());
+	}
 
 	// Fix up Expression input/output references, since while the "FunctionInputs" and "FunctionOutputs" are serialized,
 	// the UMaterialFunction is not, and thus the ExpressionInput/Output values are null.

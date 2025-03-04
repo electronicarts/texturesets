@@ -39,9 +39,6 @@ public:
 	// Sets values of shader constants
 	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const {}
 
-	// Compute a hash for the sampling graph. If this hash changes, it triggers the sampling graph to be re-generated.
-	virtual int32 ComputeSamplingHash(const FTextureSetAssetParamsCollection* SampleParams) const { return 0; }
-
 	// Logic (material graph) for unpacking data
 	// Transforms processed data into desired output elements
 	virtual void ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
