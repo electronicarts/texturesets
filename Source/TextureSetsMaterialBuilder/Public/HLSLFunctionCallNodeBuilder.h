@@ -3,9 +3,9 @@
 #pragma once
 
 #include "Materials/MaterialExpressionCustom.h"
-#include "GraphBuilderGraphAddress.h"
+#include "GraphBuilderPin.h"
 
-class FTextureSetMaterialGraphBuilder;
+class FTextureSetSampleFunctionBuilder;
 
 struct TEXTURESETSMATERIALBUILDER_API HLSLFunctionCallNodeBuilder
 {
@@ -14,11 +14,11 @@ public:
 
 	void SetReturnType(ECustomMaterialOutputType ReturnType);
 
-	void InArgument(FString ArgName, const FGraphBuilderOutputAddress& Address, const FString Suffix = "");
+	void InArgument(FString ArgName, const FGraphBuilderOutputPin& Address, const FString Suffix = "");
 	void InArgument(FString ArgName, FString ArgValue);
 	void OutArgument(FString ArgName, ECustomMaterialOutputType OutType);
 
-	UMaterialExpression* Build(FTextureSetMaterialGraphBuilder* GraphBuilder);
+	UMaterialExpression* Build(FTextureSetSampleFunctionBuilder* GraphBuilder);
 
 private:
 	FString FunctionName;

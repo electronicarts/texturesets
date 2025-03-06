@@ -2,7 +2,7 @@
 
 #include "HLSLFunctionCallNodeBuilder.h"
 
-#include "TextureSetMaterialGraphBuilder.h"
+#include "TextureSetSampleFunctionBuilder.h"
 
 HLSLFunctionCallNodeBuilder::HLSLFunctionCallNodeBuilder(FString FunctionName, FString IncludePath)
 	: FunctionName(FunctionName)
@@ -17,7 +17,7 @@ void HLSLFunctionCallNodeBuilder::SetReturnType(ECustomMaterialOutputType NewRet
 	ReturnType = NewReturnType;
 }
 
-void HLSLFunctionCallNodeBuilder::InArgument(FString ArgName, const FGraphBuilderOutputAddress& Address, const FString Suffix)
+void HLSLFunctionCallNodeBuilder::InArgument(FString ArgName, const FGraphBuilderOutputPin& Address, const FString Suffix)
 {
 	FunctionArguments.Add(ArgName + Suffix);
 	InputConnections.Add(InputConnection(ArgName, Address.GetExpression(), Address.GetIndex()));
@@ -34,7 +34,7 @@ void HLSLFunctionCallNodeBuilder::OutArgument(FString ArgName, ECustomMaterialOu
 	Outputs.Add(Output(ArgName, OutType));
 }
 
-UMaterialExpression* HLSLFunctionCallNodeBuilder::Build(FTextureSetMaterialGraphBuilder* GraphBuilder)
+UMaterialExpression* HLSLFunctionCallNodeBuilder::Build(FTextureSetSampleFunctionBuilder* GraphBuilder)
 {
 	UMaterialExpressionCustom* CustomExp = GraphBuilder->CreateExpression<UMaterialExpressionCustom>();
 

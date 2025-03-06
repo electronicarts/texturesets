@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Electronic Arts. All Rights Reserved.
 
-#include "GraphBuilderGraphAddress.h"
+#include "GraphBuilderPin.h"
 
 #include "Materials/MaterialExpression.h"
 
-bool FGraphBuilderInputAddress::IsValid() const
+bool FGraphBuilderInputPin::IsValid() const
 {
 	return GetExpression() && GetExpression()->GetInput(GetIndex()) != nullptr;
 }
 
-bool FGraphBuilderOutputAddress::IsValid() const
+bool FGraphBuilderOutputPin::IsValid() const
 {
 	return GetExpression() && GetIndex() < GetExpression()->GetOutputs().Num();
 }

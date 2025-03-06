@@ -3,7 +3,7 @@
 #include "FlipbookModule.h"
 
 #include "TextureSetProcessingGraph.h"
-#include "TextureSetMaterialGraphBuilder.h"
+#include "TextureSetSampleFunctionBuilder.h"
 #include "TextureSetDefinition.h"
 #include "HLSLFunctionCallNodeBuilder.h"
 #include "Materials/MaterialExpressionAppendVector.h"
@@ -251,7 +251,7 @@ void UFlipbookModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph
 	Graph.AddOutputParameter("FlipbookParams", TSharedRef<IParameterProcessingNode>(new FFlipbookParamsNode()));
 }
 
-void UFlipbookModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams, FTextureSetMaterialGraphBuilder* Builder) const
+void UFlipbookModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams, FTextureSetSampleFunctionBuilder* Builder) const
 {
 	const UFlipbookSampleParams* FlipbookSampleParams = SampleParams->Get<UFlipbookSampleParams>();
 
@@ -261,9 +261,9 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParams
 
 	HLSLFunctionCallNodeBuilder FlipbookFunctionCall("FlipbookFrame", "/Plugin/TextureSets/Flipbook.ush");
 
-	FGraphBuilderOutputAddress FlipbookParams = FGraphBuilderOutputAddress(Builder->MakeConstantParameter("FlipbookParams", FVector4f(1.0f, 15.0f, 0.0f, 1.0f)), 0);
+	FGraphBuilderOutputPin FlipbookParams = FGraphBuilderOutputPin(Builder->MakeConstantParameter("FlipbookParams", FVector4f(1.0f, 15.0f, 0.0f, 1.0f)), 0);
 
-	FlipbookFunctionCall.InArgument("FlipbookTime", FGraphBuilderOutputAddress(TimeInputExpression, 0));
+	FlipbookFunctionCall.InArgument("FlipbookTime", FGraphBuilderOutputPin(TimeInputExpression, 0));
 	FlipbookFunctionCall.InArgument("FlipbookTimeType", FString::FromInt((uint32)FlipbookSampleParams->FlipbookTimeType));
 	FlipbookFunctionCall.InArgument("FlipbookParams", FlipbookParams);
 
@@ -273,9 +273,9 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParams
 
 	UMaterialExpression* FlipbookFunctionCallExp = FlipbookFunctionCall.Build(Builder);
 
-	FGraphBuilderOutputAddress Frame0Index = FGraphBuilderOutputAddress(FlipbookFunctionCallExp, 1);
-	FGraphBuilderOutputAddress Frame1Index = FGraphBuilderOutputAddress(FlipbookFunctionCallExp, 2);
-	FGraphBuilderOutputAddress FrameBlend = FGraphBuilderOutputAddress(FlipbookFunctionCallExp, 3);
+	FGraphBuilderOutputPin Frame0Index = FGraphBuilderOutputPin(FlipbookFunctionCallExp, 1);
+	FGraphBuilderOutputPin Frame1Index = FGraphBuilderOutputPin(FlipbookFunctionCallExp, 2);
+	FGraphBuilderOutputPin FrameBlend = FGraphBuilderOutputPin(FlipbookFunctionCallExp, 3);
 
 	// Create the subsample definitions
 	TArray<SubSampleHandle> SubsampleHandles;
@@ -283,7 +283,7 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParams
 	{
 		UMaterialExpressionOneMinus* OneMinusNode = Builder->CreateExpression<UMaterialExpressionOneMinus>();
 		Builder->Connect(FrameBlend, OneMinusNode, 0);
-		FGraphBuilderOutputAddress OneMinusFrameBlend = FGraphBuilderOutputAddress(OneMinusNode, 0);
+		FGraphBuilderOutputPin OneMinusFrameBlend = FGraphBuilderOutputPin(OneMinusNode, 0);
 
 		// Add two subsamples
 		SubsampleHandles = Builder->AddSubsampleGroup({
@@ -292,13 +292,13 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParams
 		});
 	}
 
-	Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder, SubsampleHandles, Frame0Index, Frame1Index, FrameBlend, FlipbookParams](FTextureSetSubsampleContext& SampleContext)
+	Builder->AddSubsampleFunction(ConfigureSubsampleFunction([this, Builder, SubsampleHandles, Frame0Index, Frame1Index, FrameBlend, FlipbookParams](FTextureSetSubsampleBuilder& Subsample)
 	{
-		const bool bNextFrame = SubsampleHandles.Num() > 1 && SampleContext.IsRelevant(SubsampleHandles[1]);
+		const bool bNextFrame = SubsampleHandles.Num() > 1 && Subsample.IsRelevant(SubsampleHandles[1]);
 
-		const FGraphBuilderOutputAddress& FrameIndex = bNextFrame ? Frame1Index : Frame0Index;
+		const FGraphBuilderOutputPin& FrameIndex = bNextFrame ? Frame1Index : Frame0Index;
 
-		SampleContext.SetSharedValue(FrameIndex, EGraphBuilderSharedValueType::ArrayIndex);
+		Subsample.SetSharedValue(FrameIndex, EGraphBuilderSharedValueType::ArrayIndex);
 
 		if (bUseMotionVectors)
 		{
@@ -310,16 +310,16 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParams
 
 			auto [Mul, Add] = Builder->GetRangeCompressParams(MVIndex0);
 
-			FGraphBuilderOutputAddress FrameUVW;
+			FGraphBuilderOutputPin FrameUVW;
 			{
 				UMaterialExpression* AppendNode = Builder->CreateExpression<UMaterialExpressionAppendVector>();
-				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Raw), AppendNode, 0);
+				Builder->Connect(Subsample.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Raw), AppendNode, 0);
 				Builder->Connect(FrameIndex, AppendNode, 1);
-				FrameUVW = FGraphBuilderOutputAddress(AppendNode, 0);
+				FrameUVW = FGraphBuilderOutputPin(AppendNode, 0);
 			}
 
 			MVFunctionCall.InArgument("FrameUVW", FrameUVW);
-			MVFunctionCall.InArgument("MotionVectorTexture", Builder->GetPackedTextureObject(MVIndex0, SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming)));
+			MVFunctionCall.InArgument("MotionVectorTexture", Builder->GetPackedTextureObject(MVIndex0, Subsample.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming)));
 			MVFunctionCall.InArgument("MotionVectorSampler", "MotionVectorTextureSampler");
 			MVFunctionCall.InArgument("MVChannels", FString::Format(TEXT("int2({0},{1})"), {MVChannel0, MVChannel1}));
 			MVFunctionCall.InArgument("MotionVectorMul", Mul);
@@ -329,8 +329,8 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParams
 
 			MVFunctionCall.SetReturnType(ECustomMaterialOutputType::CMOT_Float2);
 
-			FGraphBuilderOutputAddress MotionVectorUV(MVFunctionCall.Build(Builder), 0);
-			SampleContext.SetSharedValue(MotionVectorUV, EGraphBuilderSharedValueType::Texcoord_Sampling);
+			FGraphBuilderOutputPin MotionVectorUV(MVFunctionCall.Build(Builder), 0);
+			Subsample.SetSharedValue(MotionVectorUV, EGraphBuilderSharedValueType::Texcoord_Sampling);
 		}
 
 	}));

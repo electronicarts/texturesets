@@ -4,7 +4,7 @@
 #include "ProceduralMappingModule.h"
 
 #include "ProceduralMappingSampleParams.h"
-#include "TextureSetMaterialGraphBuilder.h"
+#include "TextureSetSampleFunctionBuilder.h"
 #include "HLSLFunctionCallNodeBuilder.h"
 #include "Materials/MaterialExpressionComponentMask.h"
 #include "Materials/MaterialExpressionDDX.h"
@@ -15,7 +15,7 @@ void UProceduralMappingModule::GetSampleParamClasses(TSet<TSubclassOf<UTextureSe
 	Classes.Add(UProceduralMappingSampleParams::StaticClass());
 }
 
-void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams, FTextureSetMaterialGraphBuilder* Builder) const
+void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams, FTextureSetSampleFunctionBuilder* Builder) const
 {
 	const UProceduralMappingSampleParams* ProceduralMappingSampleParams = SampleParams->Get<UProceduralMappingSampleParams>();
 
@@ -32,10 +32,10 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAs
 
 	HLSLFunctionCallNodeBuilder TriplanarUVsFunctionCall("TriplanarUVs", "/Plugin/TextureSets/Triplanar.ush");
 
-	FGraphBuilderOutputAddress Normal = Builder->GetSharedValue(FSubSampleAddress::Root(), EGraphBuilderSharedValueType::BaseNormal);
-	TriplanarUVsFunctionCall.InArgument("Position", FGraphBuilderOutputAddress(UVWInputExpression, 0));
+	FGraphBuilderOutputPin Normal = Builder->GetSharedValue(FSubSampleAddress::Root(), EGraphBuilderSharedValueType::BaseNormal);
+	TriplanarUVsFunctionCall.InArgument("Position", FGraphBuilderOutputPin(UVWInputExpression, 0));
 	TriplanarUVsFunctionCall.InArgument("Normal", Normal);
-	TriplanarUVsFunctionCall.InArgument("Falloff", FGraphBuilderOutputAddress(FalloffInputExpression, 0));
+	TriplanarUVsFunctionCall.InArgument("Falloff", FGraphBuilderOutputPin(FalloffInputExpression, 0));
 
 	TriplanarUVsFunctionCall.OutArgument("UVX", ECustomMaterialOutputType::CMOT_Float2);
 	TriplanarUVsFunctionCall.OutArgument("UVY", ECustomMaterialOutputType::CMOT_Float2);
@@ -71,7 +71,7 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAs
 			XMask->B = false;
 			XMask->A = false;
 			Builder->Connect(TriplanarUVsFunctionCallExp, 4, XMask, 0);
-			SubsampleDefinitions.Add(FSubSampleDefinition("X", FGraphBuilderOutputAddress(XMask, 0)));
+			SubsampleDefinitions.Add(FSubSampleDefinition("X", FGraphBuilderOutputPin(XMask, 0)));
 
 			UMaterialExpressionComponentMask* YMask = Builder->CreateExpression<UMaterialExpressionComponentMask>();
 			YMask->R = false;
@@ -79,7 +79,7 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAs
 			YMask->B = false;
 			YMask->A = false;
 			Builder->Connect(TriplanarUVsFunctionCallExp, 4, YMask, 0);
-			SubsampleDefinitions.Add(FSubSampleDefinition("Y", FGraphBuilderOutputAddress(YMask, 0)));
+			SubsampleDefinitions.Add(FSubSampleDefinition("Y", FGraphBuilderOutputPin(YMask, 0)));
 
 			UMaterialExpressionComponentMask* ZMask = Builder->CreateExpression<UMaterialExpressionComponentMask>();
 			ZMask->R = false;
@@ -87,17 +87,17 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAs
 			ZMask->B = true;
 			ZMask->A = false;
 			Builder->Connect(TriplanarUVsFunctionCallExp, 4, ZMask, 0);
-			SubsampleDefinitions.Add(FSubSampleDefinition("Z", FGraphBuilderOutputAddress(ZMask, 0)));
+			SubsampleDefinitions.Add(FSubSampleDefinition("Z", FGraphBuilderOutputPin(ZMask, 0)));
 
 			TArray<SubSampleHandle> SubsampleHandles = Builder->AddSubsampleGroup(SubsampleDefinitions);
 
-			Builder->AddSampleBuilder(SampleBuilderFunction([this, SubsampleHandles, TriplanarUVsFunctionCallExp, TriplanarTangentsFunctionCallExp, Builder](FTextureSetSubsampleContext& SampleContext)
+			Builder->AddSubsampleFunction(ConfigureSubsampleFunction([this, SubsampleHandles, TriplanarUVsFunctionCallExp, TriplanarTangentsFunctionCallExp, Builder](FTextureSetSubsampleBuilder& Subsample)
 			{
-				int32 RelevantIndex = SubsampleHandles.IndexOfByPredicate([&](const FGuid& guid) { return SampleContext.IsRelevant(guid); });
+				int32 RelevantIndex = SubsampleHandles.IndexOfByPredicate([&](const FGuid& guid) { return Subsample.IsRelevant(guid); });
 
-				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(TriplanarUVsFunctionCallExp, RelevantIndex + 1), EGraphBuilderSharedValueType::Texcoord_Raw);
-				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(TriplanarTangentsFunctionCallExp, RelevantIndex * 2 + 1), EGraphBuilderSharedValueType::Tangent);
-				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(TriplanarTangentsFunctionCallExp, RelevantIndex * 2 + 2), EGraphBuilderSharedValueType::Bitangent);
+				Subsample.SetSharedValue(FGraphBuilderOutputPin(TriplanarUVsFunctionCallExp, RelevantIndex + 1), EGraphBuilderSharedValueType::Texcoord_Raw);
+				Subsample.SetSharedValue(FGraphBuilderOutputPin(TriplanarTangentsFunctionCallExp, RelevantIndex * 2 + 1), EGraphBuilderSharedValueType::Tangent);
+				Subsample.SetSharedValue(FGraphBuilderOutputPin(TriplanarTangentsFunctionCallExp, RelevantIndex * 2 + 2), EGraphBuilderSharedValueType::Bitangent);
 			}));
 			break;
 		}
@@ -110,19 +110,19 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAs
 			NoiseFunctionCall.OutArgument("Noise", ECustomMaterialOutputType::CMOT_Float3);
 			UMaterialExpression* NoiseFunctionCallExp = NoiseFunctionCall.Build(Builder);
 
-			SingleSampleTriplanarFunctionCall.InArgument("UVX", FGraphBuilderOutputAddress(TriplanarUVsFunctionCallExp, 1));
-			SingleSampleTriplanarFunctionCall.InArgument("UVY", FGraphBuilderOutputAddress(TriplanarUVsFunctionCallExp, 2));
-			SingleSampleTriplanarFunctionCall.InArgument("UVZ", FGraphBuilderOutputAddress(TriplanarUVsFunctionCallExp, 3));
+			SingleSampleTriplanarFunctionCall.InArgument("UVX", FGraphBuilderOutputPin(TriplanarUVsFunctionCallExp, 1));
+			SingleSampleTriplanarFunctionCall.InArgument("UVY", FGraphBuilderOutputPin(TriplanarUVsFunctionCallExp, 2));
+			SingleSampleTriplanarFunctionCall.InArgument("UVZ", FGraphBuilderOutputPin(TriplanarUVsFunctionCallExp, 3));
 
-			SingleSampleTriplanarFunctionCall.InArgument("TangentX", FGraphBuilderOutputAddress(TriplanarTangentsFunctionCallExp, 1));
-			SingleSampleTriplanarFunctionCall.InArgument("BitangentX", FGraphBuilderOutputAddress(TriplanarTangentsFunctionCallExp, 2));
-			SingleSampleTriplanarFunctionCall.InArgument("TangentY", FGraphBuilderOutputAddress(TriplanarTangentsFunctionCallExp, 3));
-			SingleSampleTriplanarFunctionCall.InArgument("BitangentY", FGraphBuilderOutputAddress(TriplanarTangentsFunctionCallExp, 4));
-			SingleSampleTriplanarFunctionCall.InArgument("TangentZ", FGraphBuilderOutputAddress(TriplanarTangentsFunctionCallExp, 5));
-			SingleSampleTriplanarFunctionCall.InArgument("BitangentZ", FGraphBuilderOutputAddress(TriplanarTangentsFunctionCallExp, 6));
+			SingleSampleTriplanarFunctionCall.InArgument("TangentX", FGraphBuilderOutputPin(TriplanarTangentsFunctionCallExp, 1));
+			SingleSampleTriplanarFunctionCall.InArgument("BitangentX", FGraphBuilderOutputPin(TriplanarTangentsFunctionCallExp, 2));
+			SingleSampleTriplanarFunctionCall.InArgument("TangentY", FGraphBuilderOutputPin(TriplanarTangentsFunctionCallExp, 3));
+			SingleSampleTriplanarFunctionCall.InArgument("BitangentY", FGraphBuilderOutputPin(TriplanarTangentsFunctionCallExp, 4));
+			SingleSampleTriplanarFunctionCall.InArgument("TangentZ", FGraphBuilderOutputPin(TriplanarTangentsFunctionCallExp, 5));
+			SingleSampleTriplanarFunctionCall.InArgument("BitangentZ", FGraphBuilderOutputPin(TriplanarTangentsFunctionCallExp, 6));
 
-			SingleSampleTriplanarFunctionCall.InArgument("Weights", FGraphBuilderOutputAddress(TriplanarUVsFunctionCallExp, 4));
-			SingleSampleTriplanarFunctionCall.InArgument("Noise", FGraphBuilderOutputAddress(NoiseFunctionCallExp, 1));
+			SingleSampleTriplanarFunctionCall.InArgument("Weights", FGraphBuilderOutputPin(TriplanarUVsFunctionCallExp, 4));
+			SingleSampleTriplanarFunctionCall.InArgument("Noise", FGraphBuilderOutputPin(NoiseFunctionCallExp, 1));
 
 			SingleSampleTriplanarFunctionCall.OutArgument("UVs", ECustomMaterialOutputType::CMOT_Float2);
 			SingleSampleTriplanarFunctionCall.OutArgument("Tangent", ECustomMaterialOutputType::CMOT_Float3);
@@ -132,13 +132,13 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAs
 
 			UMaterialExpression* SingleSampleTriplanarFunctionCallExp = SingleSampleTriplanarFunctionCall.Build(Builder);
 
-			Builder->AddSampleBuilder(SampleBuilderFunction([this, SampleParams, SingleSampleTriplanarFunctionCallExp, Builder](FTextureSetSubsampleContext& SampleContext)
+			Builder->AddSubsampleFunction(ConfigureSubsampleFunction([this, SampleParams, SingleSampleTriplanarFunctionCallExp, Builder](FTextureSetSubsampleBuilder& Subsample)
 			{
-				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 1), EGraphBuilderSharedValueType::Texcoord_Raw);
-				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 2), EGraphBuilderSharedValueType::Tangent);
-				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 3), EGraphBuilderSharedValueType::Bitangent);
-				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 4), EGraphBuilderSharedValueType::Texcoord_DDX);
-				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 5), EGraphBuilderSharedValueType::Texcoord_DDY);
+				Subsample.SetSharedValue(FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 1), EGraphBuilderSharedValueType::Texcoord_Raw);
+				Subsample.SetSharedValue(FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 2), EGraphBuilderSharedValueType::Tangent);
+				Subsample.SetSharedValue(FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 3), EGraphBuilderSharedValueType::Bitangent);
+				Subsample.SetSharedValue(FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 4), EGraphBuilderSharedValueType::Texcoord_DDX);
+				Subsample.SetSharedValue(FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 5), EGraphBuilderSharedValueType::Texcoord_DDY);
 			}));
 			break;
 		}

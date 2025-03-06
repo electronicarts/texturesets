@@ -2,14 +2,14 @@
 
 #pragma once
 
-#include "GraphBuilderGraphAddress.h"
+#include "GraphBuilderPin.h"
 #include "GraphBuilderValue.h"
 #include "MaterialEditingLibrary.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "TextureSetAssetParams.h"
 #include "TextureSetDerivedData.h"
 #include "TextureSetInfo.h"
-#include "TextureSetSubsampleContext.h"
+#include "TextureSetSubsampleBuilder.h"
 #include "TextureSetSampleContext.h"
 
 class UTextureSetDefinition;
@@ -33,7 +33,7 @@ struct FTextureSetMaterialGraphBuilderArgs
 
 // Class responsible for building the material graph of a texture set sampler node.
 // Texture set modules use this node to customize the sampling logic.
-class TEXTURESETSMATERIALBUILDER_API FTextureSetMaterialGraphBuilder
+class TEXTURESETSMATERIALBUILDER_API FTextureSetSampleFunctionBuilder
 {
 public:
 	// Used to define SortPriority of input pins, regardless of which order they're created in.
@@ -47,7 +47,7 @@ public:
 		Custom,
 	};
 
-	FTextureSetMaterialGraphBuilder(const FTextureSetMaterialGraphBuilderArgs& Args);
+	FTextureSetSampleFunctionBuilder(const FTextureSetMaterialGraphBuilderArgs& Args);
 
 	template <class T> T* CreateExpression()
 	{
@@ -62,35 +62,34 @@ public:
 	UMaterialExpressionNamedRerouteDeclaration* CreateReroute(const FString& Name, const FSubSampleAddress& SampleAddress);
 
 	const TArray<SubSampleHandle>& AddSubsampleGroup(TArray<FSubSampleDefinition> SampleGroup);
-	void AddSampleBuilder(SampleBuilderFunction SampleBuilder);
+	void AddSubsampleFunction(ConfigureSubsampleFunction SampleBuilder);
 
 	// Whole bunch of overloads for connecting stuff, hopefully makes it easy
 	void Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, UMaterialExpression* InputNode, uint32 InputIndex);
-	void Connect(const FGraphBuilderOutputAddress& Output, UMaterialExpression* InputNode, uint32 InputIndex);
-	void Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, const FGraphBuilderInputAddress& Input);
+	void Connect(const FGraphBuilderOutputPin& Output, UMaterialExpression* InputNode, uint32 InputIndex);
+	void Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, const FGraphBuilderInputPin& Input);
 	void Connect(UMaterialExpression* OutputNode, FName OutputName, UMaterialExpression* InputNode, FName InputName);
-	void Connect(const FGraphBuilderOutputAddress& Output, UMaterialExpression* InputNode, FName InputName);
-	void Connect(UMaterialExpression* OutputNode, FName OutputName, const FGraphBuilderInputAddress& Input);
+	void Connect(const FGraphBuilderOutputPin& Output, UMaterialExpression* InputNode, FName InputName);
+	void Connect(UMaterialExpression* OutputNode, FName OutputName, const FGraphBuilderInputPin& Input);
 	void Connect(UMaterialExpression* OutputNode, uint32 OutputIndex, UMaterialExpression* InputNode, FName InputName);
 	void Connect(UMaterialExpression* OutputNode, FName OutputName, UMaterialExpression* InputNode, uint32 InputIndex);
-	void Connect(const FGraphBuilderOutputAddress& Output, const FGraphBuilderInputAddress& Input);
+	void Connect(const FGraphBuilderOutputPin& Output, const FGraphBuilderInputPin& Input);
 	
-	FGraphBuilderOutputAddress GetPackedTextureObject(int Index, FGraphBuilderOutputAddress StreamingCoord);
-	const FGraphBuilderOutputAddress GetPackedTextureSize(int Index);
+	FGraphBuilderOutputPin GetPackedTextureObject(int Index, FGraphBuilderOutputPin StreamingCoord);
+	const FGraphBuilderOutputPin GetPackedTextureSize(int Index);
 	const TTuple<int, int> GetPackingSource(FName ProcessedTextureChannel) { return Args.PackingInfo.GetPackingSource(ProcessedTextureChannel); }
 	// Gets the addresses of the range compress multiply and add parameters for a specific packed texture.
-	const TTuple<FGraphBuilderOutputAddress, FGraphBuilderOutputAddress> GetRangeCompressParams(int Index);
+	const TTuple<FGraphBuilderOutputPin, FGraphBuilderOutputPin> GetRangeCompressParams(int Index);
 
 	void LogError(FText ErrorText);
 	const TArray<FText>& GetErrors() const { return Errors; }
 
 	FString SubsampleAddressToString(const FSubSampleAddress& Address);
 
-	const FGraphBuilderOutputAddress& GetSharedValue(const FSubSampleAddress& SampleAddress, EGraphBuilderSharedValueType ValueType);
-	const void SetSharedValue(const FSubSampleAddress& SampleAddress, FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType ValueType);
+	const FGraphBuilderOutputPin& GetSharedValue(const FSubSampleAddress& SampleAddress, EGraphBuilderSharedValueType ValueType);
+	const void SetSharedValue(const FSubSampleAddress& SampleAddress, FGraphBuilderOutputPin Address, EGraphBuilderSharedValueType ValueType);
 
 	const UTextureSetModule* GetWorkingModule() const { return WorkingModule; }
-	FText SampleAddressToText(const FSubSampleAddress& SampleAddress) const;
 private:
 
 	const FTextureSetMaterialGraphBuilderArgs Args;
@@ -108,7 +107,7 @@ private:
 
 	TMap<FSubSampleAddress, TMap<EGraphBuilderSharedValueType, FGraphBuilderValue>> SharedValues;
 
-	TArray<TTuple<SampleBuilderFunction, const class UTextureSetModule*>> SampleBuilders;
+	TArray<TTuple<ConfigureSubsampleFunction, const class UTextureSetModule*>> SubsampleFunctions;
 
 	TArray<FText> Errors;
 
@@ -116,14 +115,14 @@ private:
 	// Should mainly be used for error reporting and validation
 	const UTextureSetModule* WorkingModule;
 
-	TMap<FName, FGraphBuilderOutputAddress> BuildSubsamplesRecursive(const FSubSampleAddress& Address);
-	TMap<FName, FGraphBuilderOutputAddress> BlendSubsampleResults(const FSubSampleAddress& Address, TArray<TMap<FName, FGraphBuilderOutputAddress>>);
+	TMap<FName, FGraphBuilderOutputPin> BuildSubsamplesRecursive(const FSubSampleAddress& Address);
+	TMap<FName, FGraphBuilderOutputPin> BlendSubsampleResults(const FSubSampleAddress& Address, TArray<TMap<FName, FGraphBuilderOutputPin>>);
 
 	void SetupFallbackValues(const FSubSampleAddress& Address);
-	void SetupTextureValues(FTextureSetSubsampleContext& Context);
+	void SetupTextureValues(FTextureSetSubsampleBuilder& Context);
 
-	UMaterialExpression* MakeTextureSamplerCustomNode(int Index, FTextureSetSubsampleContext& Context);
-	UMaterialExpression* MakeSynthesizeTangentCustomNode(const FGraphBuilderOutputAddress& Position, const FGraphBuilderOutputAddress& Texcoord, const FGraphBuilderOutputAddress& Normal);
+	UMaterialExpression* MakeTextureSamplerCustomNode(int Index, FTextureSetSubsampleBuilder& Context);
+	UMaterialExpression* MakeSynthesizeTangentCustomNode(const FGraphBuilderOutputPin& Position, const FGraphBuilderOutputPin& Texcoord, const FGraphBuilderOutputPin& Normal);
 
 	static int32 FindInputIndexChecked(UMaterialExpression* InputNode, FName InputName);
 	static int32 FindOutputIndexChecked(UMaterialExpression* OutputNode, FName OutputName);

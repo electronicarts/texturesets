@@ -3,7 +3,7 @@
 #include "CustomElementModule.h"
 
 #include "TextureSetProcessingGraph.h"
-#include "TextureSetMaterialGraphBuilder.h"
+#include "TextureSetSampleFunctionBuilder.h"
 #include "ProcessingNodes/TextureInput.h"
 
 void UCustomElementModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const
@@ -14,11 +14,11 @@ void UCustomElementModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& 
 }
 
 void UCustomElementModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
-	FTextureSetMaterialGraphBuilder* Builder) const
+	FTextureSetSampleFunctionBuilder* Builder) const
 {
-	Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder](FTextureSetSubsampleContext& SampleContext)
+	Builder->AddSubsampleFunction(ConfigureSubsampleFunction([this, Builder](FTextureSetSubsampleBuilder& Subsample)
 	{
 		// Simply create a sample result for the element
-		SampleContext.AddResult(ElementName, SampleContext.GetProcessedTextureSample(ElementName));
+		Subsample.AddResult(ElementName, Subsample.GetProcessedTextureSample(ElementName));
 	}));
 }

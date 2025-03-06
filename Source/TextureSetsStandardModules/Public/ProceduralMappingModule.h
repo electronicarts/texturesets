@@ -15,5 +15,5 @@ public:
 	virtual void GetSampleParamClasses(TSet<TSubclassOf<UTextureSetSampleParams>>& Classes) const override;
 
 	virtual void ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
-		FTextureSetMaterialGraphBuilder* Builder) const override;
+		FTextureSetSampleFunctionBuilder* Builder) const override;
 };

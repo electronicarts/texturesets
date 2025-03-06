@@ -19,7 +19,7 @@ public:
 
 	virtual void ConfigureSamplingGraphBuilder(
 		const FTextureSetAssetParamsCollection* SampleParams,
-		FTextureSetMaterialGraphBuilder* Builder) const override;
+		FTextureSetSampleFunctionBuilder* Builder) const override;
 
 private:
 	UPROPERTY(EditAnywhere, Category="CustomElement")

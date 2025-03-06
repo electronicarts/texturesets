@@ -3,7 +3,7 @@
 #include "PBRSurfaceModule.h"
 
 #include "TextureSetProcessingGraph.h"
-#include "TextureSetMaterialGraphBuilder.h"
+#include "TextureSetSampleFunctionBuilder.h"
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionAdd.h"
 #include "Materials/MaterialExpressionDeriveNormalZ.h"
@@ -132,24 +132,24 @@ void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Gra
 }
 
 void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
-	FTextureSetMaterialGraphBuilder* Builder) const
+	FTextureSetSampleFunctionBuilder* Builder) const
 {
 	const UPBRSampleParams* PBRSampleParams = SampleParams->Get<UPBRSampleParams>();
 
-	Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder, PBRSampleParams](FTextureSetSubsampleContext& SampleContext)
+	Builder->AddSubsampleFunction(ConfigureSubsampleFunction([this, Builder, PBRSampleParams](FTextureSetSubsampleBuilder& Subsample)
 	{
 		// Surface Parameterization
 		switch (Paramaterization)
 		{
 		case EPBRParamaterization::Basecolor_Metal:
-			SampleContext.AddResult(MetalName, SampleContext.GetProcessedTextureSample(MetalName));
+			Subsample.AddResult(MetalName, Subsample.GetProcessedTextureSample(MetalName));
 			// Falls through
 		case EPBRParamaterization::Dielectric:
-			SampleContext.AddResult(BaseColorName, SampleContext.GetProcessedTextureSample(BaseColorName));
+			Subsample.AddResult(BaseColorName, Subsample.GetProcessedTextureSample(BaseColorName));
 			break;
 		case EPBRParamaterization::Albedo_Spec:
-			SampleContext.AddResult(AlbedoName, SampleContext.GetProcessedTextureSample(AlbedoName));
-			SampleContext.AddResult(SpecularName, SampleContext.GetProcessedTextureSample(SpecularName));
+			Subsample.AddResult(AlbedoName, Subsample.GetProcessedTextureSample(AlbedoName));
+			Subsample.AddResult(SpecularName, Subsample.GetProcessedTextureSample(SpecularName));
 			break;
 		default:
 			break;
@@ -158,21 +158,21 @@ void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetPara
 		// Microsurface
 		if (Microsurface != EPBRMicrosurface::None && PBRSampleParams->MicrosurfaceOutput != EPBRMicrosurface::None)
 		{
-			FGraphBuilderOutputAddress MicrosurfaceSample;
+			FGraphBuilderOutputPin MicrosurfaceSample;
 			if (Microsurface == EPBRMicrosurface::Roughness)
-				MicrosurfaceSample = SampleContext.GetProcessedTextureSample(RoughnessName);
+				MicrosurfaceSample = Subsample.GetProcessedTextureSample(RoughnessName);
 			else if (Microsurface == EPBRMicrosurface::Smoothness)
-				MicrosurfaceSample = SampleContext.GetProcessedTextureSample(SmoothnessName);
+				MicrosurfaceSample = Subsample.GetProcessedTextureSample(SmoothnessName);
 			else 
 				unimplemented()
 
-			FGraphBuilderOutputAddress ResultAddress = MicrosurfaceSample;
+			FGraphBuilderOutputPin ResultPin = MicrosurfaceSample;
 
 			if (Microsurface != PBRSampleParams->MicrosurfaceOutput)
 			{
 				UMaterialExpressionOneMinus* OneMinus = Builder->CreateExpression<UMaterialExpressionOneMinus>();
-				Builder->Connect(ResultAddress, OneMinus, 0);
-				ResultAddress = FGraphBuilderOutputAddress(OneMinus, 0);
+				Builder->Connect(ResultPin, OneMinus, 0);
+				ResultPin = FGraphBuilderOutputPin(OneMinus, 0);
 			}
 
 			FName ResultName;
@@ -184,13 +184,13 @@ void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetPara
 			else
 				unimplemented()
 
-			SampleContext.AddResult(ResultName, ResultAddress);
+			Subsample.AddResult(ResultName, ResultPin);
 		}
 
 		// Normals
 		if (Normal == EPBRNormal::Tangent)
 		{
-			FGraphBuilderOutputAddress TangentNormal = SampleContext.GetProcessedTextureSample(TangentNormalName);
+			FGraphBuilderOutputPin TangentNormal = Subsample.GetProcessedTextureSample(TangentNormalName);
 
 			// Unpack tangent normal X and Y
 			UMaterialExpressionMultiply* Mul = Builder->CreateExpression<UMaterialExpressionMultiply>();
@@ -208,29 +208,29 @@ void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetPara
 			if (PBRSampleParams->NormalOutput == EPBRNormalSpace::Tangent)
 			{
 				// Output tangent normal
-				SampleContext.AddResult(TangentNormalName, FGraphBuilderOutputAddress(DeriveZ, 0));
+				Subsample.AddResult(TangentNormalName, FGraphBuilderOutputPin(DeriveZ, 0));
 			}
 			else
 			{
 				UMaterialExpression* Transform3x3 = Builder->CreateFunctionCall(FSoftObjectPath(TEXT("/Engine/Functions/Engine_MaterialFunctions02/Math/Transform3x3Matrix.Transform3x3Matrix")));
 				Builder->Connect(DeriveZ, 0, Transform3x3, "VectorToTransform (V3)");
-				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Tangent), Transform3x3, "BasisX (V3)");
-				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::Bitangent), Transform3x3, "BasisY (V3)");
-				Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::BaseNormal), Transform3x3, "BasisZ (V3)");
+				Builder->Connect(Subsample.GetSharedValue(EGraphBuilderSharedValueType::Tangent), Transform3x3, "BasisX (V3)");
+				Builder->Connect(Subsample.GetSharedValue(EGraphBuilderSharedValueType::Bitangent), Transform3x3, "BasisY (V3)");
+				Builder->Connect(Subsample.GetSharedValue(EGraphBuilderSharedValueType::BaseNormal), Transform3x3, "BasisZ (V3)");
 
 				if (PBRSampleParams->NormalOutput == EPBRNormalSpace::World)
 				{
 					// Output world normal
-					SampleContext.AddResult(WorldNormalName, FGraphBuilderOutputAddress(Transform3x3, 0));
+					Subsample.AddResult(WorldNormalName, FGraphBuilderOutputPin(Transform3x3, 0));
 				}
 				else if (PBRSampleParams->NormalOutput == EPBRNormalSpace::SurfaceGradient)
 				{
 					UMaterialExpressionSubtract* Subtract = Builder->CreateExpression<UMaterialExpressionSubtract>();
 					Builder->Connect(Transform3x3, 0, Subtract, 0);
-					Builder->Connect(SampleContext.GetSharedValue(EGraphBuilderSharedValueType::BaseNormal), Subtract, 1);
+					Builder->Connect(Subsample.GetSharedValue(EGraphBuilderSharedValueType::BaseNormal), Subtract, 1);
 
 					// Output surface gradient
-					SampleContext.AddResult(SurfaceGradientName, FGraphBuilderOutputAddress(Subtract, 0));
+					Subsample.AddResult(SurfaceGradientName, FGraphBuilderOutputPin(Subtract, 0));
 				}
 				else
 				{

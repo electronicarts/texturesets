@@ -12,7 +12,7 @@
 class FTextureSetProcessingGraph;
 class UMaterialExpressionTextureSetSampleParameter;
 class UTextureSetDefinition;
-class FTextureSetMaterialGraphBuilder;
+class FTextureSetSampleFunctionBuilder;
 
 // Abstract class for texture set modules. Modules provide a mechanism for extending textures sets with additional functionality.
 UCLASS(Abstract, Optional, EditInlineNew, DefaultToInstanced, CollapseCategories)
@@ -42,7 +42,7 @@ public:
 	// Logic (material graph) for unpacking data
 	// Transforms processed data into desired output elements
 	virtual void ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
-		FTextureSetMaterialGraphBuilder* Builder) const {}
+		FTextureSetSampleFunctionBuilder* Builder) const {}
 
 	virtual EDataValidationResult IsDefinitionValid(const UTextureSetDefinition* Definition, FDataValidationContext& Context) const { return EDataValidationResult::NotValidated; }
 #endif

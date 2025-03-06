@@ -8,7 +8,7 @@
 #include "TextureSetsHelpers.h"
 #include "UObject/ObjectSaveContext.h"
 #if WITH_EDITOR
-#include "TextureSetMaterialGraphBuilder.h"
+#include "TextureSetSampleFunctionBuilder.h"
 #include "Misc/DataValidation.h"
 #endif
 
@@ -55,7 +55,7 @@ bool UMaterialExpressionTextureSetSampleParameter::ConfigureMaterialFunction(cla
 	Args.SampleParams = SampleParams;
 	Args.SampleContext = { BaseNormalSource, TangentSource, PositionSource, CameraVectorSource };
 
-	const FTextureSetMaterialGraphBuilder Builder(Args);
+	const FTextureSetSampleFunctionBuilder Builder(Args);
 
 	BuilderErrors = Builder.GetErrors();
 

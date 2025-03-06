@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "GraphBuilderGraphAddress.h"
+#include "GraphBuilderPin.h"
 
 UENUM()
 enum class EGraphBuilderSharedValueType : uint8
@@ -36,8 +36,8 @@ enum class EGraphBuilderSharedValueType : uint8
 struct FGraphBuilderValue
 {
 public:
-	FGraphBuilderOutputAddress Source;
-	FGraphBuilderOutputAddress Reroute;
+	FGraphBuilderOutputPin Source;
+	FGraphBuilderOutputPin Reroute;
 
 	// The module that set the value. Can be null, and is used for debugging.
 	const class UTextureSetModule* Owner;

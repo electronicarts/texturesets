@@ -1,8 +1,8 @@
 // Copyright (c) 2024 Electronic Arts. All Rights Reserved.
 
-#include "TextureSetSubsampleContext.h"
+#include "TextureSetSubsampleBuilder.h"
 #include "Materials/MaterialExpressionNamedReroute.h"
-#include "TextureSetMaterialGraphBuilder.h"
+#include "TextureSetSampleFunctionBuilder.h"
 #include "TextureSetModule.h"
 
 FSubSampleAddress::FSubSampleAddress()
@@ -55,7 +55,7 @@ void FSubSampleAddress::UpdateHash()
 	}
 }
 
-void FTextureSetSubsampleContext::AddResult(FName Name, FGraphBuilderOutputAddress Output)
+void FTextureSetSubsampleBuilder::AddResult(FName Name, FGraphBuilderOutputPin Output)
 {
 	if (!ResultOwners.Contains(Name))
 	{
@@ -70,17 +70,17 @@ void FTextureSetSubsampleContext::AddResult(FName Name, FGraphBuilderOutputAddre
 	}
 }
 
-const FGraphBuilderOutputAddress& FTextureSetSubsampleContext::GetSharedValue(EGraphBuilderSharedValueType ValueType)
+const FGraphBuilderOutputPin& FTextureSetSubsampleBuilder::GetSharedValue(EGraphBuilderSharedValueType ValueType)
 {
 	return Builder->GetSharedValue(Address, ValueType);
 }
 
-const void FTextureSetSubsampleContext::SetSharedValue(FGraphBuilderOutputAddress OutputAddress, EGraphBuilderSharedValueType ValueType)
+const void FTextureSetSubsampleBuilder::SetSharedValue(FGraphBuilderOutputPin OutputAddress, EGraphBuilderSharedValueType ValueType)
 {
 	Builder->SetSharedValue(Address, OutputAddress, ValueType);
 }
 
-const FGraphBuilderOutputAddress FTextureSetSubsampleContext::GetProcessedTextureSample(FName Name)
+const FGraphBuilderOutputPin FTextureSetSubsampleBuilder::GetProcessedTextureSample(FName Name)
 {
 	FGraphBuilderValue& Value = ProcessedTextureValues.FindOrAdd(Name);
 
@@ -88,7 +88,7 @@ const FGraphBuilderOutputAddress FTextureSetSubsampleContext::GetProcessedTextur
 	{
 		// First time texture sample value was requested, create a reroute node for it and use that as the output
 		UMaterialExpressionNamedRerouteDeclaration* Reroute = Builder->CreateReroute(Name.ToString(), Address);
-		Value.Reroute = FGraphBuilderOutputAddress(Reroute, 0);
+		Value.Reroute = FGraphBuilderOutputPin(Reroute, 0);
 	}
 	return Value.Reroute;
 }

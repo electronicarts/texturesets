@@ -25,7 +25,7 @@ public:
 	virtual void ConfigureProcessingGraph(FTextureSetProcessingGraph& Graph) const override;
 
 	virtual void ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
-		FTextureSetMaterialGraphBuilder* Builder) const override;
+		FTextureSetSampleFunctionBuilder* Builder) const override;
 
 	UPROPERTY(EditAnywhere, Category="ElementCollection")
 	UTextureSetElementCollectionAsset* Collection;

@@ -8,7 +8,7 @@
 #include "Engine/AssetManager.h"
 #include "ProcessingNodes/TextureInput.h"
 #include "TextureSetDefinition.h"
-#include "TextureSetMaterialGraphBuilder.h"
+#include "TextureSetSampleFunctionBuilder.h"
 #include "TextureSetProcessingGraph.h"
 
 FString UTextureSetElementCollectionModule::GetInstanceName() const {
@@ -31,16 +31,16 @@ void UTextureSetElementCollectionModule::ConfigureProcessingGraph(FTextureSetPro
 }
 
 void UTextureSetElementCollectionModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCollection* SampleParams,
-	FTextureSetMaterialGraphBuilder* Builder) const
+	FTextureSetSampleFunctionBuilder* Builder) const
 {
 	if (IsValid(Collection))
 	{
-		Builder->AddSampleBuilder(SampleBuilderFunction([this, Builder](FTextureSetSubsampleContext& SampleContext)
+		Builder->AddSubsampleFunction(ConfigureSubsampleFunction([this, Builder](FTextureSetSubsampleBuilder& Subsample)
 		{
 			// Create a sample result for each texture
 			for (const auto& [ElementName, ElementDef]: Collection->Elements)
 			{
-				SampleContext.AddResult(ElementName, SampleContext.GetProcessedTextureSample(ElementName));
+				Subsample.AddResult(ElementName, Subsample.GetProcessedTextureSample(ElementName));
 			}
 		}));
 	}

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "GraphBuilderGraphAddress.h"
+#include "GraphBuilderPin.h"
 #include "GraphBuilderValue.h"
 
 /*
@@ -26,10 +26,10 @@ A FSubSampleAddress is a chain of SubSampleHandles used to address a specific su
 context (e.g. F0::X, or F1::Z)
 */
 
-class FTextureSetMaterialGraphBuilder;
-class FTextureSetSubsampleContext;
+class FTextureSetSampleFunctionBuilder;
+class FTextureSetSubsampleBuilder;
 
-#define SampleBuilderFunction TFunction<void(FTextureSetSubsampleContext&)>
+#define ConfigureSubsampleFunction TFunction<void(FTextureSetSubsampleBuilder&)>
 
 typedef FGuid SubSampleHandle;
 
@@ -65,7 +65,7 @@ struct TEXTURESETSMATERIALBUILDER_API FSubSampleDefinition
 {
 
 public:
-	FSubSampleDefinition(FName Name, FGraphBuilderOutputAddress Weight)
+	FSubSampleDefinition(FName Name, FGraphBuilderOutputPin Weight)
 		: Name(Name)
 		, Weight(Weight)
 	{}
@@ -74,14 +74,14 @@ public:
 	{}
 
 	FName Name;
-	FGraphBuilderOutputAddress Weight;
+	FGraphBuilderOutputPin Weight;
 };
 
-class TEXTURESETSMATERIALBUILDER_API FTextureSetSubsampleContext
+class TEXTURESETSMATERIALBUILDER_API FTextureSetSubsampleBuilder
 {
-	friend class FTextureSetMaterialGraphBuilder;
+	friend class FTextureSetSampleFunctionBuilder;
 
-	FTextureSetSubsampleContext(FTextureSetMaterialGraphBuilder* Builder, FSubSampleAddress Address)
+	FTextureSetSubsampleBuilder(FTextureSetSampleFunctionBuilder* Builder, FSubSampleAddress Address)
 		: Builder(Builder)
 		, Address(Address)
 	{}
@@ -91,20 +91,20 @@ public:
 
 	bool IsRelevant(const SubSampleHandle& SubSample) { return Address.GetHandleChain().Contains(SubSample); }
 
-	void AddResult(FName Name, FGraphBuilderOutputAddress Output);
+	void AddResult(FName Name, FGraphBuilderOutputPin Output);
 
-	const FGraphBuilderOutputAddress& GetSharedValue(EGraphBuilderSharedValueType Value);
-	const void SetSharedValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType Value);
+	// Valid for both texture names e.g. "BaseColor" and with channel suffix e.g. "BaseColor.g"
+	const FGraphBuilderOutputPin& GetSharedValue(EGraphBuilderSharedValueType Value);
+	const void SetSharedValue(FGraphBuilderOutputPin Address, EGraphBuilderSharedValueType Value);
 
-	const FGraphBuilderOutputAddress GetProcessedTextureSample(FName Name);
+	const FGraphBuilderOutputPin GetProcessedTextureSample(FName Name);
 
 private:
-	FTextureSetMaterialGraphBuilder* Builder;
+	FTextureSetSampleFunctionBuilder* Builder;
 	FSubSampleAddress Address;
 
-	// Valid for both texture names "BaseColor" and with channel suffix "BaseColor.g"
 	TMap<FName, FGraphBuilderValue> ProcessedTextureValues;
 
-	TMap<FName, FGraphBuilderOutputAddress> Results;
+	TMap<FName, FGraphBuilderOutputPin> Results;
 	TMap<FName, const class UTextureSetModule*> ResultOwners;
 };
