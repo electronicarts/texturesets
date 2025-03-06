@@ -77,12 +77,15 @@ FTextureSetMaterialGraphBuilder::FTextureSetMaterialGraphBuilder(const FTextureS
 		Connect(Address, Output, 0);
 	}
 
-	SetupFallbackValues();
-
-	// Connect deferred connections
-	for (const auto& [Input, Output] : DeferredConnections)
+	// Resolve all shared value sources to the reroute nodes
+	for (auto& [Address, AddressValues] : SharedValues)
 	{
-		Output.GetExpression()->ConnectExpression(Input.GetExpression()->GetInput(Input.GetIndex()), Output.GetIndex());
+		for (auto& [Type, Value] : AddressValues)
+		{
+			check(Value.Source.IsValid());
+			check(Value.Reroute.IsValid());
+			Connect(Value.Source, Value.Reroute.GetExpression(), 0);
+		}
 	}
 }
 
@@ -116,34 +119,29 @@ UMaterialExpression* FTextureSetMaterialGraphBuilder::CreateFunctionCall(FSoftOb
 	return nullptr;
 }
 
-UMaterialExpressionNamedRerouteDeclaration* FTextureSetMaterialGraphBuilder::CreateReroute(FName Name)
+UMaterialExpressionNamedRerouteDeclaration* FTextureSetMaterialGraphBuilder::CreateReroute(const FString& Name, const FSubSampleAddress& SampleAddress)
 {
 	UMaterialExpressionNamedRerouteDeclaration* Reroute = CreateExpression<UMaterialExpressionNamedRerouteDeclaration>();
-	Reroute->Name = Name;
+	Reroute->Name = FName(FString::Format(TEXT("{0}::{1}"), { SubsampleAddressToString(SampleAddress), Name }));
 	return Reroute;
 }
 
-UMaterialExpressionNamedRerouteDeclaration* FTextureSetMaterialGraphBuilder::CreateReroute(const FString& Name, const FString& Namespace)
+const FGraphBuilderOutputAddress& FTextureSetMaterialGraphBuilder::GetSharedValue(const FSubSampleAddress& SampleAddress, EGraphBuilderSharedValueType ValueType)
 {
-	return CreateReroute(FName(FString::Format(TEXT("{0}::{1}"), { Namespace, Name })));
-}
-
-const FGraphBuilderOutputAddress& FTextureSetMaterialGraphBuilder::GetFallbackValue(EGraphBuilderSharedValueType ValueType)
-{
-	FGraphBuilderValue& Value = FallbackValues.FindOrAdd(ValueType);
+	FGraphBuilderValue& Value = SharedValues.FindOrAdd(SampleAddress).FindOrAdd(ValueType);
 
 	if (!Value.Reroute.IsValid())
 	{
 		// First time shared value was requested, create a reroute node for it and use that as the output
-		Value.Reroute = FGraphBuilderOutputAddress(CreateReroute(UEnum::GetValueAsName(ValueType)), 0);
+		Value.Reroute = FGraphBuilderOutputAddress(CreateReroute(UEnum::GetValueAsString(ValueType), SampleAddress), 0);
 	}
 
 	return Value.Reroute;
 }
 
-const void FTextureSetMaterialGraphBuilder::SetFallbackValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType ValueType)
+const void FTextureSetMaterialGraphBuilder::SetSharedValue(const FSubSampleAddress& SampleAddress, FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType ValueType)
 {
-	FGraphBuilderValue& Value = FallbackValues.FindOrAdd(ValueType);
+	FGraphBuilderValue& Value = SharedValues.FindOrAdd(SampleAddress).FindOrAdd(ValueType);
 
 	if (!Value.Source.IsValid())
 	{
@@ -154,16 +152,17 @@ const void FTextureSetMaterialGraphBuilder::SetFallbackValue(FGraphBuilderOutput
 	{
 		if (IsValid(Value.Owner))
 		{
-			LogError(FText::Format(INVTEXT("Shared value {0} has already been set by {1}. Multiple overrides are not currently supported"),
+			LogError(FText::Format(INVTEXT("Shared value {0} at {1} has already been set by {2}. Multiple overrides are not currently supported"),
 				UEnum::GetDisplayValueAsText(ValueType),
+				FText::FromString(SubsampleAddressToString(SampleAddress)),
 				FText::FromString(Value.Owner->GetInstanceName())));
 		}
 		else
 		{
-			LogError(FText::Format(INVTEXT("Shared value {0} has already been set. Multiple overrides are not currently supported"),
-				UEnum::GetDisplayValueAsText(ValueType)));
+			LogError(FText::Format(INVTEXT("Shared value {0} at {1} has already been set. Multiple overrides are not currently supported"),
+				UEnum::GetDisplayValueAsText(ValueType),
+				FText::FromString(SubsampleAddressToString(SampleAddress))));
 		}
-		
 	}
 }
 
@@ -211,7 +210,10 @@ void FTextureSetMaterialGraphBuilder::Connect(const FGraphBuilderOutputAddress& 
 {
 	check(Input.IsValid());
 	check(Output.IsValid());
-	DeferredConnections.Add(Input, Output);
+	// Check that there's not already a connection there that we're acidentally overriding
+	check(!Output.GetExpression()->IsExpressionConnected(Input.GetExpression()->GetInput(Input.GetIndex()), Output.GetIndex()));
+
+	Output.GetExpression()->ConnectExpression(Input.GetExpression()->GetInput(Input.GetIndex()), Output.GetIndex());
 }
 
 FGraphBuilderOutputAddress FTextureSetMaterialGraphBuilder::GetPackedTextureObject(int Index, FGraphBuilderOutputAddress StreamingCoord)
@@ -357,7 +359,7 @@ TMap<FName, FGraphBuilderOutputAddress> FTextureSetMaterialGraphBuilder::BuildSu
 		WorkingModule = nullptr;
 
 		SetupTextureValues(Context);
-		SetupSharedValues(Context);
+		SetupFallbackValues(Address);
 
 		return Context.Results;
 	}
@@ -371,6 +373,8 @@ TMap<FName, FGraphBuilderOutputAddress> FTextureSetMaterialGraphBuilder::BuildSu
 		{
 			Results.Add(BuildSubsamplesRecursive(FSubSampleAddress(Address, SampleHandle)));
 		}
+
+		SetupFallbackValues(Address);
 
 		return BlendSubsampleResults(Address, Results);
 	}
@@ -417,191 +421,197 @@ TMap<FName, FGraphBuilderOutputAddress> FTextureSetMaterialGraphBuilder::BlendSu
 	return BlendedResult;
 }
 
-void FTextureSetMaterialGraphBuilder::SetupFallbackValues()
+void FTextureSetMaterialGraphBuilder::SetupFallbackValues(const FSubSampleAddress& Address)
 {
-	// Hook up proper inputs to any reroute nodes that were used.
-	// Note: Order here is important, as we have some dependencies
+	// Sets up fallback values for shared values that were requested, but were not explicity provided.
 
-	const auto NeedsValue = [this](EGraphBuilderSharedValueType ValueType) {
-		FGraphBuilderValue* Value = FallbackValues.Find(ValueType);
-		return Value != nullptr && Value->Reroute.IsValid() && !Value->Source.IsValid();
+	const auto NeedsValue = [this, &Address](EGraphBuilderSharedValueType ValueType)
+	{
+		if (!SharedValues.Contains(Address))
+			return false;
+
+		FGraphBuilderValue* Value = SharedValues[Address].Find(ValueType);
+
+		if (Value == nullptr)
+			return false;
+
+		return Value->Reroute.IsValid() && !Value->Source.IsValid();
 	};
 
-	const bool NeedsTangent = NeedsValue(EGraphBuilderSharedValueType::Tangent);
-	const bool NeedsBitangent = NeedsValue(EGraphBuilderSharedValueType::Bitangent);
-
-	if (NeedsTangent || NeedsBitangent)
-	{
-		FGraphBuilderOutputAddress TangentSource;
-		FGraphBuilderOutputAddress BitangentSource;
-		switch (Args.SampleContext.TangentSource)
-		{
-		case ETangentSource::Explicit:
-		{
-			TangentSource = FGraphBuilderOutputAddress(CreateInput("Tangent", EFunctionInputType::FunctionInput_Vector3, EInputSort::Tangent), 0);
-			BitangentSource = FGraphBuilderOutputAddress(CreateInput("Bitangent", EFunctionInputType::FunctionInput_Vector3, EInputSort::Tangent), 0);
-			break;
-		}
-		case ETangentSource::Synthesized:
-		{
-			UMaterialExpression* SynthesizeTangentNode = MakeSynthesizeTangentCustomNode(
-				GetFallbackValue(EGraphBuilderSharedValueType::Position),
-				GetFallbackValue(EGraphBuilderSharedValueType::Texcoord_Raw),
-				GetFallbackValue(EGraphBuilderSharedValueType::BaseNormal));
-
-			TangentSource = FGraphBuilderOutputAddress(SynthesizeTangentNode, 1);
-			BitangentSource = FGraphBuilderOutputAddress(SynthesizeTangentNode, 2);
-			break;
-		}
-		case ETangentSource::Vertex:
-		{
-			TangentSource = FGraphBuilderOutputAddress(CreateExpression<UMaterialExpressionVertexTangentWS>(), 0);
-
-			if (NeedsBitangent)
-			{
-				// Don't have a node explicitly for the vertex bitangent, so we create it by transforming a vector from tangent to world space
-				UMaterialExpressionConstant3Vector* BitangentConstant = CreateExpression<UMaterialExpressionConstant3Vector>();
-				BitangentConstant->Constant = FLinearColor(0, 1, 0);
-				UMaterialExpressionTransform* TransformBitangent = CreateExpression<UMaterialExpressionTransform>();
-				TransformBitangent->TransformSourceType = EMaterialVectorCoordTransformSource::TRANSFORMSOURCE_Tangent;
-				TransformBitangent->TransformType = EMaterialVectorCoordTransform::TRANSFORM_World;
-				Connect(BitangentConstant, 0, TransformBitangent, 0);
-				BitangentSource = FGraphBuilderOutputAddress(TransformBitangent, 0);
-			}
-			break;
-		}
-		default:
-			unimplemented();
-			break;
-		}
-
-		if (NeedsTangent)
-			SetFallbackValue(TangentSource, EGraphBuilderSharedValueType::Tangent);
-
-		if (NeedsBitangent)
-			SetFallbackValue(BitangentSource, EGraphBuilderSharedValueType::Bitangent);
-	}
-
-	if (NeedsValue(EGraphBuilderSharedValueType::BaseNormal))
-	{
-		FGraphBuilderOutputAddress BaseNormalSource;
-
-		switch (Args.SampleContext.BaseNormalSource)
-		{
-		case EBaseNormalSource::Explicit:
-			BaseNormalSource = FGraphBuilderOutputAddress(CreateInput("Base Normal", EFunctionInputType::FunctionInput_Vector3, EInputSort::BaseNormal), 0);
-			break;
-		case EBaseNormalSource::Vertex:
-			BaseNormalSource = FGraphBuilderOutputAddress(CreateExpression<UMaterialExpressionVertexNormalWS>(), 0);
-			break;
-		default:
-			unimplemented();
-			break;
-		}
-
-		SetFallbackValue(BaseNormalSource, EGraphBuilderSharedValueType::BaseNormal);
-	}
-
-	if (NeedsValue(EGraphBuilderSharedValueType::CameraVector))
-	{
-		FGraphBuilderOutputAddress CameraVectorSource;
-
-		switch (Args.SampleContext.CameraVectorSource)
-		{
-		case ECameraVectorSource::Explicit:
-			CameraVectorSource = FGraphBuilderOutputAddress(CreateInput("Camera Vector", EFunctionInputType::FunctionInput_Vector3, EInputSort::CameraVector), 0);
-			break;
-		case ECameraVectorSource::World:
-			CameraVectorSource = FGraphBuilderOutputAddress(CreateExpression<UMaterialExpressionCameraVectorWS>(), 0);
-			break;
-		default:
-			unimplemented();
-			break;
-		}
-
-		SetFallbackValue(CameraVectorSource, EGraphBuilderSharedValueType::CameraVector);
-	}
-
-	if (NeedsValue(EGraphBuilderSharedValueType::Position))
-	{
-		FGraphBuilderOutputAddress PositionSource;
-
-		switch (Args.SampleContext.PositionSource)
-		{
-		case EPositionSource::Explicit:
-			PositionSource = FGraphBuilderOutputAddress(CreateInput("Position", EFunctionInputType::FunctionInput_Vector3, EInputSort::Position), 0);
-			break;
-		case EPositionSource::World:
-			PositionSource = FGraphBuilderOutputAddress(CreateExpression<UMaterialExpressionWorldPosition>(), 0);
-			break;
-		default:
-			unimplemented();
-			break;
-		}
-
-		SetFallbackValue(PositionSource, EGraphBuilderSharedValueType::Position);
-	}
-
+	// Handle cases where we fall back to a local shared value, instead of the parent's shared value
+	// Note: Order here is important, as we have some dependencies
 	if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_Streaming))
 	{
-		SetFallbackValue(GetFallbackValue(EGraphBuilderSharedValueType::Texcoord_Sampling), EGraphBuilderSharedValueType::Texcoord_Streaming);
+		SetSharedValue(Address, GetSharedValue(Address, EGraphBuilderSharedValueType::Texcoord_Raw), EGraphBuilderSharedValueType::Texcoord_Streaming);
 	}
 
 	if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_DDX))
 	{
 		UMaterialExpression* DDX = CreateExpression<UMaterialExpressionDDX>();
-		Connect(GetFallbackValue(EGraphBuilderSharedValueType::Texcoord_Mip), FGraphBuilderInputAddress(DDX, 0));
-		SetFallbackValue(FGraphBuilderOutputAddress(DDX, 0), EGraphBuilderSharedValueType::Texcoord_DDX);
+		Connect(GetSharedValue(Address, EGraphBuilderSharedValueType::Texcoord_Mip), FGraphBuilderInputAddress(DDX, 0));
+		SetSharedValue(Address, FGraphBuilderOutputAddress(DDX, 0), EGraphBuilderSharedValueType::Texcoord_DDX);
 	}
 
 	if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_DDY))
 	{
 		UMaterialExpression* DDY = CreateExpression<UMaterialExpressionDDY>();
-		Connect(GetFallbackValue(EGraphBuilderSharedValueType::Texcoord_Mip), FGraphBuilderInputAddress(DDY, 0));
-		SetFallbackValue(FGraphBuilderOutputAddress(DDY, 0), EGraphBuilderSharedValueType::Texcoord_DDY);
+		Connect(GetSharedValue(Address, EGraphBuilderSharedValueType::Texcoord_Mip), FGraphBuilderInputAddress(DDY, 0));
+		SetSharedValue(Address, FGraphBuilderOutputAddress(DDY, 0), EGraphBuilderSharedValueType::Texcoord_DDY);
 	}
 
 	if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_Mip))
 	{
-		SetFallbackValue(GetFallbackValue(EGraphBuilderSharedValueType::Texcoord_Sampling), EGraphBuilderSharedValueType::Texcoord_Mip);
+		SetSharedValue(Address, GetSharedValue(Address, EGraphBuilderSharedValueType::Texcoord_Raw), EGraphBuilderSharedValueType::Texcoord_Mip);
 	}
 
 	if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_Sampling))
 	{
-		SetFallbackValue(GetFallbackValue(EGraphBuilderSharedValueType::Texcoord_Raw), EGraphBuilderSharedValueType::Texcoord_Sampling);
+		SetSharedValue(Address, GetSharedValue(Address, EGraphBuilderSharedValueType::Texcoord_Raw), EGraphBuilderSharedValueType::Texcoord_Sampling);
 	}
 
-	if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_Raw))
+	if (!Address.IsRoot())
 	{
-		UMaterialExpression* UVInput = CreateInput("UV", EFunctionInputType::FunctionInput_Vector2, EInputSort::UV);
-		SetFallbackValue(FGraphBuilderOutputAddress(UVInput, 0), EGraphBuilderSharedValueType::Texcoord_Raw);
+		// For all non-root subsamples, fall back to the shared value in the parent subsample
+		for (int i = 0; i < (int)EGraphBuilderSharedValueType::Num; i++)
+		{
+			EGraphBuilderSharedValueType t = (EGraphBuilderSharedValueType)i;
+
+			if (NeedsValue(t))
+			{
+				SetSharedValue(Address, GetSharedValue(Address.GetParent(), t), t);
+			}
+		}
 	}
-
-	if (NeedsValue(EGraphBuilderSharedValueType::ArrayIndex))
+	else
 	{
-		FGraphBuilderOutputAddress IndexInput(CreateInput("Array Index", EFunctionInputType::FunctionInput_Scalar, EInputSort::UV), 0);
-		SetFallbackValue(IndexInput, EGraphBuilderSharedValueType::ArrayIndex);
-	}
+		// For the root values, fallback based on node's context
+		// Note: Order here is important, as we have some dependencies
+		const bool NeedsTangent = NeedsValue(EGraphBuilderSharedValueType::Tangent);
+		const bool NeedsBitangent = NeedsValue(EGraphBuilderSharedValueType::Bitangent);
 
-	// Link all shared value sources to the reroute nodes
-	for (auto& [Type, Value] : FallbackValues)
-	{
-		check(Value.Source.IsValid());
-		check(Value.Reroute.IsValid());
-		Connect(Value.Source, Value.Reroute.GetExpression(), 0);
-	}
-}
+		if (NeedsTangent || NeedsBitangent)
+		{
+			FGraphBuilderOutputAddress TangentSource;
+			FGraphBuilderOutputAddress BitangentSource;
+			switch (Args.SampleContext.TangentSource)
+			{
+			case ETangentSource::Explicit:
+			{
+				TangentSource = FGraphBuilderOutputAddress(CreateInput("Tangent", EFunctionInputType::FunctionInput_Vector3, EInputSort::Tangent), 0);
+				BitangentSource = FGraphBuilderOutputAddress(CreateInput("Bitangent", EFunctionInputType::FunctionInput_Vector3, EInputSort::Tangent), 0);
+				break;
+			}
+			case ETangentSource::Synthesized:
+			{
+				UMaterialExpression* SynthesizeTangentNode = MakeSynthesizeTangentCustomNode(
+					GetSharedValue(Address, EGraphBuilderSharedValueType::Position),
+					GetSharedValue(Address, EGraphBuilderSharedValueType::Texcoord_Raw),
+					GetSharedValue(Address, EGraphBuilderSharedValueType::BaseNormal));
 
-void FTextureSetMaterialGraphBuilder::SetupSharedValues(FTextureSetSubsampleContext& Context)
-{
-	for (auto& [Type, Value] : Context.SubsampleValues)
-	{
-		// Fall back to shared value if this subsample value hasn't been set explicitly
-		const FGraphBuilderOutputAddress& SourceAddress = Value.Source.IsValid() ? Value.Source : GetFallbackValue(Type);
+				TangentSource = FGraphBuilderOutputAddress(SynthesizeTangentNode, 1);
+				BitangentSource = FGraphBuilderOutputAddress(SynthesizeTangentNode, 2);
+				break;
+			}
+			case ETangentSource::Vertex:
+			{
+				TangentSource = FGraphBuilderOutputAddress(CreateExpression<UMaterialExpressionVertexTangentWS>(), 0);
 
-		check(SourceAddress.IsValid());
-		if (Value.Reroute.IsValid())
-			Connect(SourceAddress, Value.Reroute.GetExpression(), 0);
+				if (NeedsBitangent)
+				{
+					// Don't have a node explicitly for the vertex bitangent, so we create it by transforming a vector from tangent to world space
+					UMaterialExpressionConstant3Vector* BitangentConstant = CreateExpression<UMaterialExpressionConstant3Vector>();
+					BitangentConstant->Constant = FLinearColor(0, 1, 0);
+					UMaterialExpressionTransform* TransformBitangent = CreateExpression<UMaterialExpressionTransform>();
+					TransformBitangent->TransformSourceType = EMaterialVectorCoordTransformSource::TRANSFORMSOURCE_Tangent;
+					TransformBitangent->TransformType = EMaterialVectorCoordTransform::TRANSFORM_World;
+					Connect(BitangentConstant, 0, TransformBitangent, 0);
+					BitangentSource = FGraphBuilderOutputAddress(TransformBitangent, 0);
+				}
+				break;
+			}
+			default:
+				unimplemented();
+				break;
+			}
+
+			if (NeedsTangent)
+				SetSharedValue(Address, TangentSource, EGraphBuilderSharedValueType::Tangent);
+
+			if (NeedsBitangent)
+				SetSharedValue(Address, BitangentSource, EGraphBuilderSharedValueType::Bitangent);
+		}
+
+		if (NeedsValue(EGraphBuilderSharedValueType::BaseNormal))
+		{
+			FGraphBuilderOutputAddress BaseNormalSource;
+
+			switch (Args.SampleContext.BaseNormalSource)
+			{
+			case EBaseNormalSource::Explicit:
+				BaseNormalSource = FGraphBuilderOutputAddress(CreateInput("Base Normal", EFunctionInputType::FunctionInput_Vector3, EInputSort::BaseNormal), 0);
+				break;
+			case EBaseNormalSource::Vertex:
+				BaseNormalSource = FGraphBuilderOutputAddress(CreateExpression<UMaterialExpressionVertexNormalWS>(), 0);
+				break;
+			default:
+				unimplemented();
+				break;
+			}
+
+			SetSharedValue(Address, BaseNormalSource, EGraphBuilderSharedValueType::BaseNormal);
+		}
+
+		if (NeedsValue(EGraphBuilderSharedValueType::CameraVector))
+		{
+			FGraphBuilderOutputAddress CameraVectorSource;
+
+			switch (Args.SampleContext.CameraVectorSource)
+			{
+			case ECameraVectorSource::Explicit:
+				CameraVectorSource = FGraphBuilderOutputAddress(CreateInput("Camera Vector", EFunctionInputType::FunctionInput_Vector3, EInputSort::CameraVector), 0);
+				break;
+			case ECameraVectorSource::World:
+				CameraVectorSource = FGraphBuilderOutputAddress(CreateExpression<UMaterialExpressionCameraVectorWS>(), 0);
+				break;
+			default:
+				unimplemented();
+				break;
+			}
+
+			SetSharedValue(Address, CameraVectorSource, EGraphBuilderSharedValueType::CameraVector);
+		}
+
+		if (NeedsValue(EGraphBuilderSharedValueType::Position))
+		{
+			FGraphBuilderOutputAddress PositionSource;
+
+			switch (Args.SampleContext.PositionSource)
+			{
+			case EPositionSource::Explicit:
+				PositionSource = FGraphBuilderOutputAddress(CreateInput("Position", EFunctionInputType::FunctionInput_Vector3, EInputSort::Position), 0);
+				break;
+			case EPositionSource::World:
+				PositionSource = FGraphBuilderOutputAddress(CreateExpression<UMaterialExpressionWorldPosition>(), 0);
+				break;
+			default:
+				unimplemented();
+				break;
+			}
+
+			SetSharedValue(Address, PositionSource, EGraphBuilderSharedValueType::Position);
+		}
+
+		if (NeedsValue(EGraphBuilderSharedValueType::Texcoord_Raw))
+		{
+			UMaterialExpression* UVInput = CreateInput("UV", EFunctionInputType::FunctionInput_Vector2, EInputSort::UV);
+			SetSharedValue(Address, FGraphBuilderOutputAddress(UVInput, 0), EGraphBuilderSharedValueType::Texcoord_Raw);
+		}
+
+		if (NeedsValue(EGraphBuilderSharedValueType::ArrayIndex))
+		{
+			FGraphBuilderOutputAddress IndexInput(CreateInput("Array Index", EFunctionInputType::FunctionInput_Scalar, EInputSort::UV), 0);
+			SetSharedValue(Address, IndexInput, EGraphBuilderSharedValueType::ArrayIndex);
+		}
 	}
 }
 

@@ -39,12 +39,14 @@ private:
 	FSubSampleAddress();
 public:
 	FSubSampleAddress(const FSubSampleAddress& Base, SubSampleHandle Handle);
-	FSubSampleAddress(const TArray<SubSampleHandle>& HandleChain);
+	FSubSampleAddress(TConstArrayView<SubSampleHandle>& HandleChain);
 
 	static const FSubSampleAddress& Root();
 	bool IsRoot() const	{ return GetHash() == Root().GetHash(); }
 	uint32 GetHash() const { return Hash; }
-	const TArray<SubSampleHandle>& GetHandleChain() const { return HandleChain;	}
+	const TArray<SubSampleHandle>& GetHandleChain() const { return HandleChain; }
+
+	const FSubSampleAddress GetParent() const;
 
 	friend bool operator==(const FSubSampleAddress& A, const FSubSampleAddress& B) { return A.Hash == B.Hash; }
 private:
@@ -53,6 +55,11 @@ private:
 	TArray<SubSampleHandle> HandleChain;
 	uint32 Hash;
 };
+
+inline uint32 GetTypeHash(const FSubSampleAddress& Address)
+{
+	return Address.GetHash();
+}
 
 struct TEXTURESETSMATERIALBUILDER_API FSubSampleDefinition
 {
@@ -97,7 +104,6 @@ private:
 
 	// Valid for both texture names "BaseColor" and with channel suffix "BaseColor.g"
 	TMap<FName, FGraphBuilderValue> ProcessedTextureValues;
-	TMap<EGraphBuilderSharedValueType, FGraphBuilderValue> SubsampleValues;
 
 	TMap<FName, FGraphBuilderOutputAddress> Results;
 	TMap<FName, const class UTextureSetModule*> ResultOwners;

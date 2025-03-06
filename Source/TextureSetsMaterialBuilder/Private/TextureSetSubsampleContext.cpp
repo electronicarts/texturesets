@@ -18,8 +18,8 @@ FSubSampleAddress::FSubSampleAddress(const FSubSampleAddress& Base, SubSampleHan
 	UpdateHash();
 }
 
-FSubSampleAddress::FSubSampleAddress(const TArray<SubSampleHandle>& HandleChain)
-	: HandleChain(HandleChain)
+FSubSampleAddress::FSubSampleAddress(TConstArrayView<SubSampleHandle>& HandleChainView)
+	: HandleChain(HandleChainView)
 {
 	UpdateHash();
 }
@@ -28,6 +28,22 @@ const FSubSampleAddress& FSubSampleAddress::Root()
 {
 	static const FSubSampleAddress RootAddress;
 	return RootAddress;
+}
+
+const FSubSampleAddress FSubSampleAddress::GetParent() const
+{
+	check(HandleChain.Num() > 0);
+
+	if (HandleChain.Num() == 1)
+	{
+		return Root();
+	}
+	else
+	{
+		const SubSampleHandle* data = HandleChain.GetData();
+		TConstArrayView<SubSampleHandle> HandleChainMinusOne(data, HandleChain.Num() - 1);
+		return FSubSampleAddress(HandleChainMinusOne);
+	}
 }
 
 void FSubSampleAddress::UpdateHash()
@@ -56,42 +72,12 @@ void FTextureSetSubsampleContext::AddResult(FName Name, FGraphBuilderOutputAddre
 
 const FGraphBuilderOutputAddress& FTextureSetSubsampleContext::GetSharedValue(EGraphBuilderSharedValueType ValueType)
 {
-
-	FGraphBuilderValue& Value = SubsampleValues.FindOrAdd(ValueType);
-
-	if (!Value.Reroute.IsValid())
-	{
-		// First time shared value was requested, create a reroute node for it and use that as the output
-		UMaterialExpressionNamedRerouteDeclaration* Reroute = Builder->CreateReroute(UEnum::GetValueAsString(ValueType), Builder->SubsampleAddressToString(Address));
-		Value.Reroute = FGraphBuilderOutputAddress(Reroute, 0);
-	}
-
-	return Value.Reroute;
+	return Builder->GetSharedValue(Address, ValueType);
 }
 
 const void FTextureSetSubsampleContext::SetSharedValue(FGraphBuilderOutputAddress OutputAddress, EGraphBuilderSharedValueType ValueType)
 {
-	FGraphBuilderValue& Value = SubsampleValues.FindOrAdd(ValueType);
-
-	if (!Value.Source.IsValid())
-	{
-		Value.Source = OutputAddress;
-		Value.Owner = Builder->GetWorkingModule();
-	}
-	else // Error logging
-	{
-		if (IsValid(Value.Owner))
-		{
-			Builder->LogError(FText::Format(INVTEXT("Shared value {0} has already been set by {1}. Multiple overrides are not currently supported"),
-				UEnum::GetDisplayValueAsText(ValueType),
-				FText::FromString(Value.Owner->GetInstanceName())));
-		}
-		else
-		{
-			Builder->LogError(FText::Format(INVTEXT("Shared value {0} has already been set. Multiple overrides are not currently supported"),
-				UEnum::GetDisplayValueAsText(ValueType)));
-		}
-	}
+	Builder->SetSharedValue(Address, OutputAddress, ValueType);
 }
 
 const FGraphBuilderOutputAddress FTextureSetSubsampleContext::GetProcessedTextureSample(FName Name)
@@ -101,7 +87,7 @@ const FGraphBuilderOutputAddress FTextureSetSubsampleContext::GetProcessedTextur
 	if (!Value.Reroute.IsValid())
 	{
 		// First time texture sample value was requested, create a reroute node for it and use that as the output
-		UMaterialExpressionNamedRerouteDeclaration* Reroute = Builder->CreateReroute(Name.ToString(), Builder->SubsampleAddressToString(Address));
+		UMaterialExpressionNamedRerouteDeclaration* Reroute = Builder->CreateReroute(Name.ToString(), Address);
 		Value.Reroute = FGraphBuilderOutputAddress(Reroute, 0);
 	}
 	return Value.Reroute;

@@ -28,7 +28,9 @@ enum class EGraphBuilderSharedValueType : uint8
 	// Per-pixel position value. Typically in world space, but also valid to be in view or object
 	Position,
 	// Pixel to camera vector. Should be in the same space as the position
-	CameraVector
+	CameraVector,
+
+	Num
 };
 
 struct FGraphBuilderValue

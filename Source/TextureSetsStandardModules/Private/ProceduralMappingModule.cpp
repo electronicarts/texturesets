@@ -32,7 +32,7 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAs
 
 	HLSLFunctionCallNodeBuilder TriplanarUVsFunctionCall("TriplanarUVs", "/Plugin/TextureSets/Triplanar.ush");
 
-	FGraphBuilderOutputAddress Normal = Builder->GetFallbackValue(EGraphBuilderSharedValueType::BaseNormal);
+	FGraphBuilderOutputAddress Normal = Builder->GetSharedValue(FSubSampleAddress::Root(), EGraphBuilderSharedValueType::BaseNormal);
 	TriplanarUVsFunctionCall.InArgument("Position", FGraphBuilderOutputAddress(UVWInputExpression, 0));
 	TriplanarUVsFunctionCall.InArgument("Normal", Normal);
 	TriplanarUVsFunctionCall.InArgument("Falloff", FGraphBuilderOutputAddress(FalloffInputExpression, 0));
@@ -44,19 +44,11 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAs
 
 	UMaterialExpression* TriplanarUVsFunctionCallExp = TriplanarUVsFunctionCall.Build(Builder);
 
-	UMaterialExpressionComponentMask* XYMask = Builder->CreateExpression<UMaterialExpressionComponentMask>();
-	XYMask->R = true;
-	XYMask->G = true;
-	XYMask->B = false;
-	XYMask->A = false;
-	Builder->Connect(UVWInputExpression, 0, XYMask, 0);
-	Builder->SetFallbackValue(FGraphBuilderOutputAddress(XYMask, 0), EGraphBuilderSharedValueType::Texcoord_Raw);
-
 	// Triplanar Tangents
 
 	HLSLFunctionCallNodeBuilder TriplanarTangentsFunctionCall("TriplanarTangents", "/Plugin/TextureSets/Triplanar.ush");
 
-	TriplanarTangentsFunctionCall.InArgument("Normal", Builder->GetFallbackValue(EGraphBuilderSharedValueType::BaseNormal));
+	TriplanarTangentsFunctionCall.InArgument("Normal", Builder->GetSharedValue(FSubSampleAddress::Root(), EGraphBuilderSharedValueType::BaseNormal));
 
 	TriplanarTangentsFunctionCall.OutArgument("TangentX", ECustomMaterialOutputType::CMOT_Float3);
 	TriplanarTangentsFunctionCall.OutArgument("BitangentX", ECustomMaterialOutputType::CMOT_Float3);
@@ -100,26 +92,13 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAs
 			TArray<SubSampleHandle> SubsampleHandles = Builder->AddSubsampleGroup(SubsampleDefinitions);
 
 			Builder->AddSampleBuilder(SampleBuilderFunction([this, SubsampleHandles, TriplanarUVsFunctionCallExp, TriplanarTangentsFunctionCallExp, Builder](FTextureSetSubsampleContext& SampleContext)
-				{
-					int32 RelevantIndex = SubsampleHandles.IndexOfByPredicate([&](const FGuid& guid) { return SampleContext.IsRelevant(guid); });
+			{
+				int32 RelevantIndex = SubsampleHandles.IndexOfByPredicate([&](const FGuid& guid) { return SampleContext.IsRelevant(guid); });
 
-					SampleContext.SetSharedValue(FGraphBuilderOutputAddress(TriplanarUVsFunctionCallExp, RelevantIndex + 1), EGraphBuilderSharedValueType::Texcoord_Raw);
-					SampleContext.SetSharedValue(FGraphBuilderOutputAddress(TriplanarUVsFunctionCallExp, RelevantIndex + 1), EGraphBuilderSharedValueType::Texcoord_Sampling);
-
-					SampleContext.SetSharedValue(FGraphBuilderOutputAddress(TriplanarTangentsFunctionCallExp, RelevantIndex * 2 + 1), EGraphBuilderSharedValueType::Tangent);
-					SampleContext.SetSharedValue(FGraphBuilderOutputAddress(TriplanarTangentsFunctionCallExp, RelevantIndex * 2 + 2), EGraphBuilderSharedValueType::Bitangent);
-
-
-					UMaterialExpressionDDX* DDXExp = Builder->CreateExpression<UMaterialExpressionDDX>();
-					UMaterialExpressionDDY* DDYExp = Builder->CreateExpression<UMaterialExpressionDDY>();
-
-					Builder->Connect(TriplanarUVsFunctionCallExp, RelevantIndex + 1, DDXExp, 0);
-					Builder->Connect(TriplanarUVsFunctionCallExp, RelevantIndex + 1, DDYExp, 0);
-
-					SampleContext.SetSharedValue(FGraphBuilderOutputAddress(DDXExp, 0), EGraphBuilderSharedValueType::Texcoord_DDX);
-					SampleContext.SetSharedValue(FGraphBuilderOutputAddress(DDYExp, 0), EGraphBuilderSharedValueType::Texcoord_DDY);
-
-				}));
+				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(TriplanarUVsFunctionCallExp, RelevantIndex + 1), EGraphBuilderSharedValueType::Texcoord_Raw);
+				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(TriplanarTangentsFunctionCallExp, RelevantIndex * 2 + 1), EGraphBuilderSharedValueType::Tangent);
+				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(TriplanarTangentsFunctionCallExp, RelevantIndex * 2 + 2), EGraphBuilderSharedValueType::Bitangent);
+			}));
 			break;
 		}
 		case ETriplanarMappingMode::SingleSample:
@@ -154,16 +133,13 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAs
 			UMaterialExpression* SingleSampleTriplanarFunctionCallExp = SingleSampleTriplanarFunctionCall.Build(Builder);
 
 			Builder->AddSampleBuilder(SampleBuilderFunction([this, SampleParams, SingleSampleTriplanarFunctionCallExp, Builder](FTextureSetSubsampleContext& SampleContext)
-				{
-					SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 1), EGraphBuilderSharedValueType::Texcoord_Raw);
-					SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 1), EGraphBuilderSharedValueType::Texcoord_Sampling);
-
-					SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 2), EGraphBuilderSharedValueType::Tangent);
-					SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 3), EGraphBuilderSharedValueType::Bitangent);
-
-					SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 4), EGraphBuilderSharedValueType::Texcoord_DDX);
-					SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 5), EGraphBuilderSharedValueType::Texcoord_DDY);
-				}));
+			{
+				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 1), EGraphBuilderSharedValueType::Texcoord_Raw);
+				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 2), EGraphBuilderSharedValueType::Tangent);
+				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 3), EGraphBuilderSharedValueType::Bitangent);
+				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 4), EGraphBuilderSharedValueType::Texcoord_DDX);
+				SampleContext.SetSharedValue(FGraphBuilderOutputAddress(SingleSampleTriplanarFunctionCallExp, 5), EGraphBuilderSharedValueType::Texcoord_DDY);
+			}));
 			break;
 		}
 	}

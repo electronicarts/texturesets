@@ -59,8 +59,7 @@ public:
 	UMaterialExpressionFunctionOutput* CreateOutput(FName Name);
 	UMaterialExpression* MakeConstantParameter(FName Name, FVector4f Default);
 
-	UMaterialExpressionNamedRerouteDeclaration* CreateReroute(FName Name);
-	UMaterialExpressionNamedRerouteDeclaration* CreateReroute(const FString& Name, const FString& Namespace);
+	UMaterialExpressionNamedRerouteDeclaration* CreateReroute(const FString& Name, const FSubSampleAddress& SampleAddress);
 
 	const TArray<SubSampleHandle>& AddSubsampleGroup(TArray<FSubSampleDefinition> SampleGroup);
 	void AddSampleBuilder(SampleBuilderFunction SampleBuilder);
@@ -87,10 +86,11 @@ public:
 
 	FString SubsampleAddressToString(const FSubSampleAddress& Address);
 
-	const FGraphBuilderOutputAddress& GetFallbackValue(EGraphBuilderSharedValueType Value);
-	const void SetFallbackValue(FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType Value);
+	const FGraphBuilderOutputAddress& GetSharedValue(const FSubSampleAddress& SampleAddress, EGraphBuilderSharedValueType ValueType);
+	const void SetSharedValue(const FSubSampleAddress& SampleAddress, FGraphBuilderOutputAddress Address, EGraphBuilderSharedValueType ValueType);
 
-	const UTextureSetModule* GetWorkingModule() { return WorkingModule; }
+	const UTextureSetModule* GetWorkingModule() const { return WorkingModule; }
+	FText SampleAddressToText(const FSubSampleAddress& SampleAddress) const;
 private:
 
 	const FTextureSetMaterialGraphBuilderArgs Args;
@@ -106,9 +106,7 @@ private:
 	TMap<FName, TObjectPtr<UMaterialExpressionFunctionInput>> GraphInputs;
 	TMap<FName, TObjectPtr<UMaterialExpressionFunctionOutput>> GraphOutputs;
 
-	TMap<EGraphBuilderSharedValueType, FGraphBuilderValue> FallbackValues;
-
-	TMap<FGraphBuilderInputAddress, FGraphBuilderOutputAddress> DeferredConnections;
+	TMap<FSubSampleAddress, TMap<EGraphBuilderSharedValueType, FGraphBuilderValue>> SharedValues;
 
 	TArray<TTuple<SampleBuilderFunction, const class UTextureSetModule*>> SampleBuilders;
 
@@ -121,8 +119,7 @@ private:
 	TMap<FName, FGraphBuilderOutputAddress> BuildSubsamplesRecursive(const FSubSampleAddress& Address);
 	TMap<FName, FGraphBuilderOutputAddress> BlendSubsampleResults(const FSubSampleAddress& Address, TArray<TMap<FName, FGraphBuilderOutputAddress>>);
 
-	void SetupFallbackValues();
-	void SetupSharedValues(FTextureSetSubsampleContext& Context);
+	void SetupFallbackValues(const FSubSampleAddress& Address);
 	void SetupTextureValues(FTextureSetSubsampleContext& Context);
 
 	UMaterialExpression* MakeTextureSamplerCustomNode(int Index, FTextureSetSubsampleContext& Context);
