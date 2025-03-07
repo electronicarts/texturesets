@@ -19,8 +19,8 @@ public:
 		check(TileOffset.Y >= 0);
 		check(TileOffset.Z >= 0);
 		check(TileOffset.X + TileSize.X <= TextureSize.X);
-		check(TileOffset.Y + TileSize.Y <= TextureSize.X);
-		check(TileOffset.Z + TileSize.Z <= TextureSize.X);
+		check(TileOffset.Y + TileSize.Y <= TextureSize.Y);
+		check(TileOffset.Z + TileSize.Z <= TextureSize.Z);
 
 		// Check if we might get out of range because our texture is too large
 		check(((int64)TextureSize.X * (int64)TextureSize.Y * (int64)TextureSize.Z) < (int64)MAX_int32);
