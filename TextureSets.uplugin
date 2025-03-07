@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
-	"VersionName": "0.0.1",
+	"VersionName": "0.0.2",
 	"FriendlyName": "Texture Sets",
 	"Description": "Texture sets is a plugin developed for UE5, and provides an opt-in framework for building advanced, streamlined texture pipelines.",
 	"Category": "Rendering",
