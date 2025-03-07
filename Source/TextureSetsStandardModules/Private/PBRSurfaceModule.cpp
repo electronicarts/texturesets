@@ -142,14 +142,14 @@ void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetPara
 		switch (Paramaterization)
 		{
 		case EPBRParamaterization::Basecolor_Metal:
-			Subsample.AddResult(MetalName, Subsample.GetProcessedTextureSample(MetalName));
+			Subsample.AddResult(MetalName, Subsample.GetSharedValue(MetalName));
 			// Falls through
 		case EPBRParamaterization::Dielectric:
-			Subsample.AddResult(BaseColorName, Subsample.GetProcessedTextureSample(BaseColorName));
+			Subsample.AddResult(BaseColorName, Subsample.GetSharedValue(BaseColorName));
 			break;
 		case EPBRParamaterization::Albedo_Spec:
-			Subsample.AddResult(AlbedoName, Subsample.GetProcessedTextureSample(AlbedoName));
-			Subsample.AddResult(SpecularName, Subsample.GetProcessedTextureSample(SpecularName));
+			Subsample.AddResult(AlbedoName, Subsample.GetSharedValue(AlbedoName));
+			Subsample.AddResult(SpecularName, Subsample.GetSharedValue(SpecularName));
 			break;
 		default:
 			break;
@@ -160,9 +160,9 @@ void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetPara
 		{
 			FGraphBuilderOutputPin MicrosurfaceSample;
 			if (Microsurface == EPBRMicrosurface::Roughness)
-				MicrosurfaceSample = Subsample.GetProcessedTextureSample(RoughnessName);
+				MicrosurfaceSample = Subsample.GetSharedValue(RoughnessName);
 			else if (Microsurface == EPBRMicrosurface::Smoothness)
-				MicrosurfaceSample = Subsample.GetProcessedTextureSample(SmoothnessName);
+				MicrosurfaceSample = Subsample.GetSharedValue(SmoothnessName);
 			else 
 				unimplemented()
 
@@ -190,7 +190,7 @@ void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetPara
 		// Normals
 		if (Normal == EPBRNormal::Tangent)
 		{
-			FGraphBuilderOutputPin TangentNormal = Subsample.GetProcessedTextureSample(TangentNormalName);
+			FGraphBuilderOutputPin TangentNormal = Subsample.GetSharedValue(TangentNormalName);
 
 			// Unpack tangent normal X and Y
 			UMaterialExpressionMultiply* Mul = Builder->CreateExpression<UMaterialExpressionMultiply>();

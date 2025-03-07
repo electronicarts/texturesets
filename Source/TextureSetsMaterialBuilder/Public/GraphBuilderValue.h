@@ -41,4 +41,6 @@ public:
 
 	// The module that set the value. Can be null, and is used for debugging.
 	const class UTextureSetModule* Owner;
+
+	bool IsUsed() const { return Reroute.IsValid(); }
 };

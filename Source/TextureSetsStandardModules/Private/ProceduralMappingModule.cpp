@@ -95,9 +95,9 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAs
 			{
 				int32 RelevantIndex = SubsampleHandles.IndexOfByPredicate([&](const FGuid& guid) { return Subsample.IsRelevant(guid); });
 
-				Subsample.SetSharedValue(FGraphBuilderOutputPin(TriplanarUVsFunctionCallExp, RelevantIndex + 1), EGraphBuilderSharedValueType::Texcoord_Raw);
-				Subsample.SetSharedValue(FGraphBuilderOutputPin(TriplanarTangentsFunctionCallExp, RelevantIndex * 2 + 1), EGraphBuilderSharedValueType::Tangent);
-				Subsample.SetSharedValue(FGraphBuilderOutputPin(TriplanarTangentsFunctionCallExp, RelevantIndex * 2 + 2), EGraphBuilderSharedValueType::Bitangent);
+				Subsample.SetSharedValue(EGraphBuilderSharedValueType::Texcoord_Raw, FGraphBuilderOutputPin(TriplanarUVsFunctionCallExp, RelevantIndex + 1));
+				Subsample.SetSharedValue(EGraphBuilderSharedValueType::Tangent, FGraphBuilderOutputPin(TriplanarTangentsFunctionCallExp, RelevantIndex * 2 + 1));
+				Subsample.SetSharedValue(EGraphBuilderSharedValueType::Bitangent, FGraphBuilderOutputPin(TriplanarTangentsFunctionCallExp, RelevantIndex * 2 + 2));
 			}));
 			break;
 		}
@@ -134,11 +134,11 @@ void UProceduralMappingModule::ConfigureSamplingGraphBuilder(const FTextureSetAs
 
 			Builder->AddSubsampleFunction(ConfigureSubsampleFunction([this, SampleParams, SingleSampleTriplanarFunctionCallExp, Builder](FTextureSetSubsampleBuilder& Subsample)
 			{
-				Subsample.SetSharedValue(FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 1), EGraphBuilderSharedValueType::Texcoord_Raw);
-				Subsample.SetSharedValue(FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 2), EGraphBuilderSharedValueType::Tangent);
-				Subsample.SetSharedValue(FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 3), EGraphBuilderSharedValueType::Bitangent);
-				Subsample.SetSharedValue(FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 4), EGraphBuilderSharedValueType::Texcoord_DDX);
-				Subsample.SetSharedValue(FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 5), EGraphBuilderSharedValueType::Texcoord_DDY);
+				Subsample.SetSharedValue(EGraphBuilderSharedValueType::Texcoord_Raw, FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 1));
+				Subsample.SetSharedValue(EGraphBuilderSharedValueType::Tangent, FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 2));
+				Subsample.SetSharedValue(EGraphBuilderSharedValueType::Bitangent, FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 3));
+				Subsample.SetSharedValue(EGraphBuilderSharedValueType::Texcoord_DDX, FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 4));
+				Subsample.SetSharedValue(EGraphBuilderSharedValueType::Texcoord_DDY, FGraphBuilderOutputPin(SingleSampleTriplanarFunctionCallExp, 5));
 			}));
 			break;
 		}

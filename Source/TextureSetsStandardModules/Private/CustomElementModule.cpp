@@ -19,6 +19,6 @@ void UCustomElementModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetP
 	Builder->AddSubsampleFunction(ConfigureSubsampleFunction([this, Builder](FTextureSetSubsampleBuilder& Subsample)
 	{
 		// Simply create a sample result for the element
-		Subsample.AddResult(ElementName, Subsample.GetProcessedTextureSample(ElementName));
+		Subsample.AddResult(ElementName, Subsample.GetSharedValue(ElementName));
 	}));
 }

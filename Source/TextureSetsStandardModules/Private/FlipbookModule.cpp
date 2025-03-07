@@ -298,7 +298,7 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParams
 
 		const FGraphBuilderOutputPin& FrameIndex = bNextFrame ? Frame1Index : Frame0Index;
 
-		Subsample.SetSharedValue(FrameIndex, EGraphBuilderSharedValueType::ArrayIndex);
+		Subsample.SetSharedValue(EGraphBuilderSharedValueType::ArrayIndex, FrameIndex);
 
 		if (bUseMotionVectors)
 		{
@@ -319,7 +319,7 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParams
 			}
 
 			MVFunctionCall.InArgument("FrameUVW", FrameUVW);
-			MVFunctionCall.InArgument("MotionVectorTexture", Builder->GetPackedTextureObject(MVIndex0, Subsample.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming)));
+			MVFunctionCall.InArgument("MotionVectorTexture", Builder->GetEncodedTextureObject(MVIndex0, Subsample.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming)));
 			MVFunctionCall.InArgument("MotionVectorSampler", "MotionVectorTextureSampler");
 			MVFunctionCall.InArgument("MVChannels", FString::Format(TEXT("int2({0},{1})"), {MVChannel0, MVChannel1}));
 			MVFunctionCall.InArgument("MotionVectorMul", Mul);
@@ -330,7 +330,7 @@ void UFlipbookModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParams
 			MVFunctionCall.SetReturnType(ECustomMaterialOutputType::CMOT_Float2);
 
 			FGraphBuilderOutputPin MotionVectorUV(MVFunctionCall.Build(Builder), 0);
-			Subsample.SetSharedValue(MotionVectorUV, EGraphBuilderSharedValueType::Texcoord_Sampling);
+			Subsample.SetSharedValue( EGraphBuilderSharedValueType::Texcoord_Sampling, MotionVectorUV);
 		}
 
 	}));

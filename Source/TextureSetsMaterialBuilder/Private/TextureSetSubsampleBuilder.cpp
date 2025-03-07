@@ -70,25 +70,22 @@ void FTextureSetSubsampleBuilder::AddResult(FName Name, FGraphBuilderOutputPin O
 	}
 }
 
+const FGraphBuilderOutputPin& FTextureSetSubsampleBuilder::GetSharedValue(FName Name)
+{
+	return Builder->GetSharedValue(Address, Name);
+}
+
+void FTextureSetSubsampleBuilder::SetSharedValue(FName Name, FGraphBuilderOutputPin Pin)
+{
+	Builder->SetSharedValue(Address, Name, Pin);
+}
+
 const FGraphBuilderOutputPin& FTextureSetSubsampleBuilder::GetSharedValue(EGraphBuilderSharedValueType ValueType)
 {
 	return Builder->GetSharedValue(Address, ValueType);
 }
 
-const void FTextureSetSubsampleBuilder::SetSharedValue(FGraphBuilderOutputPin OutputAddress, EGraphBuilderSharedValueType ValueType)
+void FTextureSetSubsampleBuilder::SetSharedValue(EGraphBuilderSharedValueType ValueType, FGraphBuilderOutputPin Pin)
 {
-	Builder->SetSharedValue(Address, OutputAddress, ValueType);
-}
-
-const FGraphBuilderOutputPin FTextureSetSubsampleBuilder::GetProcessedTextureSample(FName Name)
-{
-	FGraphBuilderValue& Value = ProcessedTextureValues.FindOrAdd(Name);
-
-	if (!Value.Reroute.IsValid())
-	{
-		// First time texture sample value was requested, create a reroute node for it and use that as the output
-		UMaterialExpressionNamedRerouteDeclaration* Reroute = Builder->CreateReroute(Name.ToString(), Address);
-		Value.Reroute = FGraphBuilderOutputPin(Reroute, 0);
-	}
-	return Value.Reroute;
+	Builder->SetSharedValue(Address, ValueType, Pin);
 }

@@ -145,10 +145,10 @@ void UHeightModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCo
 			FunctionCall.InArgument("ReferencePlane", POMSampleBuilderParams.ReferencePlane);
 			FunctionCall.InArgument("Position", Subsample.GetSharedValue(EGraphBuilderSharedValueType::Position));
 			FunctionCall.InArgument("SampleCount", POMSampleBuilderParams.Iterations);
-			FunctionCall.InArgument("Heightmap", Builder->GetPackedTextureObject(PackedTextureIndex, Subsample.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming)));
+			FunctionCall.InArgument("Heightmap", Builder->GetEncodedTextureObject(PackedTextureIndex, Subsample.GetSharedValue(EGraphBuilderSharedValueType::Texcoord_Streaming)));
 			FunctionCall.InArgument("HeightmapSampler", "HeightmapSampler");
 			FunctionCall.InArgument("HeightmapChannel", FString::FromInt(PackedTextureChannel)); // Hard-coded (in the shader) based on packing
-			FunctionCall.InArgument("HeightmapSize", Builder->GetPackedTextureSize(PackedTextureIndex));
+			FunctionCall.InArgument("HeightmapSize", Builder->GetEncodedTextureSize(PackedTextureIndex));
 			FunctionCall.InArgument("Tangent", Subsample.GetSharedValue(EGraphBuilderSharedValueType::Tangent));
 			FunctionCall.InArgument("Bitangent", Subsample.GetSharedValue(EGraphBuilderSharedValueType::Bitangent));
 			FunctionCall.InArgument("RangeCompressMul", RangeCompressMul);
@@ -161,7 +161,7 @@ void UHeightModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCo
 			UMaterialExpression* FunctionCallExp = FunctionCall.Build(Builder);
 
 			// Modify the sampling texcoord for this subsample with the offset texture coordinate
-			Subsample.SetSharedValue(FGraphBuilderOutputPin(FunctionCallExp, 0), EGraphBuilderSharedValueType::Texcoord_Sampling);
+			Subsample.SetSharedValue(EGraphBuilderSharedValueType::Texcoord_Sampling, FGraphBuilderOutputPin(FunctionCallExp, 0));
 
 			// Output height directly from the POM node, to save another sample
 			Subsample.AddResult("Height", FGraphBuilderOutputPin(FunctionCallExp, 3));
@@ -178,7 +178,7 @@ void UHeightModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetParamsCo
 		// If not doing POM, just add a simple sample builder that just outputs height.
 		Builder->AddSubsampleFunction(ConfigureSubsampleFunction([this, Builder](FTextureSetSubsampleBuilder& Subsample)
 		{
-			Subsample.AddResult("Height", Subsample.GetProcessedTextureSample("Height"));
+			Subsample.AddResult("Height", Subsample.GetSharedValue("Height"));
 		}));
 	}
 }

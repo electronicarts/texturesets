@@ -59,7 +59,7 @@ public:
 	UMaterialExpressionFunctionOutput* CreateOutput(FName Name);
 	UMaterialExpression* MakeConstantParameter(FName Name, FVector4f Default);
 
-	UMaterialExpressionNamedRerouteDeclaration* CreateReroute(const FString& Name, const FSubSampleAddress& SampleAddress);
+	UMaterialExpressionNamedRerouteDeclaration* CreateReroute(FName Name, const FSubSampleAddress& SampleAddress);
 
 	const TArray<SubSampleHandle>& AddSubsampleGroup(TArray<FSubSampleDefinition> SampleGroup);
 	void AddSubsampleFunction(ConfigureSubsampleFunction SampleBuilder);
@@ -75,10 +75,10 @@ public:
 	void Connect(UMaterialExpression* OutputNode, FName OutputName, UMaterialExpression* InputNode, uint32 InputIndex);
 	void Connect(const FGraphBuilderOutputPin& Output, const FGraphBuilderInputPin& Input);
 	
-	FGraphBuilderOutputPin GetPackedTextureObject(int Index, FGraphBuilderOutputPin StreamingCoord);
-	const FGraphBuilderOutputPin GetPackedTextureSize(int Index);
-	const TTuple<int, int> GetPackingSource(FName ProcessedTextureChannel) { return Args.PackingInfo.GetPackingSource(ProcessedTextureChannel); }
-	// Gets the addresses of the range compress multiply and add parameters for a specific packed texture.
+	FGraphBuilderOutputPin GetEncodedTextureObject(int Index, FGraphBuilderOutputPin StreamingCoord);
+	const FGraphBuilderOutputPin GetEncodedTextureSize(int Index);
+	const TTuple<int, int> GetPackingSource(FName DecodedTextureChannel) { return Args.PackingInfo.GetPackingSource(DecodedTextureChannel); }
+	// Gets the addresses of the range compress multiply and add parameters for a specific encoded texture.
 	const TTuple<FGraphBuilderOutputPin, FGraphBuilderOutputPin> GetRangeCompressParams(int Index);
 
 	void LogError(FText ErrorText);
@@ -86,8 +86,11 @@ public:
 
 	FString SubsampleAddressToString(const FSubSampleAddress& Address);
 
-	const FGraphBuilderOutputPin& GetSharedValue(const FSubSampleAddress& SampleAddress, EGraphBuilderSharedValueType ValueType);
-	const void SetSharedValue(const FSubSampleAddress& SampleAddress, FGraphBuilderOutputPin Address, EGraphBuilderSharedValueType ValueType);
+	const FGraphBuilderOutputPin& GetSharedValue(const FSubSampleAddress& Address, FName Name);
+	const void SetSharedValue(const FSubSampleAddress& Address, FName Name, FGraphBuilderOutputPin Pin);
+
+	const FGraphBuilderOutputPin& GetSharedValue(const FSubSampleAddress& Address, EGraphBuilderSharedValueType ValueType);
+	void SetSharedValue(const FSubSampleAddress& Address, EGraphBuilderSharedValueType ValueType, FGraphBuilderOutputPin Pin);
 
 	const UTextureSetModule* GetWorkingModule() const { return WorkingModule; }
 private:
@@ -97,15 +100,15 @@ private:
 	TArray<TArray<SubSampleHandle>> SampleGroups;
 	TMap<SubSampleHandle, FSubSampleDefinition> SubsampleDefinitions;
 
-	TArray<TObjectPtr<UMaterialExpressionTextureObjectParameter>> PackedTextureObjects;
-	TArray<TObjectPtr<UMaterialExpression>> PackedTextureSizes;
+	TArray<TObjectPtr<UMaterialExpressionTextureObjectParameter>> EncodedTextureObjects;
+	TArray<TObjectPtr<UMaterialExpression>> EncodedTextureSizes;
 
 	TMap<FName, TObjectPtr<UMaterialExpression>> ConstantParameters;
 
 	TMap<FName, TObjectPtr<UMaterialExpressionFunctionInput>> GraphInputs;
 	TMap<FName, TObjectPtr<UMaterialExpressionFunctionOutput>> GraphOutputs;
 
-	TMap<FSubSampleAddress, TMap<EGraphBuilderSharedValueType, FGraphBuilderValue>> SharedValues;
+	TMap<FSubSampleAddress, TMap<FName, FGraphBuilderValue>> SharedValues;
 
 	TArray<TTuple<ConfigureSubsampleFunction, const class UTextureSetModule*>> SubsampleFunctions;
 
@@ -121,7 +124,7 @@ private:
 	void SetupFallbackValues(const FSubSampleAddress& Address);
 	void SetupTextureValues(FTextureSetSubsampleBuilder& Context);
 
-	UMaterialExpression* MakeTextureSamplerCustomNode(int Index, FTextureSetSubsampleBuilder& Context);
+	UMaterialExpression* BuildTextureDecodeNode(int Index, FTextureSetSubsampleBuilder& Context);
 	UMaterialExpression* MakeSynthesizeTangentCustomNode(const FGraphBuilderOutputPin& Position, const FGraphBuilderOutputPin& Texcoord, const FGraphBuilderOutputPin& Normal);
 
 	static int32 FindInputIndexChecked(UMaterialExpression* InputNode, FName InputName);

@@ -40,7 +40,7 @@ void UTextureSetElementCollectionModule::ConfigureSamplingGraphBuilder(const FTe
 			// Create a sample result for each texture
 			for (const auto& [ElementName, ElementDef]: Collection->Elements)
 			{
-				Subsample.AddResult(ElementName, Subsample.GetProcessedTextureSample(ElementName));
+				Subsample.AddResult(ElementName, Subsample.GetSharedValue(ElementName));
 			}
 		}));
 	}

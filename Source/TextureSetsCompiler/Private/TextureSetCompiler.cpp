@@ -382,7 +382,7 @@ void FTextureSetCompiler::GenerateTextureSource(FDerivedTexture& DerivedTexture,
 				c
 			);
 
-			// Channel encoding (decoding happens in FTextureSetSampleFunctionBuilder::MakeTextureSamplerCustomNode)
+			// Channel encoding (decoding happens in FTextureSetSampleFunctionBuilder::BuildTextureDecodeNode)
 			if (ChanelInfo.ChannelEncoding & (uint8)ETextureSetChannelEncoding::RangeCompression)
 			{
 				// Initialize the max and min pixel values so they will be overridden by the first pixel

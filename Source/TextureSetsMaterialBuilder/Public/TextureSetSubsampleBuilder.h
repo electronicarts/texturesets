@@ -4,6 +4,7 @@
 
 #include "GraphBuilderPin.h"
 #include "GraphBuilderValue.h"
+#include "TextureSetSampleFunctionBuilder.h"
 
 /*
 * Subsamples are registered in sample groups in the graph builder.
@@ -26,7 +27,6 @@ A FSubSampleAddress is a chain of SubSampleHandles used to address a specific su
 context (e.g. F0::X, or F1::Z)
 */
 
-class FTextureSetSampleFunctionBuilder;
 class FTextureSetSubsampleBuilder;
 
 #define ConfigureSubsampleFunction TFunction<void(FTextureSetSubsampleBuilder&)>
@@ -93,17 +93,15 @@ public:
 
 	void AddResult(FName Name, FGraphBuilderOutputPin Output);
 
-	// Valid for both texture names e.g. "BaseColor" and with channel suffix e.g. "BaseColor.g"
-	const FGraphBuilderOutputPin& GetSharedValue(EGraphBuilderSharedValueType Value);
-	const void SetSharedValue(FGraphBuilderOutputPin Address, EGraphBuilderSharedValueType Value);
+	const FGraphBuilderOutputPin& GetSharedValue(FName Name);
+	void SetSharedValue(FName Name, FGraphBuilderOutputPin Pin);
 
-	const FGraphBuilderOutputPin GetProcessedTextureSample(FName Name);
+	const FGraphBuilderOutputPin& GetSharedValue(EGraphBuilderSharedValueType ValueType);
+	void SetSharedValue(EGraphBuilderSharedValueType ValueType, FGraphBuilderOutputPin Pin);
 
 private:
 	FTextureSetSampleFunctionBuilder* Builder;
 	FSubSampleAddress Address;
-
-	TMap<FName, FGraphBuilderValue> ProcessedTextureValues;
 
 	TMap<FName, FGraphBuilderOutputPin> Results;
 	TMap<FName, const class UTextureSetModule*> ResultOwners;
