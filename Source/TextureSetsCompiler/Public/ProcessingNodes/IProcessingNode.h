@@ -21,21 +21,27 @@ public:
 	// Return a uniqe name for this node type
 	virtual FName GetNodeTypeName() const = 0;
 
-	// Loads resources required for executing the graph. Called before Initialize, and guaranteed to be on the game thread.
-	// All required data from the context should be copied into member variables here to avoid race conditions.
-	virtual void LoadResources(const FTextureSetProcessingContext& Context) = 0;
-
-	// Initializes the graph, doing any pre-processing of data required.
-	// This can be called on a worker thread, so should not load resources or modify UObjects
-	virtual void Initialize(const FTextureSetProcessingGraph& Graph) = 0;
-
-	// Computes the hash of the graph logic. Doesn't take into account any data, and can be called without initializing the node.
-	// Result should include hashes from dependent nodes' ComputeGraphHash() functions
+	// Computes the hash of the graph logic. Used to determine if the graph itself has changed.
+	// Doesn't take into account any data, and may be called without initializing the node.
+	// Result should recursively include hashes from dependent nodes' ComputeGraphHash() functions
+	// Always executes on the game thread, so safe to access UObjects
 	virtual void ComputeGraphHash(FHashBuilder& HashBuilder) const = 0;
 
-	// Computes the hash of the graph's input data. Can be called without initializing the node.
-	// Result should include hashes from dependent nodes' ComputeDataHash() functions
+	// Called immediately after the graph has been constructed, before any other functions of the node are used.
+	// Used to read values from the context, and produce a hash to determine if a rebuild is required.
+	// Should recursively include hashes from dependent nodes' ComputeDataHash() functions
+	// Always executes on the game thread, so safe to access UObjects
 	virtual void ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const = 0;
+
+	// Called when the compiler has determined a recomputation is required, directly before invoking any other functions.
+	// All required data from the context should be copied into member variables, safe for multi-threaded access.
+	// Should recursively invoke Prepare() on dependent nodes.
+	// Always executes on the game thread, so safe to access UObjects.
+	virtual void Prepare(const FTextureSetProcessingContext& Context) = 0;
+
+	// Should recursively invoke Cache() on dependent nodes.
+	// May execute on a worker thread, so not safe to access UObjects, and should be protected by a mutex.
+	virtual void Cache() = 0;
 };
 
 // Processing node that computes texture data
@@ -49,11 +55,15 @@ public:
 		int Slices;
 	};
 
+	// Fetches the texture size. Called after the node has been prepared.
 	virtual FTextureDimension GetTextureDimension() const = 0;
+
+	// Gets the format of the texture output. Can be called BEFORE prepare()
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() const = 0;
 
-	// Compute a texture channel and write into the texture data.
-	virtual void ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const = 0;
+	// Write a channel into the texture data.
+	// May execute on a worker thread, so not safe to access UObjects
+	virtual void WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const = 0;
 };
 
 // Processing node that computes a Vec4 parameter

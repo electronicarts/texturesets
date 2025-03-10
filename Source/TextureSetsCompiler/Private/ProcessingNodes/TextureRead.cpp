@@ -8,7 +8,7 @@
 FTextureRead::FTextureRead(FName SourceNameIn, const FTextureSetSourceTextureDef& SourceDefinitionIn)
 	: SourceName(SourceNameIn)
 	, SourceDefinition(SourceDefinitionIn)
-	, bLoaded(false)
+	, bPrepared(false)
 	, AsyncSource()
 	, ValidChannels(0)
 	, ChannelSwizzle{0, 1, 2, 3}
@@ -18,15 +18,61 @@ FTextureRead::FTextureRead(FName SourceNameIn, const FTextureSetSourceTextureDef
 {
 }
 
-void FTextureRead::LoadResources(const FTextureSetProcessingContext& Context)
+void FTextureRead::ComputeGraphHash(FHashBuilder& HashBuilder) const
 {
-#if TS_SOFT_SOURCE_TEXTURE_REF
-	check(!IsLoading()); // LoadSynchronous often fails if we are loading something else
-#endif
+	HashBuilder << GetNodeTypeName();
+	HashBuilder << SourceName;
+	HashBuilder << GetTypeHash(SourceDefinition);
+}
 
+void FTextureRead::ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const
+{
 	check(IsInGameThread());
 
-	if (bLoaded)
+	#if TS_SOFT_SOURCE_TEXTURE_REF
+	check(!IsLoading()); // LoadSynchronous often fails if we are loading something else
+	#endif
+
+	if(Context.SourceTextures.Contains(SourceName))
+	{
+		const FTextureSetSourceTextureReference& TextureRef = Context.SourceTextures.FindChecked(SourceName);
+
+		if (!TextureRef.IsNull())
+		{
+			FString PayloadIdString;
+
+			// If referenced texture is already loaded just grab the ID string from it directly
+			if (!TextureRef.Valid() || !TextureSetsHelpers::GetSourceDataIdAsString(TextureRef.Texture.Get(), PayloadIdString))
+			{
+#if TS_SOFT_SOURCE_TEXTURE_REF
+				// If the referenced texture is not loaded, check if we have the IdString saved with it's asset data
+				// so we can avoid loading the texture just to check if it's changed.
+				FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+				FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(TextureRef.GetTexturePath());
+
+				if(!TextureSetsHelpers::GetSourceDataIdAsString(AssetData, PayloadIdString))
+#endif
+				{
+					// If we were not able to get the ID string from the asset data, we need to load the texture to retreive it.
+					// This should only happen on textures that were created before the texture-sets plugin was enabled, and haven't been re-saved since.
+					// As existing textures are modified and re-saved, this should happen less frequently.
+					UTexture* T = TextureRef.GetTexture();
+					check(IsValid(T));
+					FGuid PersistentID = T->Source.GetPersistentId();
+					TextureSetsHelpers::GetSourceDataIdAsString(T, PayloadIdString);
+				}
+			}
+			
+			check(!PayloadIdString.IsEmpty())
+			HashBuilder << PayloadIdString;
+			HashBuilder << TextureRef.ChannelMask;
+		}
+	}
+}
+
+void FTextureRead::Prepare(const FTextureSetProcessingContext& Context)
+{
+	if (bPrepared)
 		return;
 
 	if(Context.SourceTextures.Contains(SourceName))
@@ -88,11 +134,13 @@ void FTextureRead::LoadResources(const FTextureSetProcessingContext& Context)
 		}
 	}
 
-	bLoaded = true;
+	bPrepared = true;
 }
 
-void FTextureRead::Initialize(const FTextureSetProcessingGraph& Graph)
+void FTextureRead::Cache()
 {
+	check(bPrepared); // Should not happen unless called out of order
+
 	if (AsyncSource.IsValid())
 	{
 		// This version of GetMipData does not make any internal copies,
@@ -101,56 +149,6 @@ void FTextureRead::Initialize(const FTextureSetProcessingGraph& Graph)
 		// so will remain valid as long as we need it
 		FTextureSource::FMipData MipData = AsyncSource.GetMipData(nullptr);
 		TextureSourceMip0 = MipData.GetMipData(0, 0, 0);
-	}
-}
-
-void FTextureRead::ComputeGraphHash(FHashBuilder& HashBuilder) const
-{
-	HashBuilder << GetNodeTypeName();
-	HashBuilder << SourceName;
-	HashBuilder << GetTypeHash(SourceDefinition);
-}
-
-void FTextureRead::ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const
-{
-#if TS_SOFT_SOURCE_TEXTURE_REF
-	check(!IsLoading()); // LoadSynchronous often fails if we are loading something else
-#endif
-
-	if(Context.SourceTextures.Contains(SourceName))
-	{
-		const FTextureSetSourceTextureReference& TextureRef = Context.SourceTextures.FindChecked(SourceName);
-
-		if (!TextureRef.IsNull())
-		{
-			FString PayloadIdString;
-
-			// If referenced texture is already loaded just grab the ID string from it directly
-			if (!TextureRef.Valid() || !TextureSetsHelpers::GetSourceDataIdAsString(TextureRef.Texture.Get(), PayloadIdString))
-			{
-#if TS_SOFT_SOURCE_TEXTURE_REF
-				// If the referenced texture is not loaded, check if we have the IdString saved with it's asset data
-				// so we can avoid loading the texture just to check if it's changed.
-				FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-				FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(TextureRef.GetTexturePath());
-
-				if(!TextureSetsHelpers::GetSourceDataIdAsString(AssetData, PayloadIdString))
-#endif
-				{
-					// If we were not able to get the ID string from the asset data, we need to load the texture to retreive it.
-					// This should only happen on textures that were created before the texture-sets plugin was enabled, and haven't been re-saved since.
-					// As existing textures are modified and re-saved, this should happen less frequently.
-					UTexture* T = TextureRef.GetTexture();
-					check(IsValid(T));
-					FGuid PersistentID = T->Source.GetPersistentId();
-					TextureSetsHelpers::GetSourceDataIdAsString(T, PayloadIdString);
-				}
-			}
-			
-			check(!PayloadIdString.IsEmpty())
-			HashBuilder << PayloadIdString;
-			HashBuilder << TextureRef.ChannelMask;
-		}
 	}
 }
 
@@ -404,7 +402,7 @@ namespace
 	}
 }
 
-void FTextureRead::ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const
+void FTextureRead::WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const
 {
 	if (Channel < ValidChannels)
 	{

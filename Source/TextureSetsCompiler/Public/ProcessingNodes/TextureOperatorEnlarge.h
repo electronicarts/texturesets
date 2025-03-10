@@ -46,7 +46,7 @@ public:
 		return float((TargetCoord * SourceSize) % TargetSize) / float(TargetSize);
 	}
 
-	virtual void ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override;
+	virtual void WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override;
 
 private:
 	const int TargetWidth;

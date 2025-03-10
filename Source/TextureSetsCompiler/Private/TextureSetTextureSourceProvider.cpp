@@ -55,7 +55,7 @@ void UTextureSetTextureSourceProvider::Prepare(UTexture* Texture)
 	check(DerivedTexture.Texture == Texture);
 
 	Compiler = MakeUnique<FTextureSetCompiler>(CompilerArgs.ToSharedRef());
-	Compiler->LoadResources();
+	Compiler->Prepare();
 	Compiler->InitializeTextureSource(DerivedTexture, Index);
 	bIsPrepared = true;
 }

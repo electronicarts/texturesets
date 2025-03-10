@@ -17,17 +17,15 @@ private:
 public:
 	virtual FName GetNodeTypeName() const  { return "TextureInput"; }
 
-	virtual void LoadResources(const FTextureSetProcessingContext& Context) override { check(LastNode); LastNode->LoadResources(Context); }
-
-	virtual void Initialize(const FTextureSetProcessingGraph& Graph) override { check(LastNode); LastNode->Initialize(Graph); }
-
 	virtual void ComputeGraphHash(FHashBuilder& HashBuilder) const override;
 	virtual void ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const override { check(LastNode); LastNode->ComputeDataHash(Context, HashBuilder); }
+	virtual void Prepare(const FTextureSetProcessingContext& Context) override { check(LastNode); LastNode->Prepare(Context); }
+	virtual void Cache() override { check(LastNode); LastNode->Cache(); }
 
 	virtual FTextureDimension GetTextureDimension() const override { check(LastNode); return LastNode->GetTextureDimension(); }
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() const override { check(LastNode); return LastNode->GetTextureDef(); }
 
-	virtual void ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override { LastNode->ComputeChannel(Channel, Tile, TextureData); }
+	virtual void WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override { LastNode->WriteChannel(Channel, Tile, TextureData); }
 
 	void AddOperator(CreateOperatorFunc Operator) { CreateOperatorFuncs.Add(Operator); }
 

@@ -253,7 +253,7 @@ void TextureSetCompilerTask::CreateDerivedData()
 	check(IsInGameThread());
 	check(!DerivedData.IsValid()); // Data should not have been created yet
 
-	Compiler->LoadResources();
+	Compiler->Prepare();
 
 	const int NumDerivedTextures = Compiler->Args->PackingInfo.NumPackedTextures();
 

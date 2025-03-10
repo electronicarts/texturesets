@@ -20,9 +20,9 @@ public:
 
 	virtual FName GetNodeTypeName() const  { return "FlipNormalGreen"; }
 
-	virtual void LoadResources(const FTextureSetProcessingContext& Context) override
+	virtual void Prepare(const FTextureSetProcessingContext& Context) override
 	{
-		FTextureOperator::LoadResources(Context);
+		FTextureOperator::Prepare(Context);
 
 		const UPBRAssetParams* FlipbookAssetParams = Context.AssetParams.Get<UPBRAssetParams>();
 
@@ -37,9 +37,9 @@ public:
 		HashBuilder << (FlipbookAssetParams->bFlipNormalGreen);
 	}
 
-	void ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override
+	void WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override
 	{
-		SourceImage->ComputeChannel(Channel, Tile, TextureData);
+		SourceImage->WriteChannel(Channel, Tile, TextureData);
 
 		if (Channel == 1 && bFlipGreen)
 		{

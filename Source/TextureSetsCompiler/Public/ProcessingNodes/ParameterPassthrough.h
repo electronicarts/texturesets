@@ -15,16 +15,6 @@ public:
 
 	virtual FName GetNodeTypeName() const override { return Name; }
 
-	virtual void LoadResources(const FTextureSetProcessingContext& Context) override
-	{
-		Value = Callback(Context.AssetParams.Get<ParameterClass>());
-	}
-
-	virtual void Initialize(const FTextureSetProcessingGraph& Graph) override
-	{
-		// No initialization needed
-	}
-
 	virtual void ComputeGraphHash(FHashBuilder& HashBuilder) const override
 	{
 		HashBuilder << GetNodeTypeName();
@@ -33,6 +23,16 @@ public:
 	virtual void ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const override
 	{
 		HashBuilder << Callback(Context.AssetParams.Get<ParameterClass>());
+	}
+
+	virtual void Prepare(const FTextureSetProcessingContext& Context) override
+	{
+		Value = Callback(Context.AssetParams.Get<ParameterClass>());
+	}
+
+	virtual void Cache() override
+	{
+		// No cache needed
 	}
 
 	virtual FVector4f GetValue() const override { return Value; }

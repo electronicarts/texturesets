@@ -30,9 +30,9 @@ public:
 		return Def;
 	}
 
-	virtual void LoadResources(const FTextureSetProcessingContext& Context) override
+	virtual void Prepare(const FTextureSetProcessingContext& Context) override
 	{
-		FTextureOperator::LoadResources(Context);
+		FTextureOperator::Prepare(Context);
 
 		const UFlipbookAssetParams* FlipbookAssetParams = Context.AssetParams.Get<UFlipbookAssetParams>();
 		if (FlipbookAssetParams->FlipbookSourceType == EFlipbookSourceType::TextureSheet)
@@ -82,12 +82,12 @@ public:
 		);
 	}
 
-	void ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override
+	void WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override
 	{
 		if (FramesPerImage == 1)
 		{
 			// Can early out without remapping the frames
-			SourceImage->ComputeChannel(Channel, Tile, TextureData);
+			SourceImage->WriteChannel(Channel, Tile, TextureData);
 			return;
 		}
 		
@@ -129,7 +129,7 @@ public:
 						Tile.TileCoordToDataIndex(FIntVector3(0, 0, DestSlice - Tile.TileOffset.Z))
 					);
 					
-					SourceImage->ComputeChannel(Channel, SourceTile, TextureData);
+					SourceImage->WriteChannel(Channel, SourceTile, TextureData);
 				}
 			}
 		}
@@ -155,10 +155,13 @@ public:
 
 	virtual FName GetNodeTypeName() const override { return Name; }
 
-	virtual void LoadResources(const FTextureSetProcessingContext& Context) override
+	virtual void Prepare(const FTextureSetProcessingContext& Context) override
 	{
+		if (bInitialized)
+			return;
+
 		for (const TSharedRef<ITextureProcessingNode>& ProcessingNode : ProcessedTextures)
-			ProcessingNode->LoadResources(Context);
+			ProcessingNode->Prepare(Context);
 
 		const UFlipbookAssetParams* Parameter = Context.AssetParams.Get<UFlipbookAssetParams>();
 
@@ -168,17 +171,12 @@ public:
 		Value.Z = Parameter->FlipbookFramerate;
 		if (Parameter->bFlipbookLooping)
 			Value.Z = -Value.Z;
-	}
 
-	virtual void Initialize(const FTextureSetProcessingGraph& Graph) override
-	{
-		if (bInitialized)
-			return;
 
 		int FrameCount = 0;
-		for (auto& [OutputName, ProcessingNode] : Graph.GetOutputTextures())
+		for (auto& [OutputName, ProcessingNode] : Context.Graph->GetOutputTextures())
 		{
-			ProcessingNode->Initialize(Graph);
+			ProcessingNode->Prepare(Context);
 			ITextureProcessingNode::FTextureDimension SourceImageDimension = ProcessingNode->GetTextureDimension();
 
 			FrameCount = FMath::Max(FrameCount, SourceImageDimension.Slices);
@@ -187,6 +185,11 @@ public:
 		Value.W = FrameCount;
 
 		bInitialized = true;
+	}
+
+	virtual void Cache() override
+	{
+
 	}
 
 	virtual void ComputeGraphHash(FHashBuilder& HashBuilder) const override

@@ -4,7 +4,7 @@
 
 #include "ProcessingNodes/TextureOperatorEnlarge.h"
 
-void FTextureOperatorEnlarge::ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const
+void FTextureOperatorEnlarge::WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const
 {
 	const FIntVector TargetSize = FIntVector(TargetWidth, TargetHeight, TargetSlices);
 	const FTextureDimension SourceDimension = SourceImage->GetTextureDimension();
@@ -42,7 +42,7 @@ void FTextureOperatorEnlarge::ComputeChannel(int32 Channel, const FTextureDataTi
 		0
 	);
 		
-	SourceImage->ComputeChannel(Channel, SourceTile, SourceTextureData.GetData());
+	SourceImage->WriteChannel(Channel, SourceTile, SourceTextureData.GetData());
 
 	// Don't do trilinear filtering for 2d textures, or texture arrays.
 	const bool bTrilinear = SourceTileSize.Z > 0 && !(SourceDef.Flags & (uint8)ETextureSetTextureFlags::Array);

@@ -12,9 +12,6 @@ public:
 		: SourceImage(I)
 	{}
 
-	virtual void LoadResources(const FTextureSetProcessingContext& Context) override { SourceImage->LoadResources(Context); }
-	virtual void Initialize(const FTextureSetProcessingGraph& Graph) override { SourceImage->Initialize(Graph); }
-
 	virtual void ComputeGraphHash(FHashBuilder& HashBuilder) const override
 	{
 		SourceImage->ComputeGraphHash(HashBuilder);
@@ -22,6 +19,8 @@ public:
 	}
 
 	virtual void ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const override { SourceImage->ComputeDataHash(Context, HashBuilder); }
+	virtual void Prepare(const FTextureSetProcessingContext& Context) override { SourceImage->Prepare(Context); }
+	virtual void Cache() override { SourceImage->Cache(); }
 
 	virtual FTextureDimension GetTextureDimension() const override { return SourceImage->GetTextureDimension(); }
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() const override { return SourceImage->GetTextureDef(); }

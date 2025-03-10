@@ -13,9 +13,9 @@ public:
 
 	virtual FName GetNodeTypeName() const  { return "Invert"; }
 
-	virtual void ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override
+	virtual void WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override
 	{
-		SourceImage->ComputeChannel(Channel, TextureData);
+		SourceImage->WriteChannel(Channel, TextureData);
 
 		Channel.ForEachPixel([TextureData](FTextureDataTileDesc::ForEachPixelContext& Context)
 		{

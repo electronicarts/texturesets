@@ -10,4 +10,5 @@ struct FTextureSetProcessingContext
 {
 	TMap<FName, FTextureSetSourceTextureReference> SourceTextures;
 	FTextureSetAssetParamsCollection AssetParams;
+	TSharedPtr<class FTextureSetProcessingGraph> Graph;
 };

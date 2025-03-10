@@ -43,7 +43,7 @@ public:
 	// True if this compiler will produce the same derived data as the other compiler
 	bool Equivalent(FTextureSetCompiler& OtherCompiler) const;
 
-	void LoadResources();
+	void Prepare();
 
 	void ConfigureTexture(FDerivedTexture& DerivedTexture, int Index) const;
 	void InitializeTextureSource(FDerivedTexture& DerivedTexture, int Index) const;
@@ -63,7 +63,7 @@ private:
 	FTextureSetProcessingContext Context;
 	TSharedPtr<FTextureSetProcessingGraph> GraphInstance;
 
-	bool bResourcesLoaded;
+	bool bPrepared;
 
 	mutable TArray<FGuid> CachedDerivedTextureIds;
 	mutable TMap<FName, FGuid> CachedParameterIds;

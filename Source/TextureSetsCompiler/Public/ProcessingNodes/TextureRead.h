@@ -21,17 +21,15 @@ public:
 
 	virtual FName GetNodeTypeName() const  { return "TextureRead"; }
 
-	virtual void LoadResources(const FTextureSetProcessingContext& Context) override;
-
-	virtual void Initialize(const FTextureSetProcessingGraph& Graph) override;
-
 	virtual void ComputeGraphHash(FHashBuilder& HashBuilder) const override;
 	virtual void ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const override;
+	virtual void Prepare(const FTextureSetProcessingContext& Context) override;
+	virtual void Cache() override;
 
-	virtual FTextureDimension GetTextureDimension() const override { check(bLoaded); return {Width, Height, Slices}; }
+	virtual FTextureDimension GetTextureDimension() const override { check(bPrepared); return { Width, Height, Slices }; }
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() const override { return SourceDefinition; }
 
-	virtual void ComputeChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override;
+	virtual void WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override;
 
 	void AddOperator(CreateOperatorFunc Operator) { CreateOperatorFuncs.Add(Operator); }
 
@@ -42,7 +40,7 @@ private:
 	TArray<CreateOperatorFunc> CreateOperatorFuncs;
 	TArray<TSharedRef<class ITextureProcessingNode>> Operators;
 
-	bool bLoaded;
+	bool bPrepared;
 	FTextureSource AsyncSource;
 
 	uint8 ValidChannels;
