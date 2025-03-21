@@ -37,9 +37,9 @@ public:
 		HashBuilder << (FlipbookAssetParams->bFlipNormalGreen);
 	}
 
-	void WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override
+	void WriteChannel(int32 Channel, int32 Mip, const FTextureDataTileDesc& Tile, float* TextureData) const override
 	{
-		SourceImage->WriteChannel(Channel, Tile, TextureData);
+		SourceImage->WriteChannel(Channel, Mip, Tile, TextureData);
 
 		if (Channel == 1 && bFlipGreen)
 		{

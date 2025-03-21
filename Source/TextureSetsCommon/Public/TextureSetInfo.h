@@ -52,6 +52,16 @@ public:
 
 	UPROPERTY(EditAnywhere, Category="TextureDefinition", meta = (Bitmask, BitmaskEnum = "/Script/TextureSetsCommon.ETextureSetTextureFlags"))
 	uint8 Flags = 0;
+
+	inline bool IsVolume() const
+	{
+		return false; // Not yet implemented
+	}
+
+	inline bool IsArray() const
+	{
+		return (Flags & (uint8)ETextureSetTextureFlags::Array) != 0;
+	}
 };
 
 inline uint32 GetTypeHash(const FTextureSetProcessedTextureDef& Def)

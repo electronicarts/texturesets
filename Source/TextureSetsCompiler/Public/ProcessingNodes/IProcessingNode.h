@@ -50,9 +50,10 @@ class ITextureProcessingNode : public IProcessingNode
 public:
 	struct FTextureDimension
 	{
-		int Width;
-		int Height;
-		int Slices;
+		int Width = 0;
+		int Height = 0;
+		int Slices = 0;
+		int Mips = 0;
 	};
 
 	// Fetches the texture size. Called after the node has been prepared.
@@ -63,7 +64,7 @@ public:
 
 	// Write a channel into the texture data.
 	// May execute on a worker thread, so not safe to access UObjects
-	virtual void WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const = 0;
+	virtual void WriteChannel(int32 Channel, int32 Mip, const FTextureDataTileDesc& Tile, float* TextureData) const = 0;
 };
 
 // Processing node that computes a Vec4 parameter

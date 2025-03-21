@@ -26,10 +26,10 @@ public:
 	virtual void Prepare(const FTextureSetProcessingContext& Context) override;
 	virtual void Cache() override;
 
-	virtual FTextureDimension GetTextureDimension() const override { check(bPrepared); return { Width, Height, Slices }; }
+	virtual FTextureDimension GetTextureDimension() const override;
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() const override { return SourceDefinition; }
 
-	virtual void WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override;
+	virtual void WriteChannel(int32 Channel, int32 Mip, const FTextureDataTileDesc& Tile, float* TextureData) const override;
 
 	void AddOperator(CreateOperatorFunc Operator) { CreateOperatorFuncs.Add(Operator); }
 

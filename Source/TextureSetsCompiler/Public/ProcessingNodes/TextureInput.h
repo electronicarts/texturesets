@@ -25,7 +25,7 @@ public:
 	virtual FTextureDimension GetTextureDimension() const override { check(LastNode); return LastNode->GetTextureDimension(); }
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() const override { check(LastNode); return LastNode->GetTextureDef(); }
 
-	virtual void WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override { LastNode->WriteChannel(Channel, Tile, TextureData); }
+	virtual void WriteChannel(int32 Channel, int32 Mip, const FTextureDataTileDesc& Tile, float* TextureData) const override { LastNode->WriteChannel(Channel, Mip, Tile, TextureData); }
 
 	void AddOperator(CreateOperatorFunc Operator) { CreateOperatorFuncs.Add(Operator); }
 

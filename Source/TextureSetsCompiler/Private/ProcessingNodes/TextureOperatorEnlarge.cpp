@@ -4,7 +4,7 @@
 
 #include "ProcessingNodes/TextureOperatorEnlarge.h"
 
-void FTextureOperatorEnlarge::WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const
+void FTextureOperatorEnlarge::WriteChannel(int32 Channel, int32 Mip, const FTextureDataTileDesc& Tile, float* TextureData) const
 {
 	const FIntVector TargetSize = FIntVector(TargetWidth, TargetHeight, TargetSlices);
 	const FTextureDimension SourceDimension = SourceImage->GetTextureDimension();
@@ -28,7 +28,7 @@ void FTextureOperatorEnlarge::WriteChannel(int32 Channel, const FTextureDataTile
 	};
 
 	// Create a temp buffer to hold the tile of the image we need to enlarge
-	FIntVector SourceTileOffset = TransformToSource(Tile.TileOffset);
+	FIntVector SourceTileOffset = TransformToSource(Tile.TileOffset).ComponentMin(SourceSize - FIntVector(1,1,1));
 	FIntVector SourceTileSize = (TransformToSource(Tile.TileSize) + FIntVector(1,1,1)).ComponentMin(SourceSize - SourceTileOffset);
 		
 	TArray64<float> SourceTextureData;
@@ -42,10 +42,10 @@ void FTextureOperatorEnlarge::WriteChannel(int32 Channel, const FTextureDataTile
 		0
 	);
 		
-	SourceImage->WriteChannel(Channel, SourceTile, SourceTextureData.GetData());
+	SourceImage->WriteChannel(Channel, Mip, SourceTile, SourceTextureData.GetData());
 
-	// Don't do trilinear filtering for 2d textures, or texture arrays.
-	const bool bTrilinear = SourceTileSize.Z > 0 && !(SourceDef.Flags & (uint8)ETextureSetTextureFlags::Array);
+	// Only do trilinear for volume textuers (not arrays)
+	const bool bTrilinear = SourceTileSize.Z > 0 && !SourceDef.IsVolume();
 
 	FTextureDataTileDesc::ForEachPixelContext Context;
 	Context.DataIndex = Tile.TileDataOffset;

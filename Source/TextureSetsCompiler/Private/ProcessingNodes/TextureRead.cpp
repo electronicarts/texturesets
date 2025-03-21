@@ -137,6 +137,17 @@ void FTextureRead::Prepare(const FTextureSetProcessingContext& Context)
 	bPrepared = true;
 }
 
+ITextureProcessingNode::FTextureDimension FTextureRead::GetTextureDimension() const
+{
+	check(bPrepared);
+	FTextureDimension Dim;
+	Dim.Width = Width;
+	Dim.Height = Height;
+	Dim.Slices = Slices;
+	Dim.Mips = 1; // TODO: Support remapping mips from sub-images
+	return Dim;
+}
+
 void FTextureRead::Cache()
 {
 	check(bPrepared); // Should not happen unless called out of order
@@ -402,7 +413,7 @@ namespace
 	}
 }
 
-void FTextureRead::WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const
+void FTextureRead::WriteChannel(int32 Channel, int32 Mip, const FTextureDataTileDesc& Tile, float* TextureData) const
 {
 	if (Channel < ValidChannels)
 	{

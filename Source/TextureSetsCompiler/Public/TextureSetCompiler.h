@@ -9,10 +9,10 @@
 #include "TextureSetModule.h"
 #include "TextureSetProcessingGraph.h"
 #include "TextureSetProcessingContext.h"
+#include "ProcessingNodes/IProcessingNode.h"
 
 class UTextureSet;
 class FTextureSetCompiler;
-class ITextureProcessingNode;
 
 struct FTextureSetCompilerArgs
 {
@@ -64,6 +64,8 @@ private:
 	TSharedPtr<FTextureSetProcessingGraph> GraphInstance;
 
 	bool bPrepared;
+	TArray<ITextureProcessingNode::FTextureDimension> PackedTextureDims;
+	TArray<TStaticArray<TSharedPtr<ITextureProcessingNode>, 4>> PackedTextureNodes;
 
 	mutable TArray<FGuid> CachedDerivedTextureIds;
 	mutable TMap<FName, FGuid> CachedParameterIds;
@@ -75,5 +77,4 @@ private:
 	{
 		return ((Z * Width * Height) + (Y * Width) + X) * PixelStride + Channel;
 	}
-
 };

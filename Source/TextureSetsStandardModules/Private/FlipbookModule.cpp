@@ -69,7 +69,15 @@ public:
 		Slices = SourceImageDimension.Slices * FramesPerImage;
 	}
 
-	virtual FTextureDimension GetTextureDimension() const override { return { SubImageWidth, SubImageHeight, Slices}; }
+	virtual FTextureDimension GetTextureDimension() const override
+	{
+		FTextureDimension Dim;
+		Dim.Width = SubImageWidth;
+		Dim.Height = SubImageHeight;
+		Dim.Slices = Slices;
+		Dim.Mips = 1; // TODO: Support remapping mips from sub-images
+		return Dim;
+	}
 
 	FIntVector TransformToSource(FIntVector Position) const
 	{
@@ -82,12 +90,12 @@ public:
 		);
 	}
 
-	void WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override
+	void WriteChannel(int32 Channel, int32 Mip, const FTextureDataTileDesc& Tile, float* TextureData) const override
 	{
 		if (FramesPerImage == 1)
 		{
 			// Can early out without remapping the frames
-			SourceImage->WriteChannel(Channel, Tile, TextureData);
+			SourceImage->WriteChannel(Channel, Mip, Tile, TextureData);
 			return;
 		}
 		
@@ -129,7 +137,7 @@ public:
 						Tile.TileCoordToDataIndex(FIntVector3(0, 0, DestSlice - Tile.TileOffset.Z))
 					);
 					
-					SourceImage->WriteChannel(Channel, SourceTile, TextureData);
+					SourceImage->WriteChannel(Channel, Mip, SourceTile, TextureData);
 				}
 			}
 		}

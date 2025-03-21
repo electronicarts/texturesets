@@ -18,6 +18,9 @@ public:
 		check(TileOffset.X >= 0);
 		check(TileOffset.Y >= 0);
 		check(TileOffset.Z >= 0);
+		check(TileSize.X > 0);
+		check(TileSize.Y > 0);
+		check(TileSize.Z > 0);
 		check(TileOffset.X + TileSize.X <= TextureSize.X);
 		check(TileOffset.Y + TileSize.Y <= TextureSize.Y);
 		check(TileOffset.Z + TileSize.Z <= TextureSize.Z);
@@ -32,7 +35,7 @@ public:
 	}
 
 	// Passed in
-	const FIntVector3 TextureSize; // Size of the entire texture, in pixels
+	const FIntVector3 TextureSize; // Size of the entire texture, at the current mip, in pixels
 	const FIntVector3 TileSize; // Size of the tile, in pixels
 	const FIntVector3 TileOffset; // Offset of the tile within the texture, in pixels
 	const int32 TileDataOffset; // Index into the data where this tile starts

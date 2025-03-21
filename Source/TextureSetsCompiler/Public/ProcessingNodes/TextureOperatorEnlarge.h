@@ -25,7 +25,13 @@ public:
 	virtual FTextureDimension GetTextureDimension() const override
 	{
 		const FTextureDimension SourceDimension = SourceImage->GetTextureDimension();
-		return {TargetWidth, TargetHeight, SourceDimension.Slices};
+
+		FTextureDimension Dim;
+		Dim.Width = TargetWidth;
+		Dim.Height = TargetHeight;
+		Dim.Slices = SourceDimension.Slices;
+		Dim.Mips = 1;
+		return Dim;
 	}
 
 	inline FIntVector TransformToSource(const FIntVector& Position) const
@@ -46,7 +52,7 @@ public:
 		return float((TargetCoord * SourceSize) % TargetSize) / float(TargetSize);
 	}
 
-	virtual void WriteChannel(int32 Channel, const FTextureDataTileDesc& Tile, float* TextureData) const override;
+	virtual void WriteChannel(int32 Channel, int32 Mip, const FTextureDataTileDesc& Tile, float* TextureData) const override;
 
 private:
 	const int TargetWidth;
