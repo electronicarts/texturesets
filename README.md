@@ -63,6 +63,7 @@ Ready to try it out? Jump in to the [Quick Start Guide](./Docs/QuickStart.md) an
 SEED is a pioneering group within Electronic Arts, combining creativity with applied research.</b> <br>
 We explore, build, and help define the future of interactive entertainment.
 </p>
+</div>
 
 Texture Sets is an Electronic Arts project created by [Martin Palko](https://www.martinpalko.com/), with the full support of the teams at [EA Motive](https://www.ea.com/ea-studios/motive) and [SEED](https://www.ea.com/seed)
 
