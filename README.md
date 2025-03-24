@@ -1,6 +1,6 @@
 # Texture Sets
 
-Texture sets is a plugin developed for UE5, and provides an opt-in framework for building advanced, streamlined texture 
+Texture Sets is a plugin developed for UE5, and provides an opt-in framework for building advanced, streamlined texture 
 pipelines.
 
 ![](./Docs/Img/tiltshift_textureset_01.png)
@@ -61,7 +61,7 @@ Ready to try it out? Jump in to the [Quick Start Guide](./Docs/QuickStart.md) an
 <a href="https://seed.ea.com"><img src="./Docs/Img/seed-logo.png" width="150px"></a>
 <br>
 SEED is a pioneering group within Electronic Arts, combining creativity with applied research.</b> <br>
-We explore, build, and help determine the future of interactive entertainment.
+We explore, build, and help define the future of interactive entertainment.
 </p>
 
 Texture Sets is an Electronic Arts project created by [Martin Palko](https://www.martinpalko.com/), with the full support of the teams at [EA Motive](https://www.ea.com/ea-studios/motive) and [SEED](https://www.ea.com/seed)
