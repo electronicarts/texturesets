@@ -41,16 +41,6 @@ public:
 	UPROPERTY(EditAnywhere, Category="PackedTextureDefinition")
 	int32 LODBias = 0;
 
-	//UPROPERTY(EditAnywhere)
-	//int SkipMip; // Not implemented
-	//
-	//// Number of mip-levels that can be streamed. -1 means all mips can stream.
-	//UPROPERTY(EditAnywhere)
-	//int32 NumStreamedMips; // Not implemented
-	//
-	//UPROPERTY(EditAnywhere)
-	//ETextureSamplerFilter Filter; // Not implemented
-
 	// How many channels our chosen compressed texture supports
 	int GetAvailableChannels() const;
 
@@ -88,9 +78,6 @@ inline uint32 GetTypeHash(const FTextureSetPackedTextureDef& Value)
 	Hash = HashCombine(Hash, GetTypeHash(Value.SourceA.ToString()));
 	Hash = HashCombine(Hash, GetTypeHash(Value.bVirtualTextureStreaming));
 	Hash = HashCombine(Hash, GetTypeHash(Value.LODBias));
-	//Hash = HashCombine(Hash, GetTypeHash(Value.SkipMip));
-	//Hash = HashCombine(Hash, GetTypeHash(Value.NumStreamedMips));
-	//Hash = HashCombine(Hash, GetTypeHash((int)Value.Filter));
 
 	return Hash;
 }
