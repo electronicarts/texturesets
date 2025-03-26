@@ -25,7 +25,7 @@ public:
 	TSharedRef<FTextureInput> AddInputTexture(FName Name, const FTextureSetSourceTextureDef& SourceDef);
 	const TMap<FName, TSharedRef<FTextureInput>>& GetInputTextures() const { return InputTextures; }
 
-	void AddOutputTexture(FName Name, TSharedRef<ITextureProcessingNode> Texture);
+	void AddOutputTexture(FName Name, TSharedRef<ITextureProcessingNode> Texture, bool bAllowOverride = false);
 	const TMap<FName, TSharedRef<ITextureProcessingNode>>& GetOutputTextures() const { return OutputTextures; }
 
 	void AddOutputParameter(FName Name, TSharedRef<IParameterProcessingNode> Parameter);

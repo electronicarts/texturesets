@@ -24,6 +24,7 @@ public class TextureSetsCommon : ModuleRules
 				"Engine",
 				"Projects",
 				"RenderCore",
+				"ImageCore",
 			}
 			);
 	}

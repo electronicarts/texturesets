@@ -53,4 +53,9 @@ namespace TextureSetsHelpers
 	TEXTURESETSCOMMON_API FName MakeTextureParameterName(FName ParameterName, int TextureIndex);
 
 	TEXTURESETSCOMMON_API FName MakeConstantParameterName(FName ParameterName, FName ConstantName);
+
+	TEXTURESETSCOMMON_API int32 GetMipCount(FIntVector3 ImageSize, bool bIsVolume);
+
+	TEXTURESETSCOMMON_API FIntVector3 GetMipSize(FIntVector3 Mip0Size, int Mip, bool bIsVolume);
+
 };

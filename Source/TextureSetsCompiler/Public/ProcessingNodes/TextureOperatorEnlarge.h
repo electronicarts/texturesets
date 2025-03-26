@@ -4,7 +4,7 @@
 
 #include "TextureOperator.h"
 
-class FTextureOperatorEnlarge : public FTextureOperator
+class TEXTURESETSCOMPILER_API FTextureOperatorEnlarge : public FTextureOperator
 {
 public:
 	FTextureOperatorEnlarge(TSharedRef<ITextureProcessingNode> I, int NewWidth, int NewHeight, int NewSlices) : FTextureOperator(I)

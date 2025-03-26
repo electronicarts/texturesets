@@ -66,22 +66,32 @@ TSharedRef<FTextureInput> FTextureSetProcessingGraph::AddInputTexture(FName Name
 	return NewInput;
 }
 
-void FTextureSetProcessingGraph::AddOutputTexture(FName Name, TSharedRef<ITextureProcessingNode> Texture)
+void FTextureSetProcessingGraph::AddOutputTexture(FName Name, TSharedRef<ITextureProcessingNode> Texture, bool bAllowOverride)
 {
 	check(bIsGenerating); // Not valid to add outputs after the graph has finished generating
 	check(IsValid(WorkingModule)); // Outputs should only be added by modules
 
 	if (OutputOwners.Contains(Name))
 	{
-		LogError(FText::Format(
-			INVTEXT("Output {0} has already been defined by module {1}"),
-			FText::FromName(Name),
-			FText::FromString(OutputOwners.FindChecked(Name)->GetInstanceName())
-		));
+		if (bAllowOverride)
+		{
+			OutputTextures.Emplace(Name, Texture);
+			OutputOwners.Emplace(Name, WorkingModule);
+		}
+		else
+		{
+			LogError(FText::Format(
+				INVTEXT("Output {0} has already been defined by module {1}"),
+				FText::FromName(Name),
+				FText::FromString(OutputOwners.FindChecked(Name)->GetInstanceName())
+			));
+		}
 	}
-
-	OutputTextures.Add(Name, Texture);
-	OutputOwners.Add(Name, WorkingModule);
+	else
+	{
+		OutputTextures.Add(Name, Texture);
+		OutputOwners.Add(Name, WorkingModule);
+	}
 }
 
 void FTextureSetProcessingGraph::AddOutputParameter(FName Name, TSharedRef<IParameterProcessingNode> Parameter)

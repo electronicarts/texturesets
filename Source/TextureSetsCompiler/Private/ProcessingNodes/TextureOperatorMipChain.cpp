@@ -15,7 +15,7 @@ ITextureProcessingNode::FTextureDimension FTextureOperatorMipChain::GetTextureDi
 	Dim.Width = SourceDim.Width;
 	Dim.Height = SourceDim.Height;
 	Dim.Slices = SourceDim.Slices;
-	Dim.Mips = FImageCoreUtils::GetMipCountFromDimensions(SourceDim.Width, SourceDim.Height, SourceDim.Slices, SourceImage->GetTextureDef().IsVolume());
+	Dim.Mips = TextureSetsHelpers::GetMipCount(SourceDim, SourceImage->GetTextureDef().IsVolume());
 	return Dim;
 }
 
@@ -35,19 +35,6 @@ void FTextureOperatorMipChain::Prepare(const FTextureSetProcessingContext& Conte
 	
 	NumMipsToCache = FMath::Max(0, OurDim.Mips - SourceDimension.Mips);
 	CachedMips.SetNum(OurDim.Mips);
-	MipSizes.SetNum(OurDim.Mips);
-
-	MipSizes[0] = FIntVector3(OurDim.Width, OurDim.Height, OurDim.Slices);
-
-	for (int m = 1; m < OurDim.Mips; m++)
-	{
-		MipSizes[m].X = MipSizes[m - 1].X / 2;
-		MipSizes[m].Y = MipSizes[m - 1].Y / 2;
-		MipSizes[m].Z = MipSizes[m - 1].Z;
-
-		if (SourceDef.IsVolume())
-			MipSizes[m].Z /= 2;
-	}
 
 	bPrepared = true;
 }
@@ -124,52 +111,54 @@ void FTextureOperatorMipChain::Cache()
 
 	FTextureOperator::Cache();
 
-	if (NumMipsToCache == 0)
-		return;
-	
-	// Cache the first mip by having the source node write to a buffer, and read from that.
-	// Allocate tiles
+	if (NumMipsToCache > 0)
 	{
-		check(FirstCachedMip > 0);
-		
-		// Allocate buffer for first mip data
-		const FIntVector3 DestMipSize = MipSizes[FirstCachedMip];
-		CachedMips[FirstCachedMip].SetNum(DestMipSize.X * DestMipSize.Y * DestMipSize.Z * SourceDef.ChannelCount);
-
-		// Allocate a temporary buffer for the source mip
-		const FIntVector3 SourceMipSize = MipSizes[FirstCachedMip - 1];
-		TArray<float> SourceMipBuffer;
-		SourceMipBuffer.SetNumUninitialized(SourceMipSize.X * SourceMipSize.Y * SourceMipSize.Z * SourceDef.ChannelCount);
-
-		for (int c = 0; c < SourceDef.ChannelCount; c++)
+		// Cache the first mip by having the source node write to a buffer, and read from that.
+		// Allocate tiles
 		{
-			FTextureDataTileDesc Tile(
-				SourceMipSize,
-				SourceMipSize,
-				FIntVector3::ZeroValue,
-				FTextureDataTileDesc::ComputeDataStrides(SourceDef.ChannelCount, SourceMipSize),
-				c
-			);
+			check(FirstCachedMip > 0);
+		
+			// Allocate buffer for first mip data
+			const FIntVector3 DestMipSize = TextureSetsHelpers::GetMipSize(SourceDimension, FirstCachedMip, SourceDef.IsVolume());
+			CachedMips[FirstCachedMip].SetNum(DestMipSize.X * DestMipSize.Y * DestMipSize.Z * SourceDef.ChannelCount);
 
-			SourceImage->WriteChannel(c, FirstCachedMip, Tile, SourceMipBuffer.GetData());
+			// Allocate a temporary buffer for the source mip
+			const FIntVector3 SourceMipSize = TextureSetsHelpers::GetMipSize(SourceDimension, FirstCachedMip - 1, SourceDef.IsVolume());
+			TArray<float> SourceMipBuffer;
+			SourceMipBuffer.SetNumUninitialized(SourceMipSize.X * SourceMipSize.Y * SourceMipSize.Z * SourceDef.ChannelCount);
+
+			for (int c = 0; c < SourceDef.ChannelCount; c++)
+			{
+				FTextureDataTileDesc Tile(
+					SourceMipSize,
+					SourceMipSize,
+					FIntVector3::ZeroValue,
+					FTextureDataTileDesc::ComputeDataStrides(SourceDef.ChannelCount, SourceMipSize),
+					c
+				);
+
+				SourceImage->WriteChannel(c, FirstCachedMip, Tile, SourceMipBuffer.GetData());
+			}
+
+			ComputeMip(
+				SourceMipSize, SourceMipBuffer.GetData(),
+				DestMipSize, CachedMips[FirstCachedMip].GetData(),
+				SourceDef.ChannelCount, SourceDef.IsVolume());
 		}
 
-		ComputeMip(
-			SourceMipSize, SourceMipBuffer.GetData(),
-			MipSizes[FirstCachedMip], CachedMips[FirstCachedMip].GetData(),
-			SourceDef.ChannelCount, SourceDef.IsVolume());
-	}
+		// Subsequent mips can be computed by reading from previous mip caches
+		for (int m = FirstCachedMip + 1; m < FirstCachedMip + NumMipsToCache; m++)
+		{
+			const FIntVector3 SourceMipSize = TextureSetsHelpers::GetMipSize(SourceDimension, m - 1, SourceDef.IsVolume());
+			const FIntVector3 DestMipSize = TextureSetsHelpers::GetMipSize(SourceDimension, m, SourceDef.IsVolume());
 
-	// Subsequent mips can be computed by reading from previous mip caches
-	for (int m = FirstCachedMip + 1; m < FirstCachedMip + NumMipsToCache; m++)
-	{
-		const FIntVector3 DestMipSize = MipSizes[m];
-		CachedMips[m].SetNum(DestMipSize.X * DestMipSize.Y * DestMipSize.Z * SourceDef.ChannelCount);
+			CachedMips[m].SetNum(DestMipSize.X * DestMipSize.Y * DestMipSize.Z * SourceDef.ChannelCount);
 
-		ComputeMip(
-			MipSizes[m-1], CachedMips[m-1].GetData(),
-			MipSizes[m], CachedMips[m].GetData(),
-			SourceDef.ChannelCount, SourceDef.IsVolume());
+			ComputeMip(
+				SourceMipSize, CachedMips[m-1].GetData(),
+				DestMipSize, CachedMips[m].GetData(),
+				SourceDef.ChannelCount, SourceDef.IsVolume());
+		}
 	}
 
 	bCached = true;
@@ -189,7 +178,7 @@ void FTextureOperatorMipChain::WriteChannel(int32 Channel, int32 Mip, const FTex
 		// Write from the cached mip
 		check(CachedMips[Mip].Num() != 0);
 		const float* MipData = CachedMips[Mip].GetData();
-		const FIntVector3 MipSize = MipSizes[Mip];
+		const FIntVector3 MipSize = TextureSetsHelpers::GetMipSize(SourceDimension, Mip, SourceDef.IsVolume());
 		const int MipChannelCount = SourceDef.ChannelCount;
 
 		Tile.ForEachPixel([TextureData, Channel, &Tile, &MipData, &MipSize, &MipChannelCount](FTextureDataTileDesc::ForEachPixelContext& Context)

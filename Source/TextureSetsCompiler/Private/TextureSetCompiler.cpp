@@ -166,7 +166,7 @@ void FTextureSetCompiler::Prepare()
 		Node->Prepare(Context);
 
 		const ITextureProcessingNode::FTextureDimension SourceDim = Node->GetTextureDimension();
-		const int32 ExpectedMips = FImageCoreUtils::GetMipCountFromDimensions(SourceDim.Width, SourceDim.Height, SourceDim.Slices, Node->GetTextureDef().IsVolume());
+		const int32 ExpectedMips = TextureSetsHelpers::GetMipCount(SourceDim, Node->GetTextureDef().IsVolume());
 		
 		if (SourceDim.Mips < ExpectedMips) // Add mip chain to output texture if it doesn't already have enough mips
 		{
@@ -216,7 +216,7 @@ void FTextureSetCompiler::Prepare()
 		};
 
 		const bool IsVolume = (TextureInfo.Flags & (uint8)ETextureSetTextureFlags::Array) == 0;
-		TextureDim.Mips = FImageCoreUtils::GetMipCountFromDimensions(TextureDim.Width, TextureDim.Height, TextureDim.Slices, IsVolume);
+		TextureDim.Mips = TextureSetsHelpers::GetMipCount(TextureDim, IsVolume);
 
 		for (int c = 0; c < TextureInfo.ChannelCount; c++)
 		{

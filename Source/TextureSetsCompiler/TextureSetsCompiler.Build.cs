@@ -13,7 +13,6 @@ public class TextureSetsCompiler : ModuleRules
 			{
 				"Core",
 				"Engine",
-				"ImageCore",
 				"DerivedDataCache",
 				"TextureSetsCommon",
 			}
@@ -26,6 +25,7 @@ public class TextureSetsCompiler : ModuleRules
 				"Engine",
 				"Projects",
 				"RenderCore",
+				"ImageCore",
 			}
 			);
 	}

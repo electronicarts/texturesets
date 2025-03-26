@@ -12,11 +12,14 @@
 #include "Materials/MaterialExpressionSubtract.h"
 #include "ProcessingNodes/TextureInput.h"
 #include "ProcessingNodes/TextureOperator.h"
+#include "ProcessingNodes/TextureOperatorMipChain.h"
+#include "ProcessingNodes/TextureOperatorLodBias.h"
+#include "PBRSurface/TextureOperatorNormalToRoughness.h"
 
-class FTextureOperatorFlipNormalGreen : public FTextureOperator
+class FTextureOperatorEncodeTangentNormal : public FTextureOperator
 {
 public:
-	FTextureOperatorFlipNormalGreen(TSharedRef<ITextureProcessingNode> I) : FTextureOperator(I) {}
+	FTextureOperatorEncodeTangentNormal(TSharedRef<ITextureProcessingNode> I) : FTextureOperator(I) {}
 
 	virtual FName GetNodeTypeName() const  { return "FlipNormalGreen"; }
 
@@ -24,30 +27,43 @@ public:
 	{
 		FTextureOperator::Prepare(Context);
 
-		const UPBRAssetParams* FlipbookAssetParams = Context.AssetParams.Get<UPBRAssetParams>();
-
-		bFlipGreen = FlipbookAssetParams->bFlipNormalGreen;
+		const UPBRTangentNormalAssetParams* NormalParams = Context.AssetParams.Get<UPBRTangentNormalAssetParams>();
+		bFlipGreen = NormalParams->bFlipNormalGreen;
 	}
 
 	virtual void ComputeDataHash(const FTextureSetProcessingContext& Context, FHashBuilder& HashBuilder) const override
 	{ 
 		FTextureOperator::ComputeDataHash(Context, HashBuilder);
 
-		const UPBRAssetParams* FlipbookAssetParams = Context.AssetParams.Get<UPBRAssetParams>();
-		HashBuilder << (FlipbookAssetParams->bFlipNormalGreen);
+		const UPBRTangentNormalAssetParams* NormalParams = Context.AssetParams.Get<UPBRTangentNormalAssetParams>();
+		HashBuilder << (NormalParams->bFlipNormalGreen);
 	}
 
 	void WriteChannel(int32 Channel, int32 Mip, const FTextureDataTileDesc& Tile, float* TextureData) const override
 	{
 		SourceImage->WriteChannel(Channel, Mip, Tile, TextureData);
 
+		float Scale = 2.0f;
+		float Bias = -1.0f;
+
 		if (Channel == 1 && bFlipGreen)
 		{
-			Tile.ForEachPixel([TextureData](FTextureDataTileDesc::ForEachPixelContext& Context)
-			{
-				TextureData[Context.DataIndex] = 1.0f - TextureData[Context.DataIndex];
-			});
+			Scale *= -1;
+			Bias *= -1;
 		}
+
+		Tile.ForEachPixel([TextureData, Scale, Bias](FTextureDataTileDesc::ForEachPixelContext& Context)
+		{
+			TextureData[Context.DataIndex] = (TextureData[Context.DataIndex] * Scale) + Bias;
+		});
+	}
+
+	virtual const FTextureSetProcessedTextureDef GetTextureDef() const override
+	{
+		FTextureSetProcessedTextureDef Def = SourceImage->GetTextureDef();
+		check(Def.ChannelCount == 3);
+		Def.ChannelCount = 2; // Drop the blue channel, since we will reconstruct it.
+		return Def;
 	}
 
 private:
@@ -56,7 +72,11 @@ private:
 
 void UPBRSurfaceModule::GetAssetParamClasses(TSet<TSubclassOf<UTextureSetAssetParams>>& Classes) const
 {
-	Classes.Add(UPBRAssetParams::StaticClass());
+	if (Normal == EPBRNormal::Tangent)
+		Classes.Add(UPBRTangentNormalAssetParams::StaticClass());
+
+	if (bEnableNormalToRoughness)
+		Classes.Add(UBPRNormalToRougnessParams::StaticClass());
 }
 
 void UPBRSurfaceModule::GetSampleParamClasses(TSet<TSubclassOf<UTextureSetSampleParams>>& Classes) const
@@ -115,15 +135,28 @@ void UPBRSurfaceModule::ConfigureProcessingGraph(FTextureSetProcessingGraph& Gra
 
 	if (Normal == EPBRNormal::Tangent)
 	{
-		static const FTextureSetSourceTextureDef TangentNormalDef (2, ETextureSetChannelEncoding::RangeCompression, FVector4(0.5, 0.5, 1, 0));
-		TSharedRef<FTextureInput> NormalInput = Graph.AddInputTexture(TangentNormalName, TangentNormalDef);
-		
-		NormalInput->AddOperator([](TSharedRef<ITextureProcessingNode> Node)
-		{
-			return TSharedRef<ITextureProcessingNode>(new FTextureOperatorFlipNormalGreen(Node));
-		});
+		static const FTextureSetSourceTextureDef TangentNormalDef (3, ETextureSetChannelEncoding::RangeCompression, FVector4(0.5, 0.5, 1, 0));
+		TSharedRef<ITextureProcessingNode> NormalNode = Graph.AddInputTexture(TangentNormalName, TangentNormalDef);
 
-		Graph.AddOutputTexture(TangentNormalName,NormalInput);
+		if (bEnableNormalToRoughness && Microsurface == EPBRMicrosurface::Roughness)
+		{
+			// Add a mip chain to the normal map
+			NormalNode = MakeShared<FTextureOperatorMipChain>(NormalNode);
+			// Get existing roughness output
+			TSharedRef<ITextureProcessingNode> Roughness = Graph.GetOutputTextures().FindChecked(RoughnessName);
+			// GAdd a mip chain to the roughness map
+			Roughness = MakeShared<FTextureOperatorMipChain>(Roughness);
+			// Apply a LOD bias so our roughness map size matches the normal map size
+			Roughness = MakeShared<FTextureOperatorLodBias>(Roughness, NormalNode);
+			// Modify the roughness with the variance from the normal map
+			Roughness = MakeShared<FTextureOperatorCombineVariance>(Roughness, NormalNode);
+			// Override the roughness output with our modified roughness
+			Graph.AddOutputTexture(RoughnessName, Roughness, true);
+		}
+
+		TSharedRef<ITextureProcessingNode> EncodedNormal = MakeShared<FTextureOperatorEncodeTangentNormal>(NormalNode);
+
+		Graph.AddOutputTexture(TangentNormalName, EncodedNormal);
 	}
 	else if (Normal != EPBRNormal::None)
 	{
@@ -190,20 +223,12 @@ void UPBRSurfaceModule::ConfigureSamplingGraphBuilder(const FTextureSetAssetPara
 		// Normals
 		if (Normal == EPBRNormal::Tangent)
 		{
+			// Tangent normal is already in -1 to 1 space, thanks to range compression.
 			FGraphBuilderOutputPin TangentNormal = Subsample.GetSharedValue(TangentNormalName);
-
-			// Unpack tangent normal X and Y
-			UMaterialExpressionMultiply* Mul = Builder->CreateExpression<UMaterialExpressionMultiply>();
-			Builder->Connect(TangentNormal, Mul, 0);
-			Mul->ConstB = 2.0f;
-
-			UMaterialExpressionAdd* Add = Builder->CreateExpression<UMaterialExpressionAdd>();
-			Builder->Connect(Mul, 0, Add, 0);
-			Add->ConstB = -1.0f;
 
 			// Derive Z value
 			UMaterialExpressionDeriveNormalZ* DeriveZ = Builder->CreateExpression<UMaterialExpressionDeriveNormalZ>();
-			Builder->Connect(Add, 0, DeriveZ, 0);
+			Builder->Connect(TangentNormal, DeriveZ, 0);
 
 			if (PBRSampleParams->NormalOutput == EPBRNormalSpace::Tangent)
 			{

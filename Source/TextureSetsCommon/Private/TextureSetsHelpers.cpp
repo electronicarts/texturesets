@@ -9,6 +9,7 @@
 #include "AssetRegistry/AssetData.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/IAssetRegistry.h"
+#include "ImageCoreUtils.h"
 
 DEFINE_LOG_CATEGORY(LogTextureSet);
 
@@ -184,4 +185,49 @@ FName TextureSetsHelpers::MakeTextureParameterName(FName ParameterName, int Text
 FName TextureSetsHelpers::MakeConstantParameterName(FName ParameterName, FName ConstantName)
 {
 	return FName(FString::Format(TEXT("TEXSET_{0}_{1}"), { ParameterName.ToString(), ConstantName.ToString() }));
+}
+
+int32 TextureSetsHelpers::GetMipCount(FIntVector3 ImageSize, bool bIsVolume)
+{
+	return FImageCoreUtils::GetMipCountFromDimensions(ImageSize.X, ImageSize.Y, ImageSize.Z, bIsVolume);
+}
+
+FIntVector3 TextureSetsHelpers::GetMipSize(FIntVector3 Mip0Size, int Mip, bool bIsVolume)
+{
+	if (Mip == 0)
+	{
+		return Mip0Size;
+	}
+	else if (Mip > 0)
+	{
+		const int Divisor = FMath::Pow(2.0f, Mip);
+
+		if (bIsVolume)
+		{
+			return Mip0Size / Divisor;
+		}
+		else
+		{
+			return FIntVector3(
+				Mip0Size.X / Divisor,
+				Mip0Size.Y / Divisor,
+				Mip0Size.Z);
+		}
+	}
+	else // Mip < 0
+	{
+		const int Scale = FMath::Pow(2.0f, -Mip);
+
+		if (bIsVolume)
+		{
+			return Mip0Size * Scale;
+		}
+		else
+		{
+			return FIntVector3(
+				Mip0Size.X * Scale,
+				Mip0Size.Y * Scale,
+				Mip0Size.Z);
+		}
+	}
 }

@@ -4,7 +4,7 @@
 
 #include "TextureOperator.h"
 
-class FTextureOperatorMipChain : public FTextureOperator
+class TEXTURESETSCOMPILER_API FTextureOperatorMipChain : public FTextureOperator
 {
 public:
 	FTextureOperatorMipChain(TSharedRef<ITextureProcessingNode> I) : FTextureOperator(I)
@@ -22,11 +22,8 @@ public:
 	}
 
 	virtual FTextureDimension GetTextureDimension() const override;
-
 	virtual void Prepare(const FTextureSetProcessingContext& Context) override;
-
 	virtual void Cache() override;
-
 	virtual void WriteChannel(int32 Channel, int32 Mip, const FTextureDataTileDesc& Tile, float* TextureData) const override;
 
 private:
@@ -36,7 +33,6 @@ private:
 	FTextureDimension OurDim;
 	int32 FirstCachedMip;
 	int32 NumMipsToCache;
-	TArray<FIntVector3> MipSizes;
 
 	mutable FCriticalSection CacheCS;
 	TArray<TArray<float>> CachedMips;

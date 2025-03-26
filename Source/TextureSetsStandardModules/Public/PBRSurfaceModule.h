@@ -50,12 +50,21 @@ public:
 };
 
 UCLASS()
-class UPBRAssetParams : public UTextureSetAssetParams
+class UPBRTangentNormalAssetParams : public UTextureSetAssetParams
 {
 	GENERATED_BODY()
 public:
 	UPROPERTY(EditAnywhere, Category="PBRParams");
-	bool bFlipNormalGreen;
+	bool bFlipNormalGreen = false;
+};
+
+UCLASS()
+class UBPRNormalToRougnessParams : public UTextureSetAssetParams
+{
+	GENERATED_BODY()
+public:
+	UPROPERTY(EditAnywhere, Category = "PBRParams");
+	bool bDisableNormalToRoughness = false;
 };
 
 // Defines common, standardized PBR shading elements - albedo, roughness, metallic, and normals.
@@ -92,4 +101,7 @@ private:
 
 	UPROPERTY(EditAnywhere, Category="PBRSurface")
 	EPBRNormal Normal = EPBRNormal::Tangent;
+
+	UPROPERTY(EditAnywhere, Category="PBRSurface")
+	bool bEnableNormalToRoughness = false;
 };

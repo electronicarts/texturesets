@@ -54,6 +54,8 @@ public:
 		int Height = 0;
 		int Slices = 0;
 		int Mips = 0;
+
+		inline operator FIntVector3() const { return FIntVector3(Width, Height, Slices); }
 	};
 
 	// Fetches the texture size. Called after the node has been prepared.

@@ -84,9 +84,9 @@ FTextureSetSampleFunctionBuilder::FTextureSetSampleFunctionBuilder(const FTextur
 		{
 			if (Value.IsUsed())
 			{
-				check(Value.Source.IsValid());
 				check(Value.Reroute.IsValid());
-				Connect(Value.Source, Value.Reroute.GetExpression(), 0);
+				if (ensure(Value.Source.IsValid()))
+					Connect(Value.Source, Value.Reroute.GetExpression(), 0);
 			}
 		}
 	}
