@@ -14,7 +14,7 @@ public:
 		, bCached(false)
 	{}
 
-	virtual FName GetNodeTypeName() const  { return "MipChain v1"; }
+	virtual FName GetNodeTypeName() const  { return "MipChain v2"; }
 
 	virtual void ComputeGraphHash(FHashBuilder& HashBuilder) const override
 	{
@@ -27,6 +27,11 @@ public:
 	virtual void WriteChannel(int32 Channel, int32 Mip, const FTextureDataTileDesc& Tile, float* TextureData) const override;
 
 private:
+	static void ComputeMip(
+		FIntVector3 SourceSize, float* SourceData,
+		FIntVector3 DestSize, float* DestData,
+		uint8 Channels, bool bIsVolume);
+
 	bool bPrepared;
 	FTextureSetProcessedTextureDef SourceDef;
 	FTextureDimension SourceDimension;

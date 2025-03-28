@@ -5,7 +5,7 @@
 #include "ProcessingNodes/TextureOperatorMipChain.h"
 
 #include "TextureSetInfo.h"
-#include "ImageCoreUtils.h"
+#include "TextureSetsHelpers.h"
 
 ITextureProcessingNode::FTextureDimension FTextureOperatorMipChain::GetTextureDimension() const
 {
@@ -39,28 +39,36 @@ void FTextureOperatorMipChain::Prepare(const FTextureSetProcessingContext& Conte
 	bPrepared = true;
 }
 
-static void ComputeMip(
+void FTextureOperatorMipChain::ComputeMip(
 	FIntVector3 SourceSize, float* SourceData,
 	FIntVector3 DestSize, float* DestData,
 	uint8 Channels, bool bIsVolume)
 {
-	check(SourceSize.X / 2 == DestSize.X)
-	check(SourceSize.Y / 2 == DestSize.Y)
+	check(SourceSize.X / 2 >= DestSize.X);
+	check(SourceSize.Y / 2 >= DestSize.Y);
 	if (bIsVolume)
 		check(SourceSize.Z / 2 == DestSize.Z)
 	else
 		check(SourceSize.Z == DestSize.Z)
-
-	const int PixelCount = DestSize.X * DestSize.Y * DestSize.Z;
-	const int SourceLineStride = SourceSize.X * Channels;
 
 	int DestIdx = 0;
 	int SourceIdx[4];
 
 	SourceIdx[0] = 0;
 	SourceIdx[1] = Channels;
-	SourceIdx[2] = SourceLineStride;
-	SourceIdx[3] = SourceLineStride + Channels;
+	SourceIdx[2] = Channels * SourceSize.X;
+	SourceIdx[3] = Channels * SourceSize.X + Channels;
+
+	const FIntVector3 SourceStrides(Channels, Channels * SourceSize.X, Channels * SourceSize.X * SourceSize.Y);
+	const FIntVector3 SourcePixelSkip = SourceSize - (DestSize * 2);
+
+	FIntVector3 SourceStep;
+	// Step over one pixel every time (since we are sampling 4 lines)
+	SourceStep.X = SourceStrides.X;
+	// Step over one line every time, plus how many pixels we should skip
+	SourceStep.Y = SourceStrides.Y + (SourcePixelSkip.X * SourceStrides.X);
+	// Step over how many pixels we should skip
+	SourceStep.Z = SourcePixelSkip.Y * SourceStrides.Y;
 	
 	if(bIsVolume)
 	{
@@ -86,18 +94,20 @@ static void ComputeMip(
 						SourceIdx[2]++;
 						SourceIdx[3]++;
 					}
-
-					SourceIdx[0] += Channels;
-					SourceIdx[1] += Channels;
-					SourceIdx[2] += Channels;
-					SourceIdx[3] += Channels;
+					SourceIdx[0] += SourceStep.X;
+					SourceIdx[1] += SourceStep.X;
+					SourceIdx[2] += SourceStep.X;
+					SourceIdx[3] += SourceStep.X;
 				}
-
-				SourceIdx[0] += SourceLineStride;
-				SourceIdx[1] += SourceLineStride;
-				SourceIdx[2] += SourceLineStride;
-				SourceIdx[3] += SourceLineStride;
+				SourceIdx[0] += SourceStep.Y;
+				SourceIdx[1] += SourceStep.Y;
+				SourceIdx[2] += SourceStep.Y;
+				SourceIdx[3] += SourceStep.Y;
 			}
+			SourceIdx[0] += SourceStep.Z;
+			SourceIdx[1] += SourceStep.Z;
+			SourceIdx[2] += SourceStep.Z;
+			SourceIdx[3] += SourceStep.Z;
 		}
 	}
 }
@@ -137,7 +147,7 @@ void FTextureOperatorMipChain::Cache()
 					c
 				);
 
-				SourceImage->WriteChannel(c, FirstCachedMip, Tile, SourceMipBuffer.GetData());
+				SourceImage->WriteChannel(c, FirstCachedMip - 1, Tile, SourceMipBuffer.GetData());
 			}
 
 			ComputeMip(
@@ -180,11 +190,12 @@ void FTextureOperatorMipChain::WriteChannel(int32 Channel, int32 Mip, const FTex
 		const float* MipData = CachedMips[Mip].GetData();
 		const FIntVector3 MipSize = TextureSetsHelpers::GetMipSize(SourceDimension, Mip, SourceDef.IsVolume());
 		const int MipChannelCount = SourceDef.ChannelCount;
+		const int SliceSize = MipSize.X * MipSize.X;
 
-		Tile.ForEachPixel([TextureData, Channel, &Tile, &MipData, &MipSize, &MipChannelCount](FTextureDataTileDesc::ForEachPixelContext& Context)
+		Tile.ForEachPixel([TextureData, Channel, &Tile, &MipData, &MipSize, &MipChannelCount, &SliceSize](FTextureDataTileDesc::ForEachPixelContext& Context)
 		{
 			const FIntVector3 TextureCoord = Tile.TileOffset + Context.TileCoord;
-			const int32 PixelIndex = (TextureCoord.X % MipSize.X) + (TextureCoord.Y * MipSize.Y);
+			const int32 PixelIndex = TextureCoord.X + (TextureCoord.Y * MipSize.Y) + (TextureCoord.Z * SliceSize);
 			const int32 TextureDataIndex = (PixelIndex * MipChannelCount) + Channel;
 			TextureData[Context.DataIndex] = MipData[TextureDataIndex];
 		});
