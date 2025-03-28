@@ -10,7 +10,7 @@
 #include "Materials/MaterialExpressionOneMinus.h"
 #include "Misc/DataValidation.h"
 #include "ProcessingNodes/TextureOperator.h"
-#include "ProcessingNodes/TextureInput.h"
+#include "TextureSetsHelpers.h"
 
 #define LOCTEXT_NAMESPACE "TextureSets"
 
@@ -21,7 +21,7 @@ public:
 	{
 	}
 
-	virtual FName GetNodeTypeName() const  { return "Subframe V1"; }
+	virtual FName GetNodeTypeName() const  { return "Subframe V2"; }
 
 	virtual const FTextureSetProcessedTextureDef GetTextureDef() const override
 	{
@@ -54,14 +54,12 @@ public:
 
 		if (SourceImageDimension.Width >= FramesX)
 		{
-			//check(SourceImageDimension.Width % FramesX == 0); // Need to be able to divide the image cleanly into the specified number of frames
 			SubImageWidth /= FramesX;
 			FramesPerImage *= FramesX;
 		}
 
 		if (SourceImageDimension.Height >= FramesY)
 		{
-			//check(SourceImageDimension.Height % FramesY == 0); // Need to be able to divide the image cleanly into the specified number of frames
 			SubImageHeight /= FramesY;
 			FramesPerImage *= FramesY;
 		}
@@ -79,19 +77,10 @@ public:
 		return Dim;
 	}
 
-	FIntVector TransformToSource(FIntVector Position) const
-	{
-		const int SubImageIndex = Position.Z % FramesPerImage;
-
-		return FIntVector(
-			Position.X + (SubImageWidth * (SubImageIndex % FramesX)),
-			Position.Y + (SubImageHeight * (SubImageIndex / FramesX)),
-			Position.Z / FramesPerImage
-		);
-	}
-
 	void WriteChannel(int32 Channel, int32 Mip, const FTextureDataTileDesc& Tile, float* TextureData) const override
 	{
+		check(Mip == 0);
+
 		if (FramesPerImage == 1)
 		{
 			// Can early out without remapping the frames
@@ -99,16 +88,9 @@ public:
 			return;
 		}
 		
-		const FTextureDimension SourceImageDimension = SourceImage->GetTextureDimension();
-		const FIntVector3 SourceImageSize = FIntVector3(SourceImageDimension.Width, SourceImageDimension.Height, SourceImageDimension.Slices);
-		const FTextureSetProcessedTextureDef SourceDef = SourceImage->GetTextureDef();
+		const FIntVector3 SourceImageSize = TextureSetsHelpers::GetMipSize(SourceImage->GetTextureDimension(), Mip, SourceImage->GetTextureDef().IsVolume());
 		
-		const FTextureDimension DestDimension = GetTextureDimension();
-		const FTextureSetProcessedTextureDef DestDef = GetTextureDef();
-		
-		const FIntVector3 SubImageSize(SubImageWidth, SubImageHeight, 1);
-		
-		for (int32 SourceSlice = 0; SourceSlice < SourceImageDimension.Slices; SourceSlice++)
+		for (int32 SourceSlice = 0; SourceSlice < SourceImageSize.Z; SourceSlice++)
 		{
 			for (int32 SourceFrameY = 0; SourceFrameY < FramesY; SourceFrameY++)
 			{
@@ -121,7 +103,10 @@ public:
 						continue;
 
 					FIntVector3 SourceTileSize = FIntVector3(Tile.TileSize.X, Tile.TileSize.Y, 1);
-					FIntVector3 SourceTileOffset = FIntVector3(SourceFrameX, SourceFrameY, SourceSlice) * SubImageSize;
+					FIntVector3 SourceTileOffset(
+						((float)SourceFrameX / (float)FramesX) * (float)SourceImageSize.X,
+						((float)SourceFrameY / (float)FramesY) * (float)SourceImageSize.Y,
+						SourceSlice);
 
 					// Shift the source tile offset to account for the requested tile
 					SourceTileOffset.X += Tile.TileOffset.X;
