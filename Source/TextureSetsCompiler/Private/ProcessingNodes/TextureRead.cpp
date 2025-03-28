@@ -128,7 +128,7 @@ void FTextureRead::Prepare(const FTextureSetProcessingContext& Context)
 
 			Width = AsyncSource.GetSizeX();
 			Height = AsyncSource.GetSizeY();
-			Slices = AsyncSource.GetNumSlices();
+			Slices = (SourceDefinition.IsVolume() || SourceDefinition.IsArray()) ? AsyncSource.GetNumSlices() : 1;
 			TextureSourceFormat = AsyncSource.GetFormat();
 			TextureSourceGamma = AsyncSource.GetGammaSpace(0);
 		}
@@ -347,7 +347,8 @@ namespace
 	void CopyImageData(FSharedBuffer SourceBuffer, int SourceChannelIndex, EGammaSpace GammaSpace, const FTextureDataTileDesc& DestTile, float* DestData)
 	{
 		const uint64 ExpectedSize = sizeof(TPixelType) * DestTile.TextureSize.X * DestTile.TextureSize.Y * DestTile.TextureSize.Z * GetPixelStride<SourceFormat>();
-		check(SourceBuffer.GetSize() == ExpectedSize);
+		check(SourceBuffer.GetSize() >= ExpectedSize);
+		check(SourceBuffer.GetSize() % ExpectedSize == 0);
 
 		const FIntVector3 DataStride = FTextureDataTileDesc::ComputeDataStrides(GetPixelStride<SourceFormat>(), DestTile.TextureSize);
 		const int32 DataOffset = FTextureDataTileDesc::ComputeDataOffset(DestTile.TileOffset, DataStride) + RemapChannel<SourceFormat>(SourceChannelIndex);
@@ -417,6 +418,7 @@ void FTextureRead::WriteChannel(int32 Channel, int32 Mip, const FTextureDataTile
 {
 	if (Channel < ValidChannels)
 	{
+		check(Mip == 0);
 		check(!TextureSourceMip0.IsNull());
 		check(Tile.TextureSize.X == Width);
 		check(Tile.TextureSize.Y == Height);
